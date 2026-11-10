@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lecturer | KTU check-in</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header class="top">
+    <h1>Lecturer page</h1>
+    <p id="who">KTU class check-in</p>
+  </header>
+
+  <form id="login" class="card">
+    <h2>Sign in</h2>
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="username" required>
+    <label for="pw">Password</label>
+    <input id="pw" type="password" autocomplete="current-password" required>
+    <button class="btn" type="submit">Sign in</button>
+    <p id="loginMsg" class="msg" role="status"></p>
+  </form>
+
+  <div id="app" hidden>
+    <form id="start" class="card">
+      <h2>Start a class</h2>
+      <label for="course">Course</label>
+      <input id="course" maxlength="120" placeholder="e.g. HND Computer Science, Web Development" required>
+      <div class="row">
+        <div><label for="mins">Open for (minutes)</label><input id="mins" type="number" min="1" max="240" value="20" required></div>
+        <div><label for="radius">Allowed distance (m)</label><input id="radius" type="number" min="20" max="2000" value="100" required></div>
+      </div>
+      <p class="note">Stand in the classroom when you press the button. Your location sets the centre of the allowed area.</p>
+      <button id="startBtn" class="btn" type="submit">Start check-in here</button>
+      <p id="startMsg" class="msg" role="status"></p>
+    </form>
+
+    <section id="live" class="card" hidden>
+      <h2 id="liveCourse"></h2>
+      <div class="code" id="liveCode"></div>
+      <p class="link" id="liveLink"></p>
+      <div class="row">
+        <button id="copy" class="btn quiet" type="button">Copy student link</button>
+        <button id="close" class="btn quiet" type="button">Close check-in now</button>
+        <button id="csv" class="btn quiet" type="button">Download CSV</button>
+      </div>
+      <p id="count" class="msg"></p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Index number</th><th>Programme</th><th>Time</th><th>Distance</th><th>In class area</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Recent classes</h2>
+      <div id="sessions" class="sessions"></div>
+      <button id="out" class="btn quiet" type="button">Sign out</button>
+    </section>
+  </div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="teacher.js"></script>
+</body>
+</html>

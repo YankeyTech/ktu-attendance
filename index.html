@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Class check-in | KTU</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header class="top">
+    <h1>Class check-in</h1>
+    <p>Koforidua Technical University</p>
+  </header>
+
+  <form id="f" class="card" autocomplete="off">
+    <label for="code">Class code</label>
+    <input id="code" maxlength="8" autocapitalize="characters" spellcheck="false" placeholder="Code from your lecturer" required>
+    <p id="course" class="course" aria-live="polite"></p>
+
+    <label for="idx">Index number</label>
+    <input id="idx" maxlength="30" autocapitalize="characters" spellcheck="false" required>
+
+    <label for="prog">Programme</label>
+    <select id="prog" required><option value="">Select your programme</option></select>
+
+    <p class="note">Your phone will ask to share your location. It is recorded once, at check-in, to confirm you are in the class. It is not tracked afterwards.</p>
+    <button id="go" class="btn" type="submit">Check in</button>
+    <p id="msg" class="msg" role="status" aria-live="polite"></p>
+  </form>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="programmes.js"></script>
+<script src="student.js"></script>
+</body>
+</html>

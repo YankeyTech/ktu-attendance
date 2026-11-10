@@ -21,6 +21,18 @@ try {
   $("prog").value = localStorage.getItem("ktu_prog") || "";
 } catch (e) {}
 
+// Hidden phone ID, created once and kept on this phone.
+function deviceId() {
+  try {
+    let d = localStorage.getItem("ktu_device");
+    if (!d) {
+      d = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+      localStorage.setItem("ktu_device", d);
+    }
+    return d;
+  } catch (e) { return ""; }
+}
+
 // Class code from the link (?s=CODE).
 const fromLink = new URLSearchParams(location.search).get("s");
 if (fromLink) $("code").value = fromLink.toUpperCase().slice(0, 8);
@@ -57,18 +69,22 @@ $("f").addEventListener("submit", async (e) => {
   try {
     const pos = await getPosition();
     say("Checking in…");
+    const code = $("code").value.trim().toUpperCase();
+    const idx = $("idx").value.trim();
     const { data, error } = await sb.rpc("check_in", {
-      p_code: $("code").value.trim().toUpperCase(),
-      p_index: $("idx").value.trim(),
+      p_code: code,
+      p_index: idx,
       p_programme: $("prog").value,
       p_lat: pos.coords.latitude,
       p_lng: pos.coords.longitude,
-      p_accuracy: pos.coords.accuracy
+      p_accuracy: pos.coords.accuracy,
+      p_device: deviceId() || null,
+      p_ua: (navigator.userAgent || "").slice(0, 300)
     });
     if (error) throw new Error("Could not reach the server. Check your internet and try again.");
     if (!data.ok) { say(data.error, "bad"); }
     else {
-      try { localStorage.setItem("ktu_idx", $("idx").value.trim()); localStorage.setItem("ktu_prog", $("prog").value); } catch (e2) {}
+      try { localStorage.setItem("ktu_idx", idx); localStorage.setItem("ktu_prog", $("prog").value); } catch (e2) {}
       if (data.in_range) say("You are checked in for " + data.course + ".", "ok");
       else say("Recorded, but you appear to be " + data.distance_m + " m from the class. Tell your lecturer if you are in the room.", "warn");
     }

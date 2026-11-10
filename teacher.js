@@ -4,10 +4,25 @@ const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no 0/O/1/I to avoid mix-u
 let current = null, timer = null, records = [];
 
 function say(id, text, kind) { $(id).textContent = text; $(id).className = "msg " + (kind || ""); }
+
+// Fill the lecturer's programme dropdown.
+for (const g of PROGRAMMES) {
+  const og = document.createElement("optgroup");
+  og.label = g.group;
+  for (const name of g.items) {
+    const o = document.createElement("option");
+    o.value = name; o.textContent = name;
+    og.appendChild(o);
+  }
+  $("tprog").appendChild(og);
+}
+try { $("tprog").value = localStorage.getItem("ktu_tprog") || ""; } catch (e) {}
+
 function newCode() {
   const a = new Uint8Array(6); crypto.getRandomValues(a);
   return Array.from(a, (b) => ALPHABET[b % ALPHABET.length]).join("");
 }
+
 function getPosition() {
   return new Promise((res, rej) => {
     if (!navigator.geolocation) return rej(new Error("This browser cannot share location."));
@@ -15,6 +30,7 @@ function getPosition() {
       { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
   });
 }
+
 const studentLink = (code) => new URL("index.html?s=" + code, location.href).href;
 const fmtTime = (iso) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 const fmtDay = (iso) => new Date(iso).toLocaleDateString([], { day: "numeric", month: "short" });
@@ -47,6 +63,7 @@ $("start").addEventListener("submit", async (e) => {
       const { data, error } = await sb.from("sessions").insert({
         code: newCode(),
         course: $("course").value.trim(),
+        programme: $("tprog").value,
         lat: pos.coords.latitude,
         lng: pos.coords.longitude,
         radius_m: Number($("radius").value),
@@ -55,6 +72,7 @@ $("start").addEventListener("submit", async (e) => {
       if (error) { lastErr = error; if (error.code !== "23505") break; } else row = data;
     }
     if (!row) throw lastErr || new Error("Could not start the class.");
+    try { localStorage.setItem("ktu_tprog", $("tprog").value); } catch (e2) {}
     say("startMsg", "Check-in is open.", "ok");
     await loadSessions();
     openSession(row);
@@ -74,7 +92,7 @@ async function loadSessions() {
     b.setAttribute("aria-current", String(current && current.id === s.id));
     b.append(s.course);
     const small = document.createElement("small");
-    small.textContent = fmtDay(s.created_at) + ", " + fmtTime(s.created_at) + "  |  code " + s.code;
+    small.textContent = fmtDay(s.created_at) + ", " + fmtTime(s.created_at) + (s.programme ? "  |  " + s.programme : "") + "  |  code " + s.code;
     b.appendChild(small);
     b.addEventListener("click", () => openSession(s));
     box.appendChild(b);
@@ -84,7 +102,7 @@ async function loadSessions() {
 function openSession(s) {
   current = s;
   $("live").hidden = false;
-  $("liveCourse").textContent = s.course;
+  $("liveCourse").textContent = s.course + (s.programme ? " (" + s.programme + ")" : "");
   $("liveCode").textContent = s.code;
   $("liveLink").textContent = studentLink(s.code);
   loadAttendance();
@@ -95,25 +113,50 @@ function openSession(s) {
 }
 function stopPolling() { if (timer) clearInterval(timer); timer = null; }
 
+// Phones that checked in more than one different index number in this class.
+function sharedIndexes(data) {
+  const byDevice = {};
+  for (const r of data) {
+    if (!r.device_id) continue;
+    (byDevice[r.device_id] = byDevice[r.device_id] || new Set()).add(String(r.index_number).toUpperCase());
+  }
+  const shared = new Set();
+  for (const [d, set] of Object.entries(byDevice)) if (set.size > 1) shared.add(d);
+  return shared;
+}
+
 async function loadAttendance() {
   if (!current) return;
   const { data, error } = await sb.from("attendance").select("*").eq("session_id", current.id).order("checked_in_at");
   if (error) return;
   records = data;
+  const shared = sharedIndexes(data);
+  for (const r of records) r._shared = !!(r.device_id && shared.has(r.device_id));
+
   const body = $("rows"); body.textContent = "";
   for (const r of data) {
     const tr = document.createElement("tr");
+    // green = inside the allowed distance, red = outside
+    tr.style.background = r.in_range ? "#d9f2dd" : "#f9d6d6";
+    tr.style.color = "#1a1a1a";
     const cells = [r.index_number, r.programme, fmtTime(r.checked_in_at), Math.round(r.distance_m) + " m"];
     for (const c of cells) { const td = document.createElement("td"); td.textContent = c; tr.appendChild(td); }
     const last = document.createElement("td");
     last.textContent = r.in_range ? "Yes" : "No";
     last.className = r.in_range ? "yes" : "no";
     tr.appendChild(last);
+    const note = document.createElement("td");
+    note.textContent = r._shared ? "Shared phone" : "";
+    if (r._shared) note.style.fontWeight = "700";
+    tr.appendChild(note);
     body.appendChild(tr);
   }
   const inside = data.filter((r) => r.in_range).length;
+  const sharedCount = data.filter((r) => r._shared).length;
   const open = new Date(current.closes_at) > new Date();
-  say("count", data.length + " checked in, " + inside + " in the class area. " + (open ? "Check-in is open." : "Check-in is closed."));
+  say("count", data.length + " checked in, " + inside + " in the class area. " +
+    (sharedCount ? sharedCount + " on shared phones. " : "") +
+    (open ? "Check-in is open." : "Check-in is closed."));
 }
 
 $("copy").addEventListener("click", async () => {
@@ -134,11 +177,11 @@ function csvCell(v) {
   return '"' + s.replace(/"/g, '""') + '"';
 }
 $("csv").addEventListener("click", () => {
-  const head = ["Index number", "Programme", "Checked in", "Distance (m)", "In class area", "GPS accuracy (m)"];
+  const head = ["Index number", "Programme", "Checked in", "Distance (m)", "In class area", "GPS accuracy (m)", "Shared phone"];
   const lines = [head.map(csvCell).join(",")];
   for (const r of records) {
     lines.push([r.index_number, r.programme, new Date(r.checked_in_at).toLocaleString(), Math.round(r.distance_m),
-      r.in_range ? "Yes" : "No", Math.round(r.accuracy_m ?? 0)].map(csvCell).join(","));
+      r.in_range ? "Yes" : "No", Math.round(r.accuracy_m ?? 0), r._shared ? "Yes" : "No"].map(csvCell).join(","));
   }
   const blob = new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");

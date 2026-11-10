@@ -27,7 +27,9 @@
     <form id="start" class="card">
       <h2>Start a class</h2>
       <label for="course">Course</label>
-      <input id="course" maxlength="120" placeholder="e.g. HND Computer Science, Web Development" required>
+      <input id="course" maxlength="120" placeholder="e.g. Web Development" required>
+      <label for="tprog">Programme</label>
+      <select id="tprog" required><option value="">Select the programme</option></select>
       <div class="row">
         <div><label for="mins">Open for (minutes)</label><input id="mins" type="number" min="1" max="240" value="20" required></div>
         <div><label for="radius">Allowed distance (m)</label><input id="radius" type="number" min="20" max="2000" value="100" required></div>
@@ -49,7 +51,7 @@
       <p id="count" class="msg"></p>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Index number</th><th>Programme</th><th>Time</th><th>Distance</th><th>In class area</th></tr></thead>
+          <thead><tr><th>Index number</th><th>Programme</th><th>Time</th><th>Distance</th><th>In class area</th><th>Note</th></tr></thead>
           <tbody id="rows"></tbody>
         </table>
       </div>
@@ -64,6 +66,7 @@
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
+<script src="programmes.js"></script>
 <script src="teacher.js"></script>
 </body>
 </html>

@@ -3,17 +3,27 @@ const $ = (id) => document.getElementById(id);
 
 function say(text, kind) { $("msg").textContent = text; $("msg").className = "msg " + (kind || ""); }
 
-// Fill the programme dropdown.
-for (const g of PROGRAMMES) {
-  const og = document.createElement("optgroup");
-  og.label = g.group;
-  for (const name of g.items) {
+// Fill a programme dropdown. Accepts groups like {group, items:[...]} and also plain strings,
+// so an older or differently shaped programmes.js cannot break the page.
+function fillProgrammes(sel) {
+  const list = (typeof PROGRAMMES !== "undefined" && Array.isArray(PROGRAMMES)) ? PROGRAMMES : [];
+  const addOpt = (parent, name) => {
     const o = document.createElement("option");
     o.value = name; o.textContent = name;
-    og.appendChild(o);
+    parent.appendChild(o);
+  };
+  for (const g of list) {
+    if (typeof g === "string") { addOpt(sel, g); continue; }
+    const items = (g && (g.items || g.programmes || g.options || g.list)) || [];
+    if (!Array.isArray(items) || !items.length) { console.warn("Skipped programme group:", g); continue; }
+    const og = document.createElement("optgroup");
+    og.label = g.group || g.label || g.name || "Programmes";
+    for (const name of items) addOpt(og, name);
+    sel.appendChild(og);
   }
-  $("prog").appendChild(og);
+  if (!list.length) console.warn("PROGRAMMES is missing or empty. Check programmes.js is loaded before this script.");
 }
+fillProgrammes($("prog"));
 
 // Remember the student's own details on this phone (convenience only).
 try {

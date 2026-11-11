@@ -5,18 +5,19 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Class check-in | KTU</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="extra.css">
 </head>
 <body>
 <main>
-  <header class="top">
-    <h1>Class check-in</h1>
-    <p>Koforidua Technical University</p>
-  </header>
+  <header class="top"><h1>Class check-in</h1><p>Koforidua Technical University</p></header>
 
   <form id="f" class="card" autocomplete="off">
     <label for="code">Class code</label>
     <input id="code" maxlength="8" autocapitalize="characters" spellcheck="false" placeholder="Code from your lecturer" required>
     <p id="course" class="course" aria-live="polite"></p>
+
+    <label for="name">Full name</label>
+    <input id="name" maxlength="100" autocomplete="name" placeholder="e.g. Kofi Mensah" required>
 
     <label for="idx">Index number</label>
     <input id="idx" maxlength="30" autocapitalize="characters" spellcheck="false" required>
@@ -24,10 +25,21 @@
     <label for="prog">Programme</label>
     <select id="prog" required><option value="">Select your programme</option></select>
 
+    <label for="lvl">Level</label>
+    <select id="lvl" required><option value="">Select your level</option><option>Level 100</option><option>Level 200</option><option>Level 300</option><option>Level 400</option><option>Postgraduate</option></select>
+
     <p class="note">Your phone will ask to share your location. It is recorded once, at check-in, to confirm you are in the class. It is not tracked afterwards.</p>
     <button id="go" class="btn" type="submit">Check in</button>
     <p id="msg" class="msg" role="status" aria-live="polite"></p>
   </form>
+
+  <section id="done" class="card done" hidden aria-live="polite">
+    <div id="tick" class="tick">&#10003;</div>
+    <h2 id="doneTitle">You are checked in</h2>
+    <p id="doneSub"></p>
+    <dl id="doneList"></dl>
+    <p class="note">You can close this page now. Each index number can check in once per class.</p>
+  </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>

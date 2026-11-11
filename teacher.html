@@ -5,12 +5,14 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Lecturer | KTU check-in</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="extra.css">
 </head>
 <body>
 <main>
   <header class="top">
     <h1>Lecturer page</h1>
     <p id="who">KTU class check-in</p>
+    <a id="adminLink" href="admin.html" hidden>Admin page</a>
   </header>
 
   <form id="login" class="card">
@@ -30,6 +32,8 @@
       <input id="course" maxlength="120" placeholder="e.g. Web Development" required>
       <label for="tprog">Programme</label>
       <select id="tprog" required><option value="">Select the programme</option></select>
+      <label for="tlevel">Level</label>
+      <select id="tlevel" required><option value="">Select the level</option><option>Level 100</option><option>Level 200</option><option>Level 300</option><option>Level 400</option><option>Postgraduate</option></select>
       <div class="row">
         <div><label for="mins">Open for (minutes)</label><input id="mins" type="number" min="1" max="240" value="20" required></div>
         <div><label for="radius">Allowed distance (m)</label><input id="radius" type="number" min="20" max="2000" value="100" required></div>
@@ -46,12 +50,16 @@
       <div class="row">
         <button id="copy" class="btn quiet" type="button">Copy student link</button>
         <button id="close" class="btn quiet" type="button">Close check-in now</button>
+        <button id="more" class="btn quiet" type="button">+10 minutes</button>
+        <button id="addm" class="btn quiet" type="button">Add student manually</button>
         <button id="csv" class="btn quiet" type="button">Download CSV</button>
       </div>
+      <div class="stats" id="stats"></div>
+      <div class="bar"><input id="q" placeholder="Search name or index number"><select id="flt"><option value="all">All</option><option value="in">In class area</option><option value="out">Outside</option><option value="shared">Shared phone</option><option value="manual">Added manually</option></select></div>
       <p id="count" class="msg"></p>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Index number</th><th>Programme</th><th>Time</th><th>Distance</th><th>In class area</th><th>Note</th></tr></thead>
+          <thead><tr><th data-k="student_name" style="cursor:pointer">Name &#8645;</th><th data-k="index_number" style="cursor:pointer">Index number &#8645;</th><th data-k="programme" style="cursor:pointer">Programme &#8645;</th><th data-k="level" style="cursor:pointer">Level &#8645;</th><th data-k="checked_in_at" style="cursor:pointer">Time &#8645;</th><th data-k="distance_m" style="cursor:pointer">Distance &#8645;</th><th data-k="in_range" style="cursor:pointer">In area &#8645;</th><th>Note</th><th>Actions</th></tr></thead>
           <tbody id="rows"></tbody>
         </table>
       </div>
@@ -59,6 +67,7 @@
 
     <section class="card">
       <h2>Recent classes</h2>
+      <input id="cq" placeholder="Search classes by course, programme or level">
       <div id="sessions" class="sessions"></div>
       <button id="out" class="btn quiet" type="button">Sign out</button>
     </section>

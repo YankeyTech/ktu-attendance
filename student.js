@@ -29,6 +29,8 @@ fillProgrammes($("prog"));
 try {
   $("idx").value = localStorage.getItem("ktu_idx") || "";
   $("prog").value = localStorage.getItem("ktu_prog") || "";
+  $("name").value = localStorage.getItem("ktu_name") || "";
+  $("lvl").value = localStorage.getItem("ktu_lvl") || "";
 } catch (e) {}
 
 // Hidden phone ID, created once and kept on this phone.
@@ -89,14 +91,15 @@ $("f").addEventListener("submit", async (e) => {
       p_lng: pos.coords.longitude,
       p_accuracy: pos.coords.accuracy,
       p_device: deviceId() || null,
-      p_ua: (navigator.userAgent || "").slice(0, 300)
+      p_ua: (navigator.userAgent || "").slice(0, 300),
+      p_name: $("name").value.trim(),
+      p_level: $("lvl").value
     });
     if (error) throw new Error("Could not reach the server. Check your internet and try again.");
     if (!data.ok) { say(data.error, "bad"); }
     else {
-      try { localStorage.setItem("ktu_idx", idx); localStorage.setItem("ktu_prog", $("prog").value); } catch (e2) {}
-      if (data.in_range) say("You are checked in for " + data.course + ".", "ok");
-      else say("Recorded, but you appear to be " + data.distance_m + " m from the class. Tell your lecturer if you are in the room.", "warn");
+      try { localStorage.setItem("ktu_idx", idx); localStorage.setItem("ktu_prog", $("prog").value); localStorage.setItem("ktu_name", $("name").value.trim()); localStorage.setItem("ktu_lvl", $("lvl").value); } catch (e2) {}
+      showDone(data);
     }
   } catch (err) {
     say(err && err.message ? err.message : (LOCATION_ERRORS[err && err.code] || "Something went wrong. Try again."), "bad");
@@ -104,3 +107,16 @@ $("f").addEventListener("submit", async (e) => {
     $("go").disabled = false;
   }
 });
+
+function showDone(d) {
+  const t = new Date(d.at || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  $("f").hidden = true; $("done").hidden = false;
+  $("tick").className = "tick" + (d.in_range ? "" : " warn");
+  $("tick").textContent = d.in_range ? "\u2713" : "!";
+  $("doneTitle").textContent = d.in_range ? "Attendance marked, " + d.name.split(" ")[0] + "!" : "Recorded, please see your lecturer";
+  $("doneSub").textContent = d.in_range ? "You are confirmed in the class area." : "You appear to be " + d.distance_m + " m from the class. Tell your lecturer if you are in the room.";
+  const L = $("doneList"); L.textContent = "";
+  for (const [k, v] of [["Name", d.name], ["Index", d.index], ["Level", d.level], ["Class", d.course], ["Time", t]]) {
+    const a = document.createElement("dt"), b = document.createElement("dd"); a.textContent = k; b.textContent = v; L.append(a, b);
+  }
+}

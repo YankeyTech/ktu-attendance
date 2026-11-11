@@ -1,0 +1,10 @@
+.done{text-align:center;padding:8px 0}
+.done .tick{width:76px;height:76px;border-radius:50%;margin:0 auto 12px;background:#1f9d55;color:#fff;font-size:44px;line-height:76px;animation:pop .4s ease}
+.done .tick.warn{background:#d98a00}
+.done h2{margin:0 0 4px}.done dl{text-align:left;margin:14px 0;display:grid;grid-template-columns:auto 1fr;gap:6px 14px}
+.done dt{color:#667}.done dd{margin:0;font-weight:600}
+@keyframes pop{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.bar input,.bar select{flex:1;min-width:120px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:10px 0}
+.stats div{background:#eef3f8;color:#123;border-radius:10px;padding:10px;text-align:center}.stats b{display:block;font-size:22px}
+td button{font-size:12px;padding:3px 7px;margin:1px}

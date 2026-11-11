@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="extra.css">
+<style>main{max-width:1000px}th[data-k]{cursor:pointer;user-select:none}.tabs{display:flex;gap:6px;margin:10px 0;flex-wrap:wrap}.tabs button{flex:1}.tabs .on{background:#004c84;color:#fff}.cred{background:#fff8d6;color:#222;border:1px solid #e0c200;border-radius:10px;padding:12px;margin:10px 0}.cred code{font-size:18px;font-weight:700}</style></head>
+<body><main>
+  <header class="top"><h1>Admin</h1><p id="who">KTU class check-in</p></header>
+  <form id="login" class="card"><h2>Admin sign in</h2>
+    <label for="email">Email</label><input id="email" type="email" autocomplete="username" required>
+    <label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password" required>
+    <button class="btn" type="submit">Sign in</button><p id="loginMsg" class="msg" role="status"></p></form>
+  <div id="app" hidden>
+    <div class="tabs"><button class="btn quiet on" data-t="over">Overview</button><button class="btn quiet" data-t="lect">Lecturers</button><button class="btn quiet" data-t="cls">All classes</button><a class="btn quiet" href="teacher.html">Lecturer portal</a><button id="out" class="btn quiet">Sign out</button></div>
+    <p id="msg" class="msg" role="status"></p>
+    <section id="t-over" class="card"><h2>Overview</h2><div class="stats" id="stats"></div></section>
+    <section id="t-lect" class="card" hidden><h2>Lecturers</h2>
+      <form id="add" class="bar"><input id="aemail" type="email" placeholder="Lecturer email" required><input id="aname" placeholder="Full name (optional)"><button class="btn" type="submit">Add lecturer</button></form>
+      <div id="cred"></div>
+      <div class="bar"><input id="lq" placeholder="Search lecturers"></div>
+      <div class="table-wrap"><table><thead id="lh"></thead><tbody id="lb"></tbody></table></div></section>
+    <section id="t-cls" class="card" hidden><h2>All classes</h2>
+      <div class="bar"><input id="cq" placeholder="Search course, programme or lecturer"></div>
+      <div class="table-wrap"><table><thead id="ch"></thead><tbody id="cb"></tbody></table></div></section>
+  </div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script><script src="admin.js"></script></body></html>

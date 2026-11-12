@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=6"><link rel="stylesheet" href="extra.css?v=6">
+<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=7"><link rel="stylesheet" href="extra.css?v=7">
 <style>main{max-width:1000px}th[data-k]{cursor:pointer;user-select:none}.tabs{display:flex;gap:6px;margin:10px 0;flex-wrap:wrap}.tabs button{flex:1}.tabs .on{background:#004c84;color:#fff}.cred{background:#fff8d6;color:#222;border:1px solid #e0c200;border-radius:10px;padding:12px;margin:10px 0}.cred code{font-size:18px;font-weight:700}</style></head>
 <body><main>
   <header class="top"><h1>Admin</h1><p id="who">KTU class check-in</p></header>
@@ -18,11 +18,11 @@
       <div class="bar"><input id="lq" placeholder="Search lecturers"></div>
       <div class="table-wrap"><table><thead id="lh"></thead><tbody id="lb"></tbody></table></div></section>
     <section id="t-cls" class="card" hidden><h2>All classes</h2>
-      <div class="bar"><input id="cq" placeholder="Search course, programme or lecturer"><select id="fc"><option value="">All courses</option></select><select id="fp"><option value="">All programmes</option></select><select id="fl"><option value="">All levels</option></select><select id="fo"><option value="">All staff</option></select><select id="ft"><option value="">All types</option><option value="single">Single</option><option value="combined">Combined</option></select></div>
+      <div class="bar"><input id="cq" placeholder="Search course, programme or lecturer"><select id="fc"><option value="">All courses</option></select><select id="fp"><option value="">All programmes</option></select><select id="fl"><option value="">All levels</option></select><select id="fo"><option value="">All staff</option></select><select id="fy"><option value="">All years</option></select><select id="fs"><option value="">All semesters</option></select><select id="ft"><option value="">All types</option><option value="single">Single</option><option value="combined">Combined</option></select></div>
       <div class="bar"><label>From <input id="fd1" type="date"></label><label>To <input id="fd2" type="date"></label><button id="cx" class="btn quiet" type="button">Download Excel (filtered)</button></div>
       <div class="table-wrap"><table><thead id="ch"></thead><tbody id="cb"></tbody></table></div></section>
   </div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="shared.js?v=6"></script>
-<script src="config.js"></script><script src="admin.js?v=6"></script></body></html>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="shared.js?v=7"></script>
+<script src="config.js"></script><script src="admin.js?v=7"></script></body></html>

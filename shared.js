@@ -20,15 +20,15 @@ function buildSheets(classes, atts, absent) {
   for (const a of atts) if (a.device_id) (dev[a.session_id + "|" + a.device_id] = dev[a.session_id + "|" + a.device_id] || new Set()).add(String(a.index_number).toUpperCase());
   const shared = (a) => !!(a.device_id && dev[a.session_id + "|" + a.device_id].size > 1);
   const sorted = [...atts].sort((a, b) => (byId[a.session_id].created_at < byId[b.session_id].created_at ? 1 : -1) || (a.checked_in_at > b.checked_in_at ? 1 : -1));
-  const ci = [["Date", "Course", "Programme", "Level", "Lecturer", "Name", "Index number", "Time", "Distance (m)", "In class area", "Shared phone", "Manual", "Late", "End check", "GPS warning"]];
+  const ci = [["Date", "Course", "Academic year", "Semester", "Programme", "Level", "Lecturer", "Name", "Index number", "Time", "Distance (m)", "In class area", "Shared phone", "Manual", "Late", "End check", "GPS warning"]];
   for (const a of sorted) {
     const c = byId[a.session_id];
-    ci.push([d(c.created_at), c.course, a.programme || c.programme || "", a.level || (c.combined ? "" : c.level) || "", c._owner || "", a.student_name || "", a.index_number, t(a.checked_in_at), Math.round(a.distance_m || 0), a.in_range ? "Yes" : "No", shared(a) ? "Yes" : "No", a.manual ? "Yes" : "No", a.late ? "Yes" : "No", a.end_at ? t(a.end_at) : "", a.gps_flag || ""]);
+    ci.push([d(c.created_at), c.course, c.academic_year || "", c.semester || "", a.programme || c.programme || "", a.level || (c.combined ? "" : c.level) || "", c._owner || "", a.student_name || "", a.index_number, t(a.checked_in_at), Math.round(a.distance_m || 0), a.in_range ? "Yes" : "No", shared(a) ? "Yes" : "No", a.manual ? "Yes" : "No", a.late ? "Yes" : "No", a.end_at ? t(a.end_at) : "", a.gps_flag || ""]);
   }
-  const cl = [["Date", "Course", "Programme", "Level", "Lecturer", "Checked in", "In class area", "Outside", "Code"]];
+  const cl = [["Date", "Course", "Academic year", "Semester", "Programme", "Level", "Lecturer", "Checked in", "In class area", "Outside", "Code"]];
   for (const c of classes) {
     const r = atts.filter((a) => a.session_id === c.id), n = r.filter((a) => a.in_range).length;
-    cl.push([d(c.created_at), c.course, progLabel(c), c.combined ? "Various" : c.level || "", c._owner || "", r.length, n, r.length - n, c.code]);
+    cl.push([d(c.created_at), c.course, c.academic_year || "", c.semester || "", progLabel(c), c.combined ? "Various" : c.level || "", c._owner || "", r.length, n, r.length - n, c.code]);
   }
   const st = {};
   for (const a of atts) {

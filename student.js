@@ -101,7 +101,7 @@ async function lookup() {
   if (error || !data || !data.length) { $("course").textContent = "Class code not found."; return; }
   const s = data[0];
   $("cname").textContent = s.course;
-  $("cmeta").textContent = [s.combined ? "Combined class. Open to: " + (s.class_groups || []).map((g) => g.programme + " (" + g.level + ")").join("; ") : s.programme, s.combined ? "" : s.level, s.lecturer ? "Lecturer: " + s.lecturer : ""].filter(Boolean).join("  |  ") + (s.two_point && s.end_open ? "  |  End-of-class check" : "") + (s.is_open ? "" : "  |  Check-in closed");
+  $("cmeta").textContent = [[s.academic_year, s.semester].filter(Boolean).join(", "), s.combined ? "Combined class. Open to: " + (s.class_groups || []).map((g) => g.programme + " (" + g.level + ")").join("; ") : s.programme, s.combined ? "" : s.level, s.lecturer ? "Lecturer: " + s.lecturer : ""].filter(Boolean).join("  |  ") + (s.two_point && s.end_open ? "  |  End-of-class check" : "") + (s.is_open ? "" : "  |  Check-in closed");
   $("tokWrap").hidden = !s.rotating; $("tok").required = !!s.rotating;
   if (s.rotating && !pass) claim();
   $("courseCard").className = "coursecard" + (s.is_open ? "" : " closed"); $("courseCard").hidden = false;

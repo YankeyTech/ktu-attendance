@@ -67,22 +67,22 @@ function drawL() {
 }
 function drawC() {
   const q = $("cq").value.trim().toLowerCase();
-  const rows = grid($("ch"), $("cb"), [["created_at", "Date"], ["course", "Course"], ["programme", "Programme"], ["level", "Level"], ["_owner", "Lecturer"], ["_n", "Check-ins"], [null, "Actions"]], filteredClasses(), "cls");
+  const rows = grid($("ch"), $("cb"), [["created_at", "Date"], ["course", "Course"], ["academic_year", "Year"], ["semester", "Semester"], ["programme", "Programme"], ["level", "Level"], ["_owner", "Lecturer"], ["_n", "Check-ins"], [null, "Actions"]], filteredClasses(), "cls");
   for (const s of rows) {
     const tr = document.createElement("tr");
-    for (const v of [fmt(s.created_at), s.course, s.combined ? "Combined: " + (s.class_groups || []).map((g) => g.programme + " (" + g.level + ")").join("; ") : s.programme || "-", s.combined ? "Various" : s.level || "-", s._owner, s._n]) { const td = document.createElement("td"); td.textContent = v; tr.appendChild(td); }
+    for (const v of [fmt(s.created_at), s.course, s.academic_year || "-", s.semester || "-", s.combined ? "Combined: " + (s.class_groups || []).map((g) => g.programme + " (" + g.level + ")").join("; ") : s.programme || "-", s.combined ? "Various" : s.level || "-", s._owner, s._n]) { const td = document.createElement("td"); td.textContent = v; tr.appendChild(td); }
     const td = document.createElement("td"), b = document.createElement("button"); b.type = "button"; b.textContent = "Delete";
     b.addEventListener("click", async () => { if (confirm("Delete this class and all its attendance?")) { await sb.from("sessions").delete().eq("id", s.id); load(); } });
     td.appendChild(b); tr.appendChild(td); $("cb").appendChild(tr);
   }
 }
 $("lq").addEventListener("input", drawL);
-for (const id of ["cq", "fc", "fp", "fl", "fo", "ft", "fd1", "fd2"]) $(id).addEventListener(id === "cq" ? "input" : "change", drawC);
+for (const id of ["cq", "fc", "fp", "fl", "fo", "ft", "fy", "fs", "fd1", "fd2"]) $(id).addEventListener(id === "cq" ? "input" : "change", drawC);
 const roleLabel = (r) => (r === "assistant" ? "Teaching assistant" : r === "admin" ? "Admin" : "Lecturer");
 function filteredClasses() {
-  const q = $("cq").value.trim().toLowerCase(), fc = $("fc").value, fp = $("fp").value, fl = $("fl").value, fo = $("fo").value, ft = $("ft").value, d1 = $("fd1").value, d2 = $("fd2").value;
+  const q = $("cq").value.trim().toLowerCase(), fc = $("fc").value, fp = $("fp").value, fl = $("fl").value, fo = $("fo").value, ft = $("ft").value, fy = $("fy").value, fs = $("fs").value, d1 = $("fd1").value, d2 = $("fd2").value;
   return classes.filter((s) => {
-    if (fc && s.course !== fc) return false; if ((ft === "combined" && !s.combined) || (ft === "single" && s.combined)) return false;
+    if (fc && s.course !== fc) return false; if (fy && s.academic_year !== fy) return false; if (fs && s.semester !== fs) return false; if ((ft === "combined" && !s.combined) || (ft === "single" && s.combined)) return false;
     const gs = s.combined ? (s.class_groups || []) : [{ programme: s.programme, level: s.level }];
     if (fp && !gs.some((g) => g.programme === fp)) return false;
     if (fl && !gs.some((g) => g.level === fl || g.level === "All levels")) return false; if (fo && s._owner !== fo) return false;
@@ -92,7 +92,7 @@ function filteredClasses() {
   });
 }
 function fillFilters() {
-  for (const [id, key] of [["fc", "course"], ["fp", "programme"], ["fl", "level"], ["fo", "_owner"]]) {
+  for (const [id, key] of [["fc", "course"], ["fy", "academic_year"], ["fs", "semester"], ["fp", "programme"], ["fl", "level"], ["fo", "_owner"]]) {
     const sel = $(id), keep = sel.value, first = sel.options[0];
     sel.textContent = ""; sel.appendChild(first);
     for (const v of [...new Set(classes.flatMap((s) => (s.combined && (key === "programme" || key === "level") ? (s.class_groups || []).map((g) => g[key]) : [s[key]])).filter((v) => v && v !== "-" && v !== "Combined" && v !== "Various" && v !== "All levels"))].sort()) { const o = document.createElement("option"); o.value = v; o.textContent = v; sel.appendChild(o); }

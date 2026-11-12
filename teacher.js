@@ -92,6 +92,7 @@ $("start").addEventListener("submit", async (e) => {
         programme: comb ? "Combined" : $("tprog").value,
         level: comb ? "Combined" : $("tlevel").value,
         combined: comb, class_groups: comb ? groups : [],
+        academic_year: $("tyear").value, semester: $("tsem").value,
         late_after_min: $("late").value ? Number($("late").value) : null,
         rotating: $("rot").checked, two_point: $("two").checked, block_shared: $("blk").checked,
         lat: pos.coords.latitude,
@@ -102,7 +103,7 @@ $("start").addEventListener("submit", async (e) => {
       if (error) { lastErr = error; if (error.code !== "23505") break; } else row = data;
     }
     if (!row) throw lastErr || new Error("Could not start the class.");
-    try { localStorage.setItem("ktu_tprog", $("tprog").value); } catch (e2) {}
+    try { localStorage.setItem("ktu_tprog", $("tprog").value); localStorage.setItem("ktu_tyear", $("tyear").value); localStorage.setItem("ktu_tsem", $("tsem").value); } catch (e2) {}
     if (isNew) { await sb.from("courses").insert({ name: courseName }); }
     await loadCourses(); $("coursePick").value = courseName; $("course").hidden = true; $("course").value = "";
     say("startMsg", "Check-in is open.", "ok");
@@ -114,13 +115,15 @@ $("start").addEventListener("submit", async (e) => {
 });
 
 async function loadSessions() {
-  const { data, error } = await sb.from("sessions").select("*").order("created_at", { ascending: false }).limit(30);
+  const { data, error } = await sb.from("sessions").select("*").order("created_at", { ascending: false }).limit(200);
   const box = $("sessions"); box.textContent = "";
   if (error) return;
   if (!data.length) { box.textContent = "No classes yet."; return; }
   const cq = $("cq").value.trim().toLowerCase(), cf = $("cfilter").value;
   for (const s of data) {
     if (cf && s.course !== cf) continue;
+    const yf = $("yfilter").value, sf = $("sfilter").value;
+    if ((yf && s.academic_year !== yf) || (sf && s.semester !== sf)) continue;
     const tf = $("tfilter").value;
     if ((tf === "combined" && !s.combined) || (tf === "single" && s.combined)) continue;
     if (cq && !((s.course || "") + " " + (s.programme || "") + " " + (s.level || "") + " " + (s.class_groups || []).map(groupLabel).join(" ")).toLowerCase().includes(cq)) continue;
@@ -129,7 +132,7 @@ async function loadSessions() {
     b.setAttribute("aria-current", String(current && current.id === s.id));
     b.append(s.course);
     const small = document.createElement("small");
-    small.textContent = fmtDay(s.created_at) + ", " + fmtTime(s.created_at) + (s.programme ? "  |  " + s.programme : "") + "  |  code " + s.code + (s.combined ? "  |  Combined" : "");
+    small.textContent = fmtDay(s.created_at) + ", " + fmtTime(s.created_at) + (s.programme ? "  |  " + s.programme : "") + "  |  code " + s.code + (s.combined ? "  |  Combined" : "") + (s.semester ? "  |  " + (s.academic_year || "") + " " + s.semester : "");
     b.appendChild(small);
     b.addEventListener("click", () => openSession(s));
     box.appendChild(b);
@@ -141,7 +144,7 @@ function openSession(s) {
   $("live").hidden = false;
   $("liveCourse").textContent = s.course + (s.combined ? " (Combined)" : s.programme ? " (" + s.programme + (s.level ? ", " + s.level : "") + ")" : "");
   const gs = s.class_groups || [];
-  $("liveGroups").hidden = !s.combined; $("liveGroups").textContent = s.combined ? "Combined class. Open to: " + gs.map(groupLabel).join("; ") : "";
+  { const txt = [[s.academic_year, s.semester].filter(Boolean).join(", "), s.combined ? "Combined class. Open to: " + gs.map(groupLabel).join("; ") : ""].filter(Boolean).join("  |  "); $("liveGroups").hidden = !txt; $("liveGroups").textContent = txt; }
   const gf = $("gflt"); gf.hidden = !s.combined; gf.textContent = "";
   { const o = document.createElement("option"); o.value = ""; o.textContent = "All groups"; gf.appendChild(o); }
   gs.forEach((g, i) => { const o = document.createElement("option"); o.value = String(i); o.textContent = groupLabel(g); gf.appendChild(o); });
@@ -315,7 +318,10 @@ $("cxlsx").addEventListener("click", async () => {
   const course = $("cfilter").value;
   if (!course) return say("cmsg", "Pick a course in the course filter first.", "warn");
   say("cmsg", "Preparing the spreadsheet...");
-  const { data: cls } = await sb.from("sessions").select("*").eq("course", course).order("created_at", { ascending: false });
+  let qb = sb.from("sessions").select("*").eq("course", course);
+  if ($("yfilter").value) qb = qb.eq("academic_year", $("yfilter").value);
+  if ($("sfilter").value) qb = qb.eq("semester", $("sfilter").value);
+  const { data: cls } = await qb.order("created_at", { ascending: false });
   if (!cls || !cls.length) return say("cmsg", "No classes found for that course.", "warn");
   const atts = await fetchAttendance(sb, cls.map((c) => c.id));
   for (const c of cls) c._owner = $("who").textContent;
@@ -442,7 +448,7 @@ $("rep").addEventListener("click", async () => {
   const course = $("rollCourse").value, thr = Number($("thr").value) || 75;
   if (!course) return say("rollMsg", "Choose the course first.", "warn");
   say("rollMsg", "Working out the report...");
-  const [{ data: cls }, { data: roll }] = await Promise.all([sb.from("sessions").select("id").eq("course", course), sb.from("rolls").select("*").eq("course", course)]);
+  const [{ data: cls }, { data: roll }] = await Promise.all([sessQ(course), sb.from("rolls").select("*").eq("course", course)]);
   if (!cls || !cls.length) return say("rollMsg", "No classes found for that course yet.", "warn");
   const atts = await fetchAttendance(sb, cls.map((c) => c.id));
   const st = new Map();
@@ -515,5 +521,26 @@ function renderGroupSum() {
 $("tfilter").addEventListener("change", loadSessions);
 $("gflt").addEventListener("change", renderRows);
 setType();
+
+
+// ---- Academic year and semester ----
+function startYear() { const d = new Date(), y = d.getFullYear(); return d.getMonth() >= 7 ? y : y - 1; }
+function academicYears() { const s = startYear(); return [s + 1, s, s - 1, s - 2].map((a) => a + "/" + (a + 1)); }
+function sessQ(course) {
+  let q = sb.from("sessions").select("id").eq("course", course);
+  if ($("repYear").value) q = q.eq("academic_year", $("repYear").value);
+  if ($("repSem").value) q = q.eq("semester", $("repSem").value);
+  return q;
+}
+for (const id of ["tyear", "yfilter", "repYear"]) {
+  const sel = $(id);
+  for (const y of academicYears()) { const o = document.createElement("option"); o.value = y; o.textContent = y; sel.appendChild(o); }
+}
+{
+  let y = startYear() + "/" + (startYear() + 1), sm = new Date().getMonth() >= 7 ? "Semester 1" : "Semester 2";
+  try { y = localStorage.getItem("ktu_tyear") || y; sm = localStorage.getItem("ktu_tsem") || sm; } catch (e) {}
+  $("tyear").value = academicYears().includes(y) ? y : academicYears()[1]; $("tsem").value = sm;
+}
+$("yfilter").addEventListener("change", loadSessions); $("sfilter").addEventListener("change", loadSessions);
 
 refreshAuth();

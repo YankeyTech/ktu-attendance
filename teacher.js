@@ -2,7 +2,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $ = (id) => document.getElementById(id);
 const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no 0/O/1/I to avoid mix-ups
 let sortBy = ["checked_in_at", 1];
-let current = null, timer = null, records = [];
+let current = null, timer = null, records = [], role = "lecturer";
 
 function say(id, text, kind) { $(id).textContent = text; $(id).className = "msg " + (kind || ""); }
 
@@ -55,7 +55,10 @@ async function refreshAuth() {
     const { data: pr } = await sb.from("profiles").select("role,must_change,active").eq("id", session.user.id).single();
     if (pr && pr.must_change) return location.replace("change-password.html");
     if (pr && pr.active === false) { await sb.auth.signOut(); return say("loginMsg", "This account is disabled. Contact the admin.", "bad"); }
-    $("adminLink").hidden = !(pr && pr.role === "admin");
+    role = (pr && pr.role) || "lecturer";
+    document.body.dataset.role = role;
+    $("adminLink").hidden = role !== "admin";
+    await loadCourses();
     loadSessions();
   } else stopPolling();
 }
@@ -74,12 +77,15 @@ $("start").addEventListener("submit", async (e) => {
   $("startBtn").disabled = true;
   say("startMsg", "Getting your location…");
   try {
+    const isNew = $("coursePick").value === "__new";
+    const courseName = isNew ? $("course").value.trim() : $("coursePick").value;
+    if (courseName.length < 2) throw new Error("Choose a course, or type the new course name.");
     const pos = await getPosition();
     let row = null, lastErr = null;
     for (let i = 0; i < 3 && !row; i++) {
       const { data, error } = await sb.from("sessions").insert({
         code: newCode(),
-        course: $("course").value.trim(),
+        course: courseName,
         programme: $("tprog").value,
         level: $("tlevel").value,
         lat: pos.coords.latitude,
@@ -91,6 +97,8 @@ $("start").addEventListener("submit", async (e) => {
     }
     if (!row) throw lastErr || new Error("Could not start the class.");
     try { localStorage.setItem("ktu_tprog", $("tprog").value); } catch (e2) {}
+    if (isNew) { await sb.from("courses").insert({ name: courseName }); }
+    await loadCourses(); $("coursePick").value = courseName; $("course").hidden = true; $("course").value = "";
     say("startMsg", "Check-in is open.", "ok");
     await loadSessions();
     openSession(row);
@@ -104,8 +112,9 @@ async function loadSessions() {
   const box = $("sessions"); box.textContent = "";
   if (error) return;
   if (!data.length) { box.textContent = "No classes yet."; return; }
-  const cq = $("cq").value.trim().toLowerCase();
+  const cq = $("cq").value.trim().toLowerCase(), cf = $("cfilter").value;
   for (const s of data) {
+    if (cf && s.course !== cf) continue;
     if (cq && !((s.course || "") + " " + (s.programme || "") + " " + (s.level || "")).toLowerCase().includes(cq)) continue;
     const b = document.createElement("button");
     b.type = "button";
@@ -126,6 +135,7 @@ function openSession(s) {
   $("liveCode").textContent = s.code;
   $("liveLink").textContent = studentLink(s.code);
   loadAttendance();
+  $("qrBox").hidden = true;
   stopPolling();
   timer = setInterval(loadAttendance, 8000);
   $("live").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -163,7 +173,7 @@ function renderRows() {
   const [sk, sd] = sortBy; list.sort((a, b) => ((a[sk] ?? "") > (b[sk] ?? "") ? 1 : (a[sk] ?? "") < (b[sk] ?? "") ? -1 : 0) * sd);
   const body = $("rows"); body.textContent = "";
   for (const r of list) {
-    const tr = document.createElement("tr");
+    const tr = document.createElement("tr"); tr.className = "rowin";
     tr.style.background = r.in_range ? "#d9f2dd" : "#f9d6d6"; tr.style.color = "#1a1a1a";
     for (const c of [r.student_name || "-", r.index_number, r.programme, r.level || "-", fmtTime(r.checked_in_at), Math.round(r.distance_m) + " m", r.in_range ? "Yes" : "No", (r._shared ? "Shared phone " : "") + (r.manual ? "Manual" : "")]) {
       const td = document.createElement("td"); td.textContent = c; tr.appendChild(td);
@@ -171,7 +181,7 @@ function renderRows() {
     const act = document.createElement("td");
     const mk = (label, fn) => { const b = document.createElement("button"); b.type = "button"; b.textContent = label; b.addEventListener("click", fn); act.appendChild(b); };
     mk(r.in_range ? "Mark outside" : "Mark present", async () => { await sb.from("attendance").update({ in_range: !r.in_range, manual: true }).eq("id", r.id); loadAttendance(); });
-    mk("Remove", async () => { if (confirm("Remove " + r.index_number + " from this class?")) { await sb.from("attendance").delete().eq("id", r.id); loadAttendance(); } });
+    if (role !== "assistant") mk("Remove", async () => { if (confirm("Remove " + r.index_number + " from this class?")) { await sb.from("attendance").delete().eq("id", r.id); loadAttendance(); } });
     tr.appendChild(act); body.appendChild(tr);
   }
   const inside = records.filter((r) => r.in_range).length, sc = records.filter((r) => r._shared).length;
@@ -230,6 +240,63 @@ $("csv").addEventListener("click", () => {
   a.download = (current.course.replace(/[^\w\- ]+/g, "") || "attendance") + " " + fmtDay(current.created_at) + ".csv";
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+
+
+// ---- Courses ----
+async function loadCourses() {
+  const { data } = await sb.from("courses").select("name").order("name");
+  const names = (data || []).map((c) => c.name);
+  const pick = $("coursePick"), keep = pick.value, flt = $("cfilter"), keepF = flt.value;
+  pick.textContent = ""; flt.textContent = "";
+  const add = (sel, v, t) => { const o = document.createElement("option"); o.value = v; o.textContent = t; sel.appendChild(o); };
+  add(pick, "", "Select your course");
+  for (const n of names) add(pick, n, n);
+  add(pick, "__new", "+ Add a new course...");
+  add(flt, "", "All courses");
+  for (const n of names) add(flt, n, n);
+  pick.value = names.includes(keep) || keep === "__new" ? keep : ""; flt.value = names.includes(keepF) ? keepF : "";
+}
+$("coursePick").addEventListener("change", () => {
+  const isNew = $("coursePick").value === "__new";
+  $("course").hidden = !isNew; $("course").required = isNew; if (isNew) $("course").focus();
+});
+$("cfilter").addEventListener("change", loadSessions);
+
+// ---- QR code ----
+function drawQr() {
+  if (!current) return;
+  if (!drawQR($("qrCanvas"), studentLink(current.code), 260)) say("count", "QR library did not load. Check your internet.", "warn");
+}
+$("qr").addEventListener("click", () => { $("qrBox").hidden = !$("qrBox").hidden; if (!$("qrBox").hidden) drawQr(); });
+$("qrDl").addEventListener("click", () => {
+  const c = document.createElement("canvas"); drawQR(c, studentLink(current.code), 800);
+  const a = document.createElement("a"); a.href = c.toDataURL("image/png"); a.download = safeName(current.course) + " QR.png"; a.click();
+});
+$("qrFull").addEventListener("click", () => {
+  drawQR($("qrFsCanvas"), studentLink(current.code), Math.min(innerWidth, innerHeight) * 0.7);
+  $("qrFsCode").textContent = current.code; $("qrFs").hidden = false;
+});
+$("qrFs").addEventListener("click", () => { $("qrFs").hidden = true; });
+
+// ---- Excel ----
+$("xlsx").addEventListener("click", () => {
+  if (role === "assistant" || !current) return;
+  const c = Object.assign({}, current, { _owner: $("who").textContent });
+  downloadXlsx(current.course + " " + fmtDay(current.created_at), buildSheets([c], records));
+});
+$("cxlsx").addEventListener("click", async () => {
+  if (role === "assistant") return;
+  const course = $("cfilter").value;
+  if (!course) return say("cmsg", "Pick a course in the course filter first.", "warn");
+  say("cmsg", "Preparing the spreadsheet...");
+  const { data: cls } = await sb.from("sessions").select("*").eq("course", course).order("created_at", { ascending: false });
+  if (!cls || !cls.length) return say("cmsg", "No classes found for that course.", "warn");
+  const atts = await fetchAttendance(sb, cls.map((c) => c.id));
+  for (const c of cls) c._owner = $("who").textContent;
+  downloadXlsx(course + " all classes", buildSheets(cls, atts));
+  say("cmsg", "Downloaded.", "ok");
 });
 
 refreshAuth();

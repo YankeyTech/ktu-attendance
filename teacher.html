@@ -28,8 +28,9 @@
   <div id="app" hidden>
     <form id="start" class="card">
       <h2>Start a class</h2>
-      <label for="course">Course</label>
-      <input id="course" maxlength="120" placeholder="e.g. Web Development" required>
+      <label for="coursePick">Course</label>
+      <select id="coursePick" required><option value="">Select your course</option><option value="__new">+ Add a new course...</option></select>
+      <input id="course" maxlength="120" placeholder="Type the new course name" hidden>
       <label for="tprog">Programme</label>
       <select id="tprog" required><option value="">Select the programme</option></select>
       <label for="tlevel">Level</label>
@@ -52,7 +53,14 @@
         <button id="close" class="btn quiet" type="button">Close check-in now</button>
         <button id="more" class="btn quiet" type="button">+10 minutes</button>
         <button id="addm" class="btn quiet" type="button">Add student manually</button>
-        <button id="csv" class="btn quiet" type="button">Download CSV</button>
+        <button id="csv" class="btn quiet nota" type="button">Download CSV</button>
+        <button id="xlsx" class="btn quiet nota" type="button">Download Excel</button>
+        <button id="qr" class="btn quiet" type="button">Show QR code</button>
+      </div>
+      <div id="qrBox" class="qrbox" hidden>
+        <canvas id="qrCanvas"></canvas>
+        <div><p class="note">Students scan this with their phone camera to open the check-in page with the class code filled in.</p>
+        <button id="qrFull" class="btn quiet" type="button">Full screen</button> <button id="qrDl" class="btn quiet" type="button">Download image</button></div>
       </div>
       <div class="stats" id="stats"></div>
       <div class="bar"><input id="q" placeholder="Search name or index number"><select id="flt"><option value="all">All</option><option value="in">In class area</option><option value="out">Outside</option><option value="shared">Shared phone</option><option value="manual">Added manually</option></select></div>
@@ -67,14 +75,20 @@
 
     <section class="card">
       <h2>Recent classes</h2>
-      <input id="cq" placeholder="Search classes by course, programme or level">
+      <div class="bar"><input id="cq" placeholder="Search classes by course, programme or level"><select id="cfilter"><option value="">All courses</option></select></div>
+      <button id="cxlsx" class="btn quiet nota" type="button">Download Excel for this course</button>
+      <p id="cmsg" class="msg" role="status"></p>
       <div id="sessions" class="sessions"></div>
       <button id="out" class="btn quiet" type="button">Sign out</button>
     </section>
   </div>
 </main>
+<div id="qrFs" class="qrfs" hidden><canvas id="qrFsCanvas"></canvas><div class="code" id="qrFsCode"></div><p>Scan, or open the student page and enter this code. Tap anywhere to close.</p></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="shared.js"></script>
 <script src="programmes.js"></script>
 <script src="teacher.js"></script>
 </body>

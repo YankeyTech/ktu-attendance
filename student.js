@@ -1,7 +1,10 @@
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $ = (id) => document.getElementById(id);
 
-function say(text, kind) { $("msg").textContent = text; $("msg").className = "msg " + (kind || ""); }
+function say(text, kind) {
+  $("msg").textContent = text; $("msg").className = "msg " + (kind || "");
+  if (kind === "bad") { const f = $("f"); f.classList.remove("shake"); void f.offsetWidth; f.classList.add("shake"); }
+}
 
 // Fill a programme dropdown. Accepts groups like {group, items:[...]} and also plain strings,
 // so an older or differently shaped programmes.js cannot break the page.
@@ -51,11 +54,16 @@ if (fromLink) $("code").value = fromLink.toUpperCase().slice(0, 8);
 
 async function lookup() {
   const code = $("code").value.trim().toUpperCase();
-  $("course").textContent = "";
+  $("course").textContent = ""; $("courseCard").hidden = true;
   if (code.length < 4) return;
   const { data, error } = await sb.rpc("get_session", { p_code: code });
   if (error || !data || !data.length) { $("course").textContent = "Class code not found."; return; }
-  $("course").textContent = data[0].course + (data[0].is_open ? "" : " (check-in closed)");
+  const s = data[0];
+  $("cname").textContent = s.course;
+  $("cmeta").textContent = [s.programme, s.level, s.lecturer ? "Lecturer: " + s.lecturer : ""].filter(Boolean).join("  |  ") + (s.is_open ? "" : "  |  Check-in closed");
+  $("courseCard").className = "coursecard" + (s.is_open ? "" : " closed"); $("courseCard").hidden = false;
+  const fill = (sel, v) => { if (v && !sel.value && Array.from(sel.options).some((o) => o.value === v)) sel.value = v; };
+  fill($("prog"), s.programme); fill($("lvl"), s.level);
 }
 $("code").addEventListener("input", lookup);
 lookup();
@@ -113,6 +121,7 @@ function showDone(d) {
   $("f").hidden = true; $("done").hidden = false;
   $("tick").className = "tick" + (d.in_range ? "" : " warn");
   $("tick").textContent = d.in_range ? "\u2713" : "!";
+  if (d.in_range) confetti();
   $("doneTitle").textContent = d.in_range ? "Attendance marked, " + d.name.split(" ")[0] + "!" : "Recorded, please see your lecturer";
   $("doneSub").textContent = d.in_range ? "You are confirmed in the class area." : "You appear to be " + d.distance_m + " m from the class. Tell your lecturer if you are in the room.";
   const L = $("doneList"); L.textContent = "";

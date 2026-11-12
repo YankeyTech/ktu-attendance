@@ -61,7 +61,7 @@ async function refreshAuth() {
     $("adminLink").hidden = !(role === "admin" && session.user.email.toLowerCase() === "ygpedri@gmail.com");
     await loadCourses();
     loadSessions();
-  } else stopPolling();
+  } else { stopPolling(); stopQr(); }
 }
 
 $("login").addEventListener("submit", async (e) => {
@@ -156,13 +156,14 @@ function openSession(s) {
   $("endchk").hidden = !s.two_point; $("endchk").textContent = s.end_open ? "Close end-of-class check" : "Open end-of-class check (10 min)";
   lastWin = -1; if (qrTimer) clearInterval(qrTimer); qrTimer = setInterval(tickQr, 1000); tickQr();
   syncClock().then(() => { lastWin = -1; tickQr(); });
-  loadRoll();
+  loadRoll(); keepAwake();
   stopPolling();
   timer = setInterval(loadAttendance, 8000);
   $("live").scrollIntoView({ behavior: "smooth", block: "start" });
   loadSessions();
 }
-function stopPolling() { if (timer) clearInterval(timer); timer = null; if (qrTimer) clearInterval(qrTimer); qrTimer = null; }
+function stopPolling() { if (timer) clearInterval(timer); timer = null; }
+function stopQr() { if (qrTimer) clearInterval(qrTimer); qrTimer = null; }
 
 // Phones that checked in more than one different index number in this class.
 function sharedIndexes(data) {
@@ -542,5 +543,13 @@ for (const id of ["tyear", "yfilter", "repYear"]) {
   $("tyear").value = academicYears().includes(y) ? y : academicYears()[1]; $("tsem").value = sm;
 }
 $("yfilter").addEventListener("change", loadSessions); $("sfilter").addEventListener("change", loadSessions);
+
+
+// Keep the screen on while a rotating QR is showing, and refresh the code when the tab returns.
+let wake = null;
+async function keepAwake() {
+  try { if (current && current.rotating && navigator.wakeLock && !document.hidden) wake = await navigator.wakeLock.request("screen"); } catch (e) {}
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { keepAwake(); tickQr(); } });
 
 refreshAuth();

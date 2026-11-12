@@ -2,7 +2,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $ = (id) => document.getElementById(id);
 const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no 0/O/1/I to avoid mix-ups
 let sortBy = ["checked_in_at", 1];
-let current = null, timer = null, records = [], role = "lecturer", qrTimer = null, lastWin = -1, rollRows = [];
+let current = null, timer = null, records = [], role = "lecturer", qrTimer = null, lastWin = -1, rollRows = [], clockOffset = 0;
 
 function say(id, text, kind) { $(id).textContent = text; $(id).className = "msg " + (kind || ""); }
 
@@ -141,6 +141,7 @@ function openSession(s) {
   $("pinBox").hidden = !s.rotating; $("copy").hidden = !!s.rotating;
   $("endchk").hidden = !s.two_point; $("endchk").textContent = s.end_open ? "Close end-of-class check" : "Open end-of-class check (10 min)";
   lastWin = -1; if (qrTimer) clearInterval(qrTimer); qrTimer = setInterval(tickQr, 1000); tickQr();
+  syncClock().then(() => { lastWin = -1; tickQr(); });
   loadRoll();
   stopPolling();
   timer = setInterval(loadAttendance, 8000);
@@ -311,6 +312,10 @@ $("cxlsx").addEventListener("click", async () => {
 
 
 // ---- Rotating screen code ----
+// Use the database clock, so a wrong laptop clock cannot break the codes.
+async function syncClock() {
+  try { const t0 = Date.now(); const { data } = await sb.rpc("server_epoch"); if (typeof data === "number") clockOffset = data - (t0 + Date.now()) / 2000; } catch (e) {}
+}
 async function tokenFor(secret, w) {
   const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret + ":" + w));
   const hex = Array.from(new Uint8Array(b), (x) => x.toString(16).padStart(2, "0")).join("");
@@ -324,7 +329,7 @@ function drawFs() {
 }
 async function tickQr() {
   if (!current || !current.rotating || !current.secret) return;
-  const now = Date.now() / 1000, w = Math.floor(now / 30);
+  const now = Date.now() / 1000 + clockOffset, w = Math.floor(now / 30);
   $("cd").style.width = ((30 - (now % 30)) / 30) * 100 + "%";
   if (w === lastWin) return;
   lastWin = w;

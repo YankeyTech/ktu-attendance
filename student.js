@@ -46,7 +46,7 @@ function deviceId() {
       localStorage.setItem("ktu_device", d);
     }
     return d;
-  } catch (e) { return ""; }
+  } catch (e) { return (window._memDev = window._memDev || (Date.now().toString(36) + Math.random().toString(36).slice(2))); }
 }
 
 // Class code from the link (?s=CODE).
@@ -54,6 +54,20 @@ const fromLink = new URLSearchParams(location.search).get("s");
 const tokLink = new URLSearchParams(location.search).get("t");
 if (tokLink) $("tok").value = tokLink.replace(/\D/g, "").slice(0, 6);
 if (fromLink) $("code").value = fromLink.toUpperCase().slice(0, 8);
+
+// Screen code: checked as soon as it is known, then the phone gets a 10-minute pass.
+let pass = null;
+async function claim() {
+  const tok = $("tok").value.replace(/\D/g, ""), code = $("code").value.trim().toUpperCase();
+  pass = null; $("tokMsg").textContent = "";
+  if (tok.length !== 6 || code.length < 4) return;
+  $("tokMsg").className = "msg"; $("tokMsg").textContent = "Checking the screen code...";
+  const { data, error } = await sb.rpc("get_pass", { p_code: code, p_token: tok, p_device: deviceId() });
+  if (error || !data) { $("tokMsg").className = "msg bad"; $("tokMsg").textContent = "Could not check the screen code. Try again."; return; }
+  if (!data.ok) { $("tokMsg").className = "msg bad"; $("tokMsg").textContent = data.error; return; }
+  pass = data.pass; $("tokMsg").className = "msg ok"; $("tokMsg").textContent = "Screen code accepted. Finish your details within 10 minutes.";
+}
+$("tok").addEventListener("input", claim);
 
 async function lookup() {
   const code = $("code").value.trim().toUpperCase();
@@ -65,6 +79,7 @@ async function lookup() {
   $("cname").textContent = s.course;
   $("cmeta").textContent = [s.programme, s.level, s.lecturer ? "Lecturer: " + s.lecturer : ""].filter(Boolean).join("  |  ") + (s.two_point && s.end_open ? "  |  End-of-class check" : "") + (s.is_open ? "" : "  |  Check-in closed");
   $("tokWrap").hidden = !s.rotating; $("tok").required = !!s.rotating;
+  if (s.rotating && !pass) claim();
   $("courseCard").className = "coursecard" + (s.is_open ? "" : " closed"); $("courseCard").hidden = false;
   const fill = (sel, v) => { if (v && !sel.value && Array.from(sel.options).some((o) => o.value === v)) sel.value = v; };
   fill($("prog"), s.programme); fill($("lvl"), s.level);
@@ -106,10 +121,10 @@ $("f").addEventListener("submit", async (e) => {
       p_ua: (navigator.userAgent || "").slice(0, 300),
       p_name: titleCase($("name").value.trim()),
       p_level: $("lvl").value,
-      p_token: $("tok").value.replace(/\D/g, "") || null
+      p_token: pass || $("tok").value.replace(/\D/g, "") || null
     });
     if (error) throw new Error("Could not reach the server. Check your internet and try again.");
-    if (!data.ok) { say(data.error, "bad"); }
+    if (!data.ok) { if (/screen code/i.test(data.error)) pass = null; say(data.error, "bad"); }
     else {
       try { localStorage.setItem("ktu_idx", idx); localStorage.setItem("ktu_prog", $("prog").value); localStorage.setItem("ktu_name", $("name").value.trim()); localStorage.setItem("ktu_lvl", $("lvl").value); } catch (e2) {}
       showDone(data);

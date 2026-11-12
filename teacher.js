@@ -57,7 +57,7 @@ async function refreshAuth() {
     if (pr && pr.active === false) { await sb.auth.signOut(); return say("loginMsg", "This account is disabled. Contact the admin.", "bad"); }
     role = (pr && pr.role) || "lecturer";
     document.body.dataset.role = role;
-    $("adminLink").hidden = role !== "admin";
+    $("adminLink").hidden = !(role === "admin" && session.user.email.toLowerCase() === "ygpedri@gmail.com");
     await loadCourses();
     loadSessions();
   } else stopPolling();

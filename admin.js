@@ -9,7 +9,7 @@ async function start() {
   $("login").hidden = !!session; $("app").hidden = true;
   if (!session) return;
   const { data: me } = await sb.from("profiles").select("role").eq("id", session.user.id).single();
-  if (!me || me.role !== "admin") { await sb.auth.signOut(); $("login").hidden = false; return say("loginMsg", "This page is for the admin only.", "bad"); }
+  if (!me || me.role !== "admin" || session.user.email.toLowerCase() !== "ygpedri@gmail.com") { await sb.auth.signOut(); $("login").hidden = false; return say("loginMsg", "This page is for the admin only.", "bad"); }
   $("app").hidden = false; $("who").textContent = session.user.email; load();
 }
 $("login").addEventListener("submit", async (e) => {

@@ -51,17 +51,20 @@ function deviceId() {
 
 // Class code from the link (?s=CODE).
 const fromLink = new URLSearchParams(location.search).get("s");
+const tokLink = new URLSearchParams(location.search).get("t");
+if (tokLink) $("tok").value = tokLink.replace(/\D/g, "").slice(0, 6);
 if (fromLink) $("code").value = fromLink.toUpperCase().slice(0, 8);
 
 async function lookup() {
   const code = $("code").value.trim().toUpperCase();
-  $("course").textContent = ""; $("courseCard").hidden = true;
+  $("course").textContent = ""; $("courseCard").hidden = true; $("tokWrap").hidden = true; $("tok").required = false;
   if (code.length < 4) return;
   const { data, error } = await sb.rpc("get_session", { p_code: code });
   if (error || !data || !data.length) { $("course").textContent = "Class code not found."; return; }
   const s = data[0];
   $("cname").textContent = s.course;
-  $("cmeta").textContent = [s.programme, s.level, s.lecturer ? "Lecturer: " + s.lecturer : ""].filter(Boolean).join("  |  ") + (s.is_open ? "" : "  |  Check-in closed");
+  $("cmeta").textContent = [s.programme, s.level, s.lecturer ? "Lecturer: " + s.lecturer : ""].filter(Boolean).join("  |  ") + (s.two_point && s.end_open ? "  |  End-of-class check" : "") + (s.is_open ? "" : "  |  Check-in closed");
+  $("tokWrap").hidden = !s.rotating; $("tok").required = !!s.rotating;
   $("courseCard").className = "coursecard" + (s.is_open ? "" : " closed"); $("courseCard").hidden = false;
   const fill = (sel, v) => { if (v && !sel.value && Array.from(sel.options).some((o) => o.value === v)) sel.value = v; };
   fill($("prog"), s.programme); fill($("lvl"), s.level);
@@ -102,7 +105,8 @@ $("f").addEventListener("submit", async (e) => {
       p_device: deviceId() || null,
       p_ua: (navigator.userAgent || "").slice(0, 300),
       p_name: titleCase($("name").value.trim()),
-      p_level: $("lvl").value
+      p_level: $("lvl").value,
+      p_token: $("tok").value.replace(/\D/g, "") || null
     });
     if (error) throw new Error("Could not reach the server. Check your internet and try again.");
     if (!data.ok) { say(data.error, "bad"); }
@@ -123,10 +127,11 @@ function showDone(d) {
   $("tick").className = "tick" + (d.in_range ? "" : " warn");
   $("tick").textContent = d.in_range ? "\u2713" : "!";
   if (d.in_range) confetti();
-  $("doneTitle").textContent = d.in_range ? "You're checked in, " + titleCase(d.name.split(" ")[0]) + "." : "Recorded, please see your lecturer";
-  $("doneSub").textContent = d.in_range ? "Your attendance is recorded for this class." : "You appear to be " + d.distance_m + " m from the class. Tell your lecturer if you are in the room.";
+  const endPhase = d.phase === "end";
+  $("doneTitle").textContent = endPhase ? "End-of-class check recorded, " + titleCase(d.name.split(" ")[0]) + "." : d.in_range ? "You're checked in, " + titleCase(d.name.split(" ")[0]) + "." : "Recorded, please see your lecturer";
+  $("doneSub").textContent = endPhase ? "Thank you. Your end-of-class check is saved." : d.late && d.in_range ? "You were marked late for this class." : d.in_range ? "Your attendance is recorded for this class." : "You appear to be " + d.distance_m + " m from the class. Tell your lecturer if you are in the room.";
   const L = $("doneList"); L.textContent = "";
-  for (const [k, v] of [["Name", d.name], ["Index", d.index], ["Level", d.level], ["Class", d.course], ["Time", t]]) {
+  for (const [k, v] of [["Name", d.name], ["Status", endPhase ? "End check" : d.late ? "Late" : "On time"], ["Index", d.index], ["Level", d.level], ["Class", d.course], ["Time", t]]) {
     const a = document.createElement("dt"), b = document.createElement("dd"); a.textContent = k; b.textContent = v; b.className = "v-" + k.toLowerCase(); L.append(a, b);
   }
 }

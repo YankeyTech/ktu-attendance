@@ -39,6 +39,13 @@
         <div><label for="mins">Open for (minutes)</label><input id="mins" type="number" min="1" max="240" value="20" required></div>
         <div><label for="radius">Allowed distance (m)</label><input id="radius" type="number" min="20" max="2000" value="100" required></div>
       </div>
+      <details class="opts" open><summary>Anti-cheat and timing options</summary>
+        <label class="chk"><input id="rot" type="checkbox" checked> Rotating QR code (changes every 30 seconds)</label>
+        <label class="chk"><input id="blk" type="checkbox" checked> Block one phone from checking in several students</label>
+        <label class="chk"><input id="two" type="checkbox"> Two-point check-in (students scan again at the end)</label>
+        <label for="late">Mark late after (minutes, optional)</label>
+        <input id="late" type="number" min="1" max="240" placeholder="e.g. 10">
+      </details>
       <p class="note">Stand in the classroom when you press the button. Your location sets the centre of the allowed area.</p>
       <button id="startBtn" class="btn" type="submit">Start check-in here</button>
       <p id="startMsg" class="msg" role="status"></p>
@@ -47,6 +54,7 @@
     <section id="live" class="card" hidden>
       <h2 id="liveCourse"></h2>
       <div class="code" id="liveCode"></div>
+      <div id="pinBox" class="pinbox" hidden><span>Screen code</span><b id="pin"></b><div class="cdwrap"><i id="cd"></i></div></div>
       <p class="link" id="liveLink"></p>
       <div class="row">
         <button id="copy" class="btn quiet" type="button">Copy student link</button>
@@ -56,6 +64,7 @@
         <button id="csv" class="btn quiet nota" type="button">Download CSV</button>
         <button id="xlsx" class="btn quiet nota" type="button">Download Excel</button>
         <button id="qr" class="btn quiet" type="button">Show QR code</button>
+        <button id="endchk" class="btn quiet" type="button" hidden>Open end-of-class check</button>
       </div>
       <div id="qrBox" class="qrbox" hidden>
         <canvas id="qrCanvas"></canvas>
@@ -63,7 +72,7 @@
         <button id="qrFull" class="btn quiet" type="button">Full screen</button> <button id="qrDl" class="btn quiet" type="button">Download image</button></div>
       </div>
       <div class="stats" id="stats"></div>
-      <div class="bar"><input id="q" placeholder="Search name or index number"><select id="flt"><option value="all">All</option><option value="in">In class area</option><option value="out">Outside</option><option value="shared">Shared phone</option><option value="manual">Added manually</option></select></div>
+      <div class="bar"><input id="q" placeholder="Search name or index number"><select id="flt"><option value="all">All</option><option value="in">In class area</option><option value="out">Outside</option><option value="shared">Shared phone</option><option value="manual">Added manually</option><option value="late">Late</option><option value="flag">GPS warning</option></select></div>
       <p id="count" class="msg"></p>
       <div class="table-wrap">
         <table>
@@ -71,6 +80,21 @@
           <tbody id="rows"></tbody>
         </table>
       </div>
+      <div id="absent" class="absent" hidden><h3>Not yet checked in, from the class roll (<span id="absN"></span>)</h3><div id="absList"></div></div>
+    </section>
+
+    <section class="card">
+      <h2>Class roll and reports</h2>
+      <p class="note">Upload a CSV or Excel list of a course's students, with Index number and Name columns. Then the class page shows who is missing, and the report shows each student's attendance rate. Uploading replaces the old roll for that course.</p>
+      <label for="rollCourse">Course</label>
+      <select id="rollCourse"></select>
+      <label for="rollFile">Roll file</label>
+      <input id="rollFile" type="file" accept=".csv,.xlsx,.xls">
+      <div class="row"><button id="rollUp" class="btn quiet" type="button">Upload roll</button><button id="rep" class="btn quiet" type="button">Show attendance report</button></div>
+      <label for="thr">Mark as at risk below (%)</label>
+      <input id="thr" type="number" min="1" max="100" value="75">
+      <p id="rollMsg" class="msg" role="status"></p>
+      <div id="report"></div>
     </section>
 
     <section class="card">
@@ -83,7 +107,7 @@
     </section>
   </div>
 </main>
-<div id="qrFs" class="qrfs" hidden><canvas id="qrFsCanvas"></canvas><div class="code" id="qrFsCode"></div><p>Scan, or open the student page and enter this code. Tap anywhere to close.</p></div>
+<div id="qrFs" class="qrfs" hidden><canvas id="qrFsCanvas"></canvas><div class="code" id="qrFsCode"></div><div class="code" id="qrFsPin" hidden></div><p>Scan, or open the student page and enter this code. Tap anywhere to close.</p></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>

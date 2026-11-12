@@ -11,7 +11,7 @@ async function fetchAttendance(sb, ids) {
   return out;
 }
 
-function buildSheets(classes, atts) {
+function buildSheets(classes, atts, absent) {
   const d = (iso) => new Date(iso).toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" });
   const t = (iso) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const byId = Object.fromEntries(classes.map((c) => [c.id, c]));
@@ -19,10 +19,10 @@ function buildSheets(classes, atts) {
   for (const a of atts) if (a.device_id) (dev[a.session_id + "|" + a.device_id] = dev[a.session_id + "|" + a.device_id] || new Set()).add(String(a.index_number).toUpperCase());
   const shared = (a) => !!(a.device_id && dev[a.session_id + "|" + a.device_id].size > 1);
   const sorted = [...atts].sort((a, b) => (byId[a.session_id].created_at < byId[b.session_id].created_at ? 1 : -1) || (a.checked_in_at > b.checked_in_at ? 1 : -1));
-  const ci = [["Date", "Course", "Programme", "Level", "Lecturer", "Name", "Index number", "Time", "Distance (m)", "In class area", "Shared phone", "Manual"]];
+  const ci = [["Date", "Course", "Programme", "Level", "Lecturer", "Name", "Index number", "Time", "Distance (m)", "In class area", "Shared phone", "Manual", "Late", "End check", "GPS warning"]];
   for (const a of sorted) {
     const c = byId[a.session_id];
-    ci.push([d(c.created_at), c.course, c.programme || "", c.level || "", c._owner || "", a.student_name || "", a.index_number, t(a.checked_in_at), Math.round(a.distance_m || 0), a.in_range ? "Yes" : "No", shared(a) ? "Yes" : "No", a.manual ? "Yes" : "No"]);
+    ci.push([d(c.created_at), c.course, c.programme || "", c.level || "", c._owner || "", a.student_name || "", a.index_number, t(a.checked_in_at), Math.round(a.distance_m || 0), a.in_range ? "Yes" : "No", shared(a) ? "Yes" : "No", a.manual ? "Yes" : "No", a.late ? "Yes" : "No", a.end_at ? t(a.end_at) : "", a.gps_flag || ""]);
   }
   const cl = [["Date", "Course", "Programme", "Level", "Lecturer", "Checked in", "In class area", "Outside", "Code"]];
   for (const c of classes) {
@@ -37,7 +37,9 @@ function buildSheets(classes, atts) {
   }
   const sm = [["Name", "Index number", "Programme", "Level", "Classes attended", "Total classes", "Attendance %"]];
   for (const [k, s] of Object.entries(st).sort((a, b) => a[0] < b[0] ? -1 : 1)) sm.push([s.name, k, s.prog, s.level, s.ok, classes.length, classes.length ? Math.round((s.ok / classes.length) * 100) : 0]);
-  return [{ name: "Check-ins", rows: ci }, { name: "Students", rows: sm }, { name: "Classes", rows: cl }];
+  const out = [{ name: "Check-ins", rows: ci }, { name: "Students", rows: sm }, { name: "Classes", rows: cl }];
+  if (absent && absent.length) out.push({ name: "Absent", rows: [["Name", "Index number", "Programme", "Level"]].concat(absent) });
+  return out;
 }
 
 function downloadXlsx(name, sheets) {

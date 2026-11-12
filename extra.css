@@ -1,54 +1,103 @@
-.done{text-align:center;padding:8px 0}
-.done .tick{width:76px;height:76px;border-radius:50%;margin:0 auto 12px;background:#1f9d55;color:#fff;font-size:44px;line-height:76px;animation:pop .4s ease}
-.done .tick.warn{background:#d98a00}
-.done h2{margin:0 0 4px}.done dl{text-align:left;margin:14px 0;display:grid;grid-template-columns:auto 1fr;gap:6px 14px}
-.done dt{color:#667}.done dd{margin:0;font-weight:600}
-@keyframes pop{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
-.bar{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.bar input,.bar select{flex:1;min-width:120px}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:10px 0}
-.stats div{background:#eef3f8;color:#123;border-radius:10px;padding:10px;text-align:center}.stats b{display:block;font-size:22px}
-td button{font-size:12px;padding:3px 7px;margin:1px}
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap");
 
-/* ---- Look and feel ---- */
-body{background:radial-gradient(1200px 400px at 50% -80px,color-mix(in srgb,var(--blue) 14%,transparent),transparent),var(--paper)}
-.top{background:linear-gradient(135deg,var(--blue),color-mix(in srgb,var(--blue) 55%,#6c5ce7));border-radius:0 0 18px 18px;box-shadow:0 6px 18px rgba(0,60,120,.18)}
-.top a{color:var(--on-blue);font-weight:600;display:inline-block;margin-top:8px}
-.card{border-radius:14px;box-shadow:0 2px 10px rgba(0,30,60,.07);animation:rise .45s ease both}
-.card:nth-of-type(2){animation-delay:.06s}.card:nth-of-type(3){animation-delay:.12s}
-input:focus,select:focus{border-color:var(--blue);box-shadow:0 0 0 3px color-mix(in srgb,var(--blue) 25%,transparent);outline:none}
-.btn{transition:transform .12s ease,box-shadow .15s ease,filter .15s ease;box-shadow:0 2px 6px rgba(0,60,120,.2)}
-.btn:hover:not(:disabled){transform:translateY(-1px);filter:brightness(1.08)}
-.btn:active:not(:disabled){transform:scale(.97)}
-.btn.quiet{box-shadow:none}
-td button{transition:transform .1s}td button:hover{transform:scale(1.06)}
-.stats div{transition:transform .15s ease}.stats div:hover{transform:translateY(-2px)}
-.stats b{font-variant-numeric:tabular-nums}
-.sessions button{transition:transform .12s,border-color .15s}.sessions button:hover{transform:translateX(3px);border-color:var(--blue)}
-.code{background:color-mix(in srgb,var(--blue) 10%,transparent);border-radius:12px;padding:6px 14px;display:inline-block;animation:pop .45s ease}
-body[data-role="assistant"] .nota{display:none!important}
+/* ---- Tokens ---- */
+:root{
+  --blue:#0b4f8a;--on-blue:#fff;--ink:#142235;--mut:#5a6878;--paper:#f4f6f8;--card:#fff;--line:#d9e0e7;
+  --ok:#12805c;--warn:#9a5b00;--bad:#b3261e;--gold:#f2b705;--sign:#0f2238;--sign-ink:#ffd45a;
+  --display:"Bricolage Grotesque","Figtree",system-ui,sans-serif;
+  --text:"Figtree",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{--blue:#6db3ee;--on-blue:#08121d;--ink:#e9eff5;--mut:#a3b2c0;--paper:#0d1822;--card:#15222e;--line:#263646;--ok:#4cc38a;--warn:#e0a040;--bad:#f08a80;--sign:#06101a}}
 
-/* Course card on the student page */
-.coursecard{margin:12px 0 4px;padding:14px 16px;border-radius:12px;color:var(--on-blue);background:linear-gradient(135deg,var(--blue),color-mix(in srgb,var(--blue) 55%,#6c5ce7));animation:pop .35s ease}
-.coursecard small{display:block;opacity:.85;text-transform:uppercase;letter-spacing:.06em;font-size:.72rem}
-.coursecard b{display:block;font-size:1.3rem;line-height:1.25;margin:2px 0}
-.coursecard span{font-size:.9rem;opacity:.95}
-.coursecard.closed{background:#8a5200}
+/* ---- Base ---- */
+body{font-family:var(--text);font-size:16px;line-height:1.5;background:var(--paper);-webkit-font-smoothing:antialiased}
+main{max-width:880px;padding:0 18px 48px}
+body:has(#f) main{max-width:520px}
+h1,h2{font-family:var(--display);letter-spacing:-.01em}
+h2{font-size:1.2rem;font-weight:700;margin:0 0 12px}
+
+/* Header: full-width blue band, left aligned */
+.top{position:relative;margin:0 -18px 22px;padding:26px 18px 24px;background:var(--blue);color:var(--on-blue);border-radius:0;box-shadow:0 0 0 100vmax var(--blue);clip-path:inset(0 -100vmax)}
+.top h1{font-size:1.7rem;font-weight:800;line-height:1.15}
+.top h1::after{content:"";display:block;width:36px;height:4px;border-radius:2px;background:var(--gold);margin-top:10px}
+.top p{margin:10px 0 0;opacity:.92;font-size:.98rem}
+.top a{color:var(--on-blue);font-weight:600;display:inline-block;margin-top:8px;text-underline-offset:3px}
+
+/* Surfaces */
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px;box-shadow:none;animation:none}
+
+/* Forms */
+label{font-size:.92rem;font-weight:600;margin:16px 0 6px}
+label:first-child{margin-top:0}
+input,select{min-height:48px;padding:11px 14px;border:1.5px solid var(--line);border-radius:10px;font-size:1rem;font-family:var(--text);background:var(--card)}
+input::placeholder{color:color-mix(in srgb,var(--mut) 70%,transparent)}
+select{appearance:none;-webkit-appearance:none;padding-right:40px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1.5l6 6 6-6' fill='none' stroke='%235a6878' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center}
+input:focus,select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px color-mix(in srgb,var(--blue) 22%,transparent)}
+.note{font-size:.88rem;line-height:1.45}
+.msg{font-size:.95rem}
+
+/* Buttons */
+.btn{min-height:50px;border-radius:10px;font-family:var(--text);font-size:1rem;font-weight:700;box-shadow:none;transition:background-color .15s,transform .1s}
+.btn:hover:not(:disabled){filter:none;background:color-mix(in srgb,var(--blue) 88%,#000);transform:none}
+.btn:active:not(:disabled){transform:scale(.98)}
+.btn.quiet{min-height:40px;border:1.5px solid var(--line);background:var(--card);font-weight:600;font-size:.92rem;border-radius:10px}
+.btn.quiet:hover:not(:disabled){background:color-mix(in srgb,var(--blue) 8%,var(--card));border-color:var(--blue);transform:none}
+td button{font-family:var(--text);font-size:.78rem;padding:4px 9px;margin:2px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer}
+td button:hover{border-color:var(--blue)}
+.row>*{flex:1 1 140px}
+
+/* Tables and stats */
+.table-wrap{border:1px solid var(--line);border-radius:12px}
+table{font-size:.9rem}
+th{background:color-mix(in srgb,var(--blue) 7%,var(--card));color:var(--ink);font-weight:700;font-size:.82rem}
+tr:last-child td{border-bottom:0}
+.bar{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}.bar input,.bar select{flex:1;min-width:140px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:14px 0}
+.stats div{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:10px;padding:10px 12px;text-align:left;color:var(--mut);font-size:.85rem}
+.stats b{display:block;font-family:var(--display);font-size:1.9rem;line-height:1.1;color:var(--ink);font-variant-numeric:tabular-nums}
+.sessions button{border-radius:10px;font-family:var(--text);padding:12px 14px}
+.sessions button:hover{border-color:var(--blue)}
+.sessions strong{font-weight:700}
+
+/* The class code: shown like a sign on the lecture-hall wall */
+.code{display:block;width:fit-content;max-width:100%;margin:6px 0 10px;padding:10px 22px;border-radius:12px;background:var(--sign);color:var(--sign-ink);font-family:var(--display);font-size:clamp(2.2rem,9vw,3.4rem);font-weight:800;letter-spacing:.16em;line-height:1.1;animation:pop .4s ease}
+.link{font-size:.86rem}
+
+/* Student page: course card (no label, the course is the content) */
+.coursecard{margin:14px 0 2px;padding:12px 16px;border-radius:10px;background:color-mix(in srgb,var(--blue) 9%,var(--card));border-left:5px solid var(--blue);animation:pop .3s ease}
+.coursecard small{display:none}
+.coursecard b{display:block;font-family:var(--display);font-size:1.3rem;font-weight:700;line-height:1.25;color:var(--ink)}
+.coursecard span{display:block;margin-top:2px;font-size:.9rem;color:var(--mut)}
+.coursecard.closed{border-left-color:var(--warn)}
+
+/* Check-in confirmation: an attendance slip */
+.done{text-align:left;padding:26px 22px 20px}
+.done .tick{width:64px;height:64px;margin:0 0 14px;border-radius:50%;background:var(--ok);color:#fff;font-size:34px;line-height:64px;text-align:center;animation:pop .45s cubic-bezier(.3,1.5,.5,1),ring 1.4s ease-out .45s 1}
+.done .tick.warn{background:#d98a00;animation:pop .45s ease}
+.done h2{font-size:1.5rem;font-weight:800;line-height:1.2;margin:0 0 6px}
+.done #doneSub{margin:0;color:var(--mut)}
+.done dl{margin:20px 0 14px;padding:4px 0;display:grid;grid-template-columns:auto 1fr;column-gap:20px;border-top:2px dashed var(--line);border-bottom:2px dashed var(--line)}
+.done dt{padding:9px 0;color:var(--mut);font-size:.92rem}
+.done dd{margin:0;padding:9px 0;text-align:right;font-weight:700;border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent)}
+.done dt:last-of-type,.done dd:last-of-type{border-bottom:0}
+.done dd.v-name{text-transform:capitalize}.done dd.v-index{letter-spacing:.04em}.done dd.v-class{text-transform:capitalize}
+.done .note{margin-top:0}
 
 /* QR */
-.qrbox{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin:14px 0;animation:rise .3s ease both}
+.qrbox{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin:14px 0}
 .qrbox canvas{width:220px;max-width:100%;height:auto;border-radius:10px;border:1px solid var(--line);background:#fff}
 .qrfs{position:fixed;inset:0;z-index:50;background:#fff;color:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:16px;cursor:pointer}
-.qrfs canvas{max-width:92vw;max-height:70vh}.qrfs .code{color:#111}
+.qrfs canvas{max-width:92vw;max-height:68vh}
 
-/* Row and error animation, confetti */
-tr.rowin{animation:rowin .35s ease both}
+/* Motion: only where it answers an action */
+tr.rowin{animation:rowin .3s ease both}
 .shake{animation:shake .4s}
-.done .tick{box-shadow:0 0 0 0 rgba(31,157,85,.5);animation:pop .4s ease,pulse 1.6s ease .4s 2}
 .confetti{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:60}
 .confetti i{position:absolute;top:-14px;width:9px;height:14px;border-radius:2px;animation:fall linear forwards}
-@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
-@keyframes rowin{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
-@keyframes shake{0%,100%{transform:none}20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
-@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(31,157,85,.5)}100%{box-shadow:0 0 0 24px rgba(31,157,85,0)}}
-@keyframes fall{to{transform:translateY(105vh) rotate(720deg);opacity:.9}}
+body[data-role="assistant"] .nota{display:none!important}
+@keyframes pop{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes ring{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 45%,transparent)}100%{box-shadow:0 0 0 22px transparent}}
+@keyframes rowin{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+@keyframes shake{0%,100%{transform:none}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+@keyframes fall{to{transform:translateY(105vh) rotate(720deg)}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}

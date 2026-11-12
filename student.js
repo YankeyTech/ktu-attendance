@@ -1,6 +1,7 @@
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $ = (id) => document.getElementById(id);
 
+const titleCase = (t) => t.replace(/\S+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase());
 function say(text, kind) {
   $("msg").textContent = text; $("msg").className = "msg " + (kind || "");
   if (kind === "bad") { const f = $("f"); f.classList.remove("shake"); void f.offsetWidth; f.classList.add("shake"); }
@@ -100,7 +101,7 @@ $("f").addEventListener("submit", async (e) => {
       p_accuracy: pos.coords.accuracy,
       p_device: deviceId() || null,
       p_ua: (navigator.userAgent || "").slice(0, 300),
-      p_name: $("name").value.trim(),
+      p_name: titleCase($("name").value.trim()),
       p_level: $("lvl").value
     });
     if (error) throw new Error("Could not reach the server. Check your internet and try again.");
@@ -122,10 +123,10 @@ function showDone(d) {
   $("tick").className = "tick" + (d.in_range ? "" : " warn");
   $("tick").textContent = d.in_range ? "\u2713" : "!";
   if (d.in_range) confetti();
-  $("doneTitle").textContent = d.in_range ? "Attendance marked, " + d.name.split(" ")[0] + "!" : "Recorded, please see your lecturer";
-  $("doneSub").textContent = d.in_range ? "You are confirmed in the class area." : "You appear to be " + d.distance_m + " m from the class. Tell your lecturer if you are in the room.";
+  $("doneTitle").textContent = d.in_range ? "You're checked in, " + titleCase(d.name.split(" ")[0]) + "." : "Recorded, please see your lecturer";
+  $("doneSub").textContent = d.in_range ? "Your attendance is recorded for this class." : "You appear to be " + d.distance_m + " m from the class. Tell your lecturer if you are in the room.";
   const L = $("doneList"); L.textContent = "";
   for (const [k, v] of [["Name", d.name], ["Index", d.index], ["Level", d.level], ["Class", d.course], ["Time", t]]) {
-    const a = document.createElement("dt"), b = document.createElement("dd"); a.textContent = k; b.textContent = v; L.append(a, b);
+    const a = document.createElement("dt"), b = document.createElement("dd"); a.textContent = k; b.textContent = v; b.className = "v-" + k.toLowerCase(); L.append(a, b);
   }
 }

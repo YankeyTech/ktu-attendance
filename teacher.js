@@ -2,6 +2,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $ = (id) => document.getElementById(id);
 const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no 0/O/1/I to avoid mix-ups
 let sortBy = ["checked_in_at", 1];
+let groups = [];
 let current = null, timer = null, records = [], role = "lecturer", qrTimer = null, lastWin = -1, rollRows = [], clockOffset = 0;
 
 function say(id, text, kind) { $(id).textContent = text; $(id).className = "msg " + (kind || ""); }
@@ -77,6 +78,8 @@ $("start").addEventListener("submit", async (e) => {
   $("startBtn").disabled = true;
   say("startMsg", "Getting your location…");
   try {
+    const comb = document.querySelector('input[name="ctype"]:checked').value === "combined";
+    if (comb && groups.length < 2) throw new Error("Add at least two programme and level groups, or choose Single programme.");
     const isNew = $("coursePick").value === "__new";
     const courseName = isNew ? $("course").value.trim() : $("coursePick").value;
     if (courseName.length < 2) throw new Error("Choose a course, or type the new course name.");
@@ -86,8 +89,9 @@ $("start").addEventListener("submit", async (e) => {
       const { data, error } = await sb.from("sessions").insert({
         code: newCode(),
         course: courseName,
-        programme: $("tprog").value,
-        level: $("tlevel").value,
+        programme: comb ? "Combined" : $("tprog").value,
+        level: comb ? "Combined" : $("tlevel").value,
+        combined: comb, class_groups: comb ? groups : [],
         late_after_min: $("late").value ? Number($("late").value) : null,
         rotating: $("rot").checked, two_point: $("two").checked, block_shared: $("blk").checked,
         lat: pos.coords.latitude,
@@ -117,13 +121,15 @@ async function loadSessions() {
   const cq = $("cq").value.trim().toLowerCase(), cf = $("cfilter").value;
   for (const s of data) {
     if (cf && s.course !== cf) continue;
-    if (cq && !((s.course || "") + " " + (s.programme || "") + " " + (s.level || "")).toLowerCase().includes(cq)) continue;
+    const tf = $("tfilter").value;
+    if ((tf === "combined" && !s.combined) || (tf === "single" && s.combined)) continue;
+    if (cq && !((s.course || "") + " " + (s.programme || "") + " " + (s.level || "") + " " + (s.class_groups || []).map(groupLabel).join(" ")).toLowerCase().includes(cq)) continue;
     const b = document.createElement("button");
     b.type = "button";
     b.setAttribute("aria-current", String(current && current.id === s.id));
     b.append(s.course);
     const small = document.createElement("small");
-    small.textContent = fmtDay(s.created_at) + ", " + fmtTime(s.created_at) + (s.programme ? "  |  " + s.programme : "") + "  |  code " + s.code;
+    small.textContent = fmtDay(s.created_at) + ", " + fmtTime(s.created_at) + (s.programme ? "  |  " + s.programme : "") + "  |  code " + s.code + (s.combined ? "  |  Combined" : "");
     b.appendChild(small);
     b.addEventListener("click", () => openSession(s));
     box.appendChild(b);
@@ -133,7 +139,12 @@ async function loadSessions() {
 function openSession(s) {
   current = s;
   $("live").hidden = false;
-  $("liveCourse").textContent = s.course + (s.programme ? " (" + s.programme + (s.level ? ", " + s.level : "") + ")" : "");
+  $("liveCourse").textContent = s.course + (s.combined ? " (Combined)" : s.programme ? " (" + s.programme + (s.level ? ", " + s.level : "") + ")" : "");
+  const gs = s.class_groups || [];
+  $("liveGroups").hidden = !s.combined; $("liveGroups").textContent = s.combined ? "Combined class. Open to: " + gs.map(groupLabel).join("; ") : "";
+  const gf = $("gflt"); gf.hidden = !s.combined; gf.textContent = "";
+  { const o = document.createElement("option"); o.value = ""; o.textContent = "All groups"; gf.appendChild(o); }
+  gs.forEach((g, i) => { const o = document.createElement("option"); o.value = String(i); o.textContent = groupLabel(g); gf.appendChild(o); });
   $("liveCode").textContent = s.code;
   $("liveLink").textContent = studentLink(s.code);
   loadAttendance();
@@ -175,6 +186,8 @@ function renderRows() {
   const q = $("q").value.trim().toLowerCase(), f = $("flt").value;
   const list = records.filter((r) => {
     if (q && !((r.student_name || "") + " " + r.index_number).toLowerCase().includes(q)) return false;
+    const gi = $("gflt").value;
+    if (gi !== "" && current.combined) { const g = (current.class_groups || [])[Number(gi)]; if (g && !(r.programme === g.programme && (g.level === "All levels" || r.level === g.level))) return false; }
     return f === "all" || (f === "in" && r.in_range) || (f === "out" && !r.in_range) || (f === "shared" && r._shared) || (f === "manual" && r.manual) || (f === "late" && r.late) || (f === "flag" && r.gps_flag);
   });
   const [sk, sd] = sortBy; list.sort((a, b) => ((a[sk] ?? "") > (b[sk] ?? "") ? 1 : (a[sk] ?? "") < (b[sk] ?? "") ? -1 : 0) * sd);
@@ -197,7 +210,7 @@ function renderRows() {
   for (const [n, l] of [[records.length, "Checked in"], [inside, "In class area"], [records.length - inside, "Outside"], [sc, "Shared phone"], [records.filter((r) => r.late).length, "Late"], [records.filter((r) => r.gps_flag).length, "GPS warnings"]]) {
     const d = document.createElement("div"); const b = document.createElement("b"); b.textContent = n; d.append(b, l); $("stats").appendChild(d);
   }
-  renderAbsent();
+  renderAbsent(); renderGroupSum();
   say("count", (open ? "Check-in is open until " + fmtTime(current.closes_at) + "." : "Check-in is closed.") + " Showing " + list.length + " of " + records.length + ".");
 }
 document.querySelectorAll("th[data-k]").forEach((th) => th.addEventListener("click", () => { sortBy = [th.dataset.k, sortBy[0] === th.dataset.k ? -sortBy[1] : 1]; renderRows(); }));
@@ -463,5 +476,44 @@ $("rep").addEventListener("click", async () => {
   }
   say("rollMsg", "");
 });
+
+
+// ---- Combined classes ----
+const groupLabel = (g) => g.programme + " (" + g.level + ")";
+fillProgrammes($("gprog"));
+function setType() {
+  const comb = document.querySelector('input[name="ctype"]:checked').value === "combined";
+  $("singleBox").hidden = comb; $("combBox").hidden = !comb;
+  $("tprog").required = !comb; $("tlevel").required = !comb;
+}
+document.querySelectorAll('input[name="ctype"]').forEach((r) => r.addEventListener("change", setType));
+function drawChips() {
+  const box = $("gchips"); box.textContent = "";
+  groups.forEach((g, i) => {
+    const c = document.createElement("span"); c.className = "chip"; c.textContent = groupLabel(g);
+    const x = document.createElement("button"); x.type = "button"; x.setAttribute("aria-label", "Remove " + groupLabel(g)); x.textContent = "\u00d7";
+    x.addEventListener("click", () => { groups.splice(i, 1); drawChips(); });
+    c.appendChild(x); box.appendChild(c);
+  });
+}
+$("gadd").addEventListener("click", () => {
+  const p = $("gprog").value, l = $("glevel").value;
+  if (!p || !l) return say("startMsg", "Choose a programme and a level to add.", "warn");
+  if (groups.some((g) => g.programme === p && g.level === l)) return say("startMsg", "That programme and level is already added.", "warn");
+  if (groups.length >= 12) return say("startMsg", "You can add up to 12 groups.", "warn");
+  groups.push({ programme: p, level: l }); drawChips(); say("startMsg", "");
+});
+function renderGroupSum() {
+  const box = $("groupSum");
+  if (!current || !current.combined) { box.hidden = true; return; }
+  box.hidden = false; box.textContent = "";
+  for (const g of current.class_groups || []) {
+    const n = records.filter((r) => r.programme === g.programme && (g.level === "All levels" || r.level === g.level)).length;
+    const c = document.createElement("span"); c.className = "chip"; c.textContent = groupLabel(g) + ": " + n; box.appendChild(c);
+  }
+}
+$("tfilter").addEventListener("change", loadSessions);
+$("gflt").addEventListener("change", renderRows);
+setType();
 
 refreshAuth();

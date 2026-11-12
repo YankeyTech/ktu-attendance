@@ -11,6 +11,7 @@ async function fetchAttendance(sb, ids) {
   return out;
 }
 
+const progLabel = (c) => (c.combined ? "Combined: " + (c.class_groups || []).map((g) => g.programme + " (" + g.level + ")").join("; ") : c.programme || "");
 function buildSheets(classes, atts, absent) {
   const d = (iso) => new Date(iso).toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" });
   const t = (iso) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -22,12 +23,12 @@ function buildSheets(classes, atts, absent) {
   const ci = [["Date", "Course", "Programme", "Level", "Lecturer", "Name", "Index number", "Time", "Distance (m)", "In class area", "Shared phone", "Manual", "Late", "End check", "GPS warning"]];
   for (const a of sorted) {
     const c = byId[a.session_id];
-    ci.push([d(c.created_at), c.course, c.programme || "", c.level || "", c._owner || "", a.student_name || "", a.index_number, t(a.checked_in_at), Math.round(a.distance_m || 0), a.in_range ? "Yes" : "No", shared(a) ? "Yes" : "No", a.manual ? "Yes" : "No", a.late ? "Yes" : "No", a.end_at ? t(a.end_at) : "", a.gps_flag || ""]);
+    ci.push([d(c.created_at), c.course, a.programme || c.programme || "", a.level || (c.combined ? "" : c.level) || "", c._owner || "", a.student_name || "", a.index_number, t(a.checked_in_at), Math.round(a.distance_m || 0), a.in_range ? "Yes" : "No", shared(a) ? "Yes" : "No", a.manual ? "Yes" : "No", a.late ? "Yes" : "No", a.end_at ? t(a.end_at) : "", a.gps_flag || ""]);
   }
   const cl = [["Date", "Course", "Programme", "Level", "Lecturer", "Checked in", "In class area", "Outside", "Code"]];
   for (const c of classes) {
     const r = atts.filter((a) => a.session_id === c.id), n = r.filter((a) => a.in_range).length;
-    cl.push([d(c.created_at), c.course, c.programme || "", c.level || "", c._owner || "", r.length, n, r.length - n, c.code]);
+    cl.push([d(c.created_at), c.course, progLabel(c), c.combined ? "Various" : c.level || "", c._owner || "", r.length, n, r.length - n, c.code]);
   }
   const st = {};
   for (const a of atts) {

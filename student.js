@@ -69,20 +69,44 @@ async function claim() {
 }
 $("tok").addEventListener("input", claim);
 
+// Combined classes: only the programmes and levels the lecturer allowed can be chosen.
+const progAllHTML = $("prog").innerHTML;
+let groupsNow = null, restricted = false;
+function syncLevels() {
+  let al = null;
+  if (groupsNow) { const ls = groupsNow.filter((g) => g.programme === $("prog").value); al = ls.some((g) => g.level === "All levels") ? null : ls.map((g) => g.level); }
+  for (const o of $("lvl").options) if (o.value) o.disabled = !!al && !al.includes(o.value);
+  const cur = $("lvl").selectedOptions[0]; if (cur && cur.disabled) $("lvl").value = "";
+}
+function setGroups(gs) {
+  const prog = $("prog"), keep = prog.value;
+  groupsNow = gs;
+  if (gs) {
+    const names = Array.from(new Set(gs.map((g) => g.programme)));
+    prog.textContent = "";
+    const first = document.createElement("option"); first.value = ""; first.textContent = "Select your programme"; prog.appendChild(first);
+    for (const n of names) { const o = document.createElement("option"); o.value = n; o.textContent = n; prog.appendChild(o); }
+    prog.value = names.includes(keep) ? keep : (names.length === 1 ? names[0] : "");
+    restricted = true;
+  } else if (restricted) { prog.innerHTML = progAllHTML; prog.value = keep; restricted = false; }
+  syncLevels();
+}
+$("prog").addEventListener("change", syncLevels);
+
 async function lookup() {
   const code = $("code").value.trim().toUpperCase();
-  $("course").textContent = ""; $("courseCard").hidden = true; $("tokWrap").hidden = true; $("tok").required = false;
+  $("course").textContent = ""; $("courseCard").hidden = true; if (groupsNow || restricted) setGroups(null); $("tokWrap").hidden = true; $("tok").required = false;
   if (code.length < 4) return;
   const { data, error } = await sb.rpc("get_session", { p_code: code });
   if (error || !data || !data.length) { $("course").textContent = "Class code not found."; return; }
   const s = data[0];
   $("cname").textContent = s.course;
-  $("cmeta").textContent = [s.programme, s.level, s.lecturer ? "Lecturer: " + s.lecturer : ""].filter(Boolean).join("  |  ") + (s.two_point && s.end_open ? "  |  End-of-class check" : "") + (s.is_open ? "" : "  |  Check-in closed");
+  $("cmeta").textContent = [s.combined ? "Combined class. Open to: " + (s.class_groups || []).map((g) => g.programme + " (" + g.level + ")").join("; ") : s.programme, s.combined ? "" : s.level, s.lecturer ? "Lecturer: " + s.lecturer : ""].filter(Boolean).join("  |  ") + (s.two_point && s.end_open ? "  |  End-of-class check" : "") + (s.is_open ? "" : "  |  Check-in closed");
   $("tokWrap").hidden = !s.rotating; $("tok").required = !!s.rotating;
   if (s.rotating && !pass) claim();
   $("courseCard").className = "coursecard" + (s.is_open ? "" : " closed"); $("courseCard").hidden = false;
   const fill = (sel, v) => { if (v && !sel.value && Array.from(sel.options).some((o) => o.value === v)) sel.value = v; };
-  fill($("prog"), s.programme); fill($("lvl"), s.level);
+  if (s.combined) setGroups(s.class_groups || []); else { fill($("prog"), s.programme); fill($("lvl"), s.level); }
 }
 $("code").addEventListener("input", lookup);
 lookup();

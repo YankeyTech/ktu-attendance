@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Lecturer | KTU check-in</title>
-<link rel="stylesheet" href="style.css?v=4">
-<link rel="stylesheet" href="extra.css?v=4">
+<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="extra.css?v=6">
 </head>
 <body>
 <main>
@@ -31,10 +31,25 @@
       <label for="coursePick">Course</label>
       <select id="coursePick" required><option value="">Select your course</option><option value="__new">+ Add a new course...</option></select>
       <input id="course" maxlength="120" placeholder="Type the new course name" hidden>
+      <div class="seg" role="radiogroup" aria-label="Class type">
+        <label class="segopt"><input type="radio" name="ctype" value="single" checked><span>Single programme</span></label>
+        <label class="segopt"><input type="radio" name="ctype" value="combined"><span>Combined class</span></label>
+      </div>
+      <div id="singleBox">
       <label for="tprog">Programme</label>
       <select id="tprog" required><option value="">Select the programme</option></select>
       <label for="tlevel">Level</label>
       <select id="tlevel" required><option value="">Select the level</option><option>Level 100</option><option>Level 200</option><option>Level 300</option><option>Level 400</option><option>Postgraduate</option></select>
+      </div>
+      <div id="combBox" hidden>
+        <p class="note">Add every programme and level that can attend this class. Students pick their own programme and level, and are only accepted if it matches one of these.</p>
+        <div class="row">
+          <div><label for="gprog">Programme</label><select id="gprog"><option value="">Select the programme</option></select></div>
+          <div><label for="glevel">Level</label><select id="glevel"><option value="">Select the level</option><option>All levels</option><option>Level 100</option><option>Level 200</option><option>Level 300</option><option>Level 400</option><option>Postgraduate</option></select></div>
+        </div>
+        <button id="gadd" class="btn quiet" type="button">Add to this class</button>
+        <div id="gchips" class="chips"></div>
+      </div>
       <div class="row">
         <div><label for="mins">Open for (minutes)</label><input id="mins" type="number" min="1" max="240" value="20" required></div>
         <div><label for="radius">Allowed distance (m)</label><input id="radius" type="number" min="20" max="2000" value="100" required></div>
@@ -53,6 +68,8 @@
 
     <section id="live" class="card" hidden>
       <h2 id="liveCourse"></h2>
+      <p id="liveGroups" class="note" hidden></p>
+      <div id="groupSum" class="chips" hidden></div>
       <div class="code" id="liveCode"></div>
       <div id="pinBox" class="pinbox" hidden><span>Screen code</span><b id="pin"></b><div class="cdwrap"><i id="cd"></i></div></div>
       <p class="link" id="liveLink"></p>
@@ -72,7 +89,7 @@
         <button id="qrFull" class="btn quiet" type="button">Full screen</button> <button id="qrDl" class="btn quiet" type="button">Download image</button></div>
       </div>
       <div class="stats" id="stats"></div>
-      <div class="bar"><input id="q" placeholder="Search name or index number"><select id="flt"><option value="all">All</option><option value="in">In class area</option><option value="out">Outside</option><option value="shared">Shared phone</option><option value="manual">Added manually</option><option value="late">Late</option><option value="flag">GPS warning</option></select></div>
+      <div class="bar"><input id="q" placeholder="Search name or index number"><select id="flt"><option value="all">All</option><option value="in">In class area</option><option value="out">Outside</option><option value="shared">Shared phone</option><option value="manual">Added manually</option><option value="late">Late</option><option value="flag">GPS warning</option></select><select id="gflt" hidden><option value="">All groups</option></select></div>
       <p id="count" class="msg"></p>
       <div class="table-wrap">
         <table>
@@ -99,7 +116,7 @@
 
     <section class="card">
       <h2>Recent classes</h2>
-      <div class="bar"><input id="cq" placeholder="Search classes by course, programme or level"><select id="cfilter"><option value="">All courses</option></select></div>
+      <div class="bar"><input id="cq" placeholder="Search classes by course, programme or level"><select id="cfilter"><option value="">All courses</option></select><select id="tfilter"><option value="">All types</option><option value="single">Single</option><option value="combined">Combined</option></select></div>
       <button id="cxlsx" class="btn quiet nota" type="button">Download Excel for this course</button>
       <p id="cmsg" class="msg" role="status"></p>
       <div id="sessions" class="sessions"></div>
@@ -112,8 +129,8 @@
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-<script src="shared.js?v=4"></script>
+<script src="shared.js?v=6"></script>
 <script src="programmes.js"></script>
-<script src="teacher.js?v=5"></script>
+<script src="teacher.js?v=6"></script>
 </body>
 </html>

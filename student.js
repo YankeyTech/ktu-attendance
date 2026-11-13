@@ -123,11 +123,55 @@ $("code").addEventListener("input", lookup);
 lookup();
 
 function getPosition() {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) return reject({ code: 0 });
-    navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+  if (!navigator.geolocation) return Promise.reject({ code: 0 });
+  const ask = (opts) => new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, opts));
+  // Precise GPS first. If it is slow or fails (not denied), try the quicker network location once.
+  return ask({ enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }).catch((e) => {
+    if (e && e.code === 1) throw e;
+    return ask({ enableHighAccuracy: false, timeout: 15000, maximumAge: 120000 });
   });
 }
+
+// Help for "location denied", with steps that match the phone.
+const UA = navigator.userAgent;
+const isIOS = /iPhone|iPad|iPod/.test(UA) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const inApp = /FBAN|FBAV|Instagram|WhatsApp|Line\/|Snapchat|TikTok|MicroMessenger|Telegram/i.test(UA);
+function inAppNote() {
+  const p = document.createElement("p"); p.style.margin = "8px 0 0";
+  p.textContent = "You opened this page inside another app, which often blocks location. Open the link in " + (isIOS ? "Safari" : "Chrome") + " instead, using the browser icon or menu in that app.";
+  return p;
+}
+function showLocHelp() {
+  const box = $("locHelp"); box.textContent = "";
+  const h = document.createElement("b"); h.textContent = "Location is turned off for this page. Fix it like this:"; box.appendChild(h);
+  const steps = isIOS ? [
+    "Open Settings, then Privacy & Security, then Location Services, and make sure it is On.",
+    "Scroll down to Safari Websites and choose While Using the App (or Ask Next Time). Turn on Precise Location.",
+    "Back in Safari, tap the aA icon in the address bar, then Website Settings, then Location, and choose Allow. Reload the page and press Check in again."
+  ] : [
+    "Turn on Location (GPS) in your phone's quick settings.",
+    "Tap the lock or settings icon next to the web address, then Permissions, then Location, and choose Allow.",
+    "Reload the page and press Check in again."
+  ];
+  const ol = document.createElement("ol");
+  for (const t of steps) { const li = document.createElement("li"); li.textContent = t; ol.appendChild(li); }
+  box.appendChild(ol);
+  if (inApp) box.appendChild(inAppNote());
+  box.hidden = false;
+}
+function hideLocHelp() {
+  const box = $("locHelp"); box.textContent = "";
+  if (inApp) { box.appendChild(inAppNote()); box.hidden = false; } else box.hidden = true;
+}
+hideLocHelp();
+try {
+  if (navigator.permissions && navigator.permissions.query) {
+    navigator.permissions.query({ name: "geolocation" }).then((p) => {
+      const upd = () => { if (p.state === "denied") showLocHelp(); else hideLocHelp(); };
+      upd(); p.onchange = upd;
+    }).catch(() => {});
+  }
+} catch (e) {}
 
 const LOCATION_ERRORS = {
   0: "This browser cannot share location. Try Chrome or Safari.",
@@ -167,6 +211,7 @@ $("f").addEventListener("submit", async (e) => {
     }
   } catch (err) {
     say(err && err.message ? err.message : (LOCATION_ERRORS[err && err.code] || "Something went wrong. Try again."), "bad");
+    if (err && err.code === 1) showLocHelp();
   } finally {
     $("go").disabled = false;
   }

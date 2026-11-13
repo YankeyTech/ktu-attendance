@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Class check-in | KTU</title>
-<link rel="stylesheet" href="style.css?v=12">
-<link rel="stylesheet" href="extra.css?v=12">
+<link rel="stylesheet" href="style.css?v=13">
+<link rel="stylesheet" href="extra.css?v=13">
 </head>
 <body>
 <main>
@@ -36,6 +36,7 @@
     <p class="note">Your phone will ask to share your location. It is recorded once, at check-in, to confirm you are in the class. It is not tracked afterwards. Use a normal browser tab, not a Private one, so your phone can be recognised.</p>
     <button id="go" class="btn" type="submit">Check in</button>
     <p id="msg" class="msg" role="status" aria-live="polite"></p>
+    <div id="locHelp" class="lochelp" hidden></div>
   </form>
 
   <section id="done" class="card done" hidden aria-live="polite">
@@ -48,8 +49,8 @@
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
-<script src="shared.js?v=12"></script>
+<script src="shared.js?v=13"></script>
 <script src="programmes.js"></script>
-<script src="student.js?v=12"></script>
+<script src="student.js?v=13"></script>
 </body>
 </html>

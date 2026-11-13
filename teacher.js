@@ -57,6 +57,7 @@ async function refreshAuth() {
     if (pr && pr.must_change) return location.replace("change-password.html");
     if (pr && pr.active === false) { await sb.auth.signOut(); return say("loginMsg", "This account is disabled. Contact the admin.", "bad"); }
     role = (pr && pr.role) || "lecturer";
+    { const { data: pn } = await sb.from("name_requests").select("requested_name").eq("user_id", session.user.id).eq("status", "pending").maybeSingle(); pendingName = pn ? pn.requested_name : ""; }
     myName = (pr && pr.full_name) || ""; $("myName").value = myName; myEmail = session.user.email; applyName();
     document.body.dataset.role = role;
     $("adminLink").hidden = !(role === "admin" && session.user.email.toLowerCase() === "ygpedri@gmail.com");
@@ -133,7 +134,7 @@ async function loadSessions() {
     b.setAttribute("aria-current", String(current && current.id === s.id));
     b.append(s.course);
     const small = document.createElement("small");
-    small.textContent = fmtDay(s.created_at) + ", " + fmtTime(s.created_at) + (s.programme ? "  |  " + s.programme : "") + "  |  code " + s.code + (s.combined ? "  |  Combined" : "") + (s.semester ? "  |  " + (s.academic_year || "") + " " + s.semester : "");
+    small.textContent = fmtDay(s.created_at) + ", " + fmtTime(s.created_at) + (s.programme ? "  |  " + s.programme : "") + "  |  code " + s.code + (s.combined ? "  |  Combined" : "") + (s.semester ? "  |  " + (s.academic_year || "") + " " + s.semester : "") + (new Date(s.closes_at) > new Date() ? "  |  Open now" : "  |  Ended");
     b.appendChild(small);
     b.addEventListener("click", () => openSession(s));
     box.appendChild(b);
@@ -157,7 +158,7 @@ function openSession(s) {
   $("endchk").hidden = !s.two_point; $("endchk").textContent = s.end_open ? "Close end-of-class check" : "Open end-of-class check (10 min)";
   lastWin = -1; if (qrTimer) clearInterval(qrTimer); qrTimer = setInterval(tickQr, 1000); tickQr();
   syncClock().then(() => { lastWin = -1; tickQr(); });
-  loadRoll(); keepAwake();
+  loadRoll(); applyState(); keepAwake();
   stopPolling();
   timer = setInterval(loadAttendance, 8000);
   $("live").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -215,7 +216,7 @@ function renderRows() {
   for (const [n, l] of [[records.length, "Checked in"], [inside, "In class area"], [records.length - inside, "Outside"], [sc, "Shared phone"], [records.filter((r) => r.late).length, "Late"], [records.filter((r) => r.gps_flag).length, "GPS warnings"]]) {
     const d = document.createElement("div"); const b = document.createElement("b"); b.textContent = n; d.append(b, l); $("stats").appendChild(d);
   }
-  renderAbsent(); renderGroupSum();
+  renderAbsent(); renderGroupSum(); applyState();
   say("count", (open ? "Check-in is open until " + fmtTime(current.closes_at) + "." : "Check-in is closed.") + " Showing " + list.length + " of " + records.length + ".");
 }
 document.querySelectorAll("th[data-k]").forEach((th) => th.addEventListener("click", () => { sortBy = [th.dataset.k, sortBy[0] === th.dataset.k ? -sortBy[1] : 1]; renderRows(); }));
@@ -225,7 +226,7 @@ $("more").addEventListener("click", async () => {
   const base = Math.max(Date.now(), new Date(current.closes_at).getTime());
   const t = new Date(base + 600000).toISOString();
   const { error } = await sb.from("sessions").update({ closes_at: t }).eq("id", current.id);
-  if (!error) { current.closes_at = t; renderRows(); }
+  if (!error) { current.closes_at = t; applyState(); renderRows(); loadSessions(); }
 });
 $("addm").addEventListener("click", async () => {
   const idx = (prompt("Index number of the student:") || "").trim().toUpperCase(); if (!idx) return;
@@ -242,9 +243,10 @@ $("copy").addEventListener("click", async () => {
 });
 
 $("close").addEventListener("click", async () => {
+  if (!confirm("Close check-in now? Students will no longer be able to check in.")) return;
   const now = new Date().toISOString();
   const { error } = await sb.from("sessions").update({ closes_at: now }).eq("id", current.id);
-  if (!error) { current.closes_at = now; loadAttendance(); }
+  if (!error) { current.closes_at = now; applyState(); loadAttendance(); loadSessions(); }
 });
 
 // CSV: a leading ' stops Excel from running cells that start with = + - @
@@ -349,7 +351,7 @@ function drawFs() {
   $("qrFsPin").hidden = !current.rotating; if (current.rotating && current._tok) $("qrFsPin").textContent = current._tok.slice(0, 3) + " " + current._tok.slice(3);
 }
 async function tickQr() {
-  if (!current || !current.rotating || !current.secret) return;
+  if (!current || !current.rotating || !current.secret || !isOpen()) return;
   const now = Date.now() / 1000 + clockOffset, w = Math.floor(now / 30);
   $("cd").style.width = ((30 - (now % 30)) / 30) * 100 + "%";
   if (w === lastWin) return;
@@ -365,7 +367,7 @@ $("endchk").addEventListener("click", async () => {
   const patch = { end_open: open, closes_at: open ? new Date(Date.now() + 600000).toISOString() : new Date().toISOString() };
   const { error } = await sb.from("sessions").update(patch).eq("id", current.id);
   if (error) return say("count", "Could not change the end check: " + error.message, "bad");
-  Object.assign(current, patch);
+  Object.assign(current, patch); applyState();
   $("endchk").textContent = open ? "Close end-of-class check" : "Open end-of-class check (10 min)";
   loadAttendance();
 });
@@ -549,29 +551,66 @@ $("yfilter").addEventListener("change", loadSessions); $("sfilter").addEventList
 // Keep the screen on while a rotating QR is showing, and refresh the code when the tab returns.
 let wake = null;
 async function keepAwake() {
-  try { if (current && current.rotating && navigator.wakeLock && !document.hidden) wake = await navigator.wakeLock.request("screen"); } catch (e) {}
+  try { if (current && current.rotating && isOpen() && navigator.wakeLock && !document.hidden) wake = await navigator.wakeLock.request("screen"); } catch (e) {}
 }
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { keepAwake(); tickQr(); } });
 
 
-// ---- Your name (used in Excel files) ----
+// ---- Your name: saved once, then only the admin can change it ----
+let requesting = false, pendingName = "";
 $("saveName").addEventListener("click", async () => {
   const name = $("myName").value.trim().replace(/\s+/g, " ").replace(/\S+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase());
   if (name.length < 3) return say("nameMsg", "Enter your full name.", "warn");
+  if (requesting) {
+    const { error } = await sb.rpc("request_name_change", { p_name: name });
+    if (error) return say("nameMsg", "Could not send: " + error.message, "bad");
+    requesting = false; pendingName = name; say("nameMsg", "Request sent. The admin will review it.", "ok"); return applyName();
+  }
   const { error } = await sb.rpc("set_my_name", { p_name: name });
   if (error) return say("nameMsg", "Could not save: " + error.message, "bad");
-  myName = name; $("myName").value = name; say("nameMsg", "Saved. Your Excel files will now show this name.", "ok"); applyName();
+  myName = name; say("nameMsg", "Saved. Your Excel files will now show this name.", "ok"); applyName();
 });
-
+$("reqName").addEventListener("click", () => { requesting = true; $("myName").value = ""; applyName(); $("myName").focus(); });
 
 // ---- Welcome line and first-time name prompt ----
 const roleLabel = (r) => (r === "assistant" ? "Teaching assistant" : r === "admin" ? "Admin" : "Lecturer");
 function applyName() {
-  const need = !myName, card = $("nameCard"), app = $("app");
+  const need = !myName, locked = !!myName && role !== "admin", card = $("nameCard"), app = $("app");
   $("who").textContent = need ? "Welcome. Please add your full name to continue." : "Welcome, " + myName + "  |  " + roleLabel(role);
   $("start").hidden = need;
   if (need) { app.prepend(card); card.querySelector("h2").textContent = "What is your name?"; }
   else { card.querySelector("h2").textContent = "Your name"; app.insertBefore(card, $("sessions").closest("section")); }
+  if (!requesting) $("myName").value = myName;
+  $("myName").disabled = locked && !requesting;
+  $("saveName").hidden = locked && !requesting;
+  $("saveName").textContent = requesting ? "Send request" : "Save name";
+  $("reqName").hidden = !locked || requesting;
+  $("reqInfo").hidden = !pendingName; $("reqInfo").textContent = pendingName ? "Request pending: " + pendingName + ". The admin will review it." : "";
+  $("nameNote").textContent = need ? "Type your full name. You can only set it once, so check the spelling."
+    : requesting ? "Type the name you want. The admin must approve it before it changes."
+    : locked ? "Your name is saved. Only the admin can change it. If it needs correcting, send a request."
+    : "This name appears on your Excel files and on the student page.";
 }
+
+
+// ---- Open or ended class: show the right controls ----
+const isOpen = () => !!current && new Date(current.closes_at) > new Date();
+function applyState() {
+  if (!current) return;
+  const open = isOpen(), st = $("liveStatus");
+  st.textContent = open ? "Check-in open" : "Check-in ended"; st.className = "badge " + (open ? "on" : "off");
+  $("close").hidden = !open; $("more").hidden = !open; $("reopenBox").hidden = open;
+  $("qr").hidden = !open; $("copy").hidden = !open || !!current.rotating;
+  $("pinBox").hidden = !(open && current.rotating);
+  if (!open) { $("qrBox").hidden = true; $("qrFs").hidden = true; stopQr(); }
+  else if (current.rotating) { $("qrBox").hidden = false; if (!qrTimer) { lastWin = -1; qrTimer = setInterval(tickQr, 1000); tickQr(); keepAwake(); } }
+}
+$("reopen").addEventListener("click", async () => {
+  const t = new Date(Date.now() + Number($("reopenMins").value) * 60000).toISOString();
+  const { error } = await sb.from("sessions").update({ closes_at: t }).eq("id", current.id);
+  if (error) return say("count", "Could not reopen: " + error.message, "bad");
+  current.closes_at = t; applyState(); loadAttendance(); loadSessions();
+  say("count", "Check-in reopened.", "ok");
+});
 
 refreshAuth();

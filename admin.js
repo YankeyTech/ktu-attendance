@@ -1,7 +1,7 @@
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $ = (i) => document.getElementById(i);
 const say = (id, t, k) => { $(id).textContent = t; $(id).className = "msg " + (k || ""); };
-let people = [], classes = [], courses = [], counts = {}, sort = { lect: ["email", 1], cls: ["created_at", -1] };
+let people = [], classes = [], courses = [], nameReqs = [], counts = {}, sort = { lect: ["email", 1], cls: ["created_at", -1] };
 const fmt = (iso) => new Date(iso).toLocaleString([], { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
 async function start() {
@@ -25,7 +25,8 @@ document.querySelectorAll(".tabs [data-t]").forEach((b) => b.addEventListener("c
 }));
 
 async function load() {
-  const [p, c, a, cr] = await Promise.all([sb.from("profiles").select("*"), sb.from("sessions").select("*").order("created_at", { ascending: false }), sb.from("attendance").select("session_id"), sb.from("courses").select("owner,name").order("name")]);
+  const [p, c, a, cr, rq] = await Promise.all([sb.from("profiles").select("*"), sb.from("sessions").select("*").order("created_at", { ascending: false }), sb.from("attendance").select("session_id"), sb.from("courses").select("owner,name").order("name"), sb.from("name_requests").select("*").eq("status", "pending").order("created_at")]);
+  nameReqs = rq.data || [];
   courses = cr.data || [];
   people = p.data || []; classes = c.data || []; counts = {};
   for (const r of a.data || []) counts[r.session_id] = (counts[r.session_id] || 0) + 1;
@@ -34,10 +35,10 @@ async function load() {
   for (const s of classes) { const o = byId[s.owner] || {}; s._owner = o.full_name ? (nameCount[o.full_name.toLowerCase()] > 1 ? o.full_name + " (" + o.email + ")" : o.full_name) : o.email || "-"; s._n = counts[s.id] || 0; }
   for (const x of people) { x._classes = classes.filter((s) => s.owner === x.id).length; x._courseText = courses.filter((k) => k.owner === x.id).map((k) => k.name).join(", "); }
   $("stats").innerHTML = "";
-  for (const [n, l] of [[people.length, "Staff accounts"], [people.filter((x) => x.role === "lecturer" && x.active).length, "Active lecturers"], [people.filter((x) => x.role === "assistant" && x.active).length, "Teaching assistants"], [classes.length, "Classes"], [(a.data || []).length, "Check-ins"]]) {
+  for (const [n, l] of [[people.length, "Staff accounts"], [people.filter((x) => x.role === "lecturer" && x.active).length, "Active lecturers"], [people.filter((x) => x.role === "assistant" && x.active).length, "Teaching assistants"], [nameReqs.length, "Name requests"], [classes.length, "Classes"], [(a.data || []).length, "Check-ins"]]) {
     const d = document.createElement("div"), b = document.createElement("b"); b.textContent = 0; countUp(b, n); d.append(b, l); $("stats").appendChild(d);
   }
-  fillFilters(); drawL(); drawC();
+  fillFilters(); drawL(); drawC(); drawReq();
 }
 
 function grid(head, body, cols, rows, key) {
@@ -57,11 +58,11 @@ function drawL() {
     for (const v of [x.email, x.full_name || "-", roleLabel(x.role), x._courseText || "-", x.active ? "Active" : "Disabled", x._classes, fmt(x.created_at)]) { const td = document.createElement("td"); td.textContent = v; tr.appendChild(td); }
     const td = document.createElement("td");
     if (x.role !== "admin") {
-      const mk = (t, f) => { const b = document.createElement("button"); b.type = "button"; b.textContent = t; b.addEventListener("click", f); td.appendChild(b); };
+      const mk = (t, f) => { const b = document.createElement("button"); b.type = "button"; b.textContent = t; b.className = "abtn " + (/^Disable/.test(t) ? "bad" : /^Enable/.test(t) ? "ok" : ""); b.addEventListener("click", f); td.appendChild(b); };
       mk("Reset password", () => call({ action: "reset", id: x.id }, x.email, "Password reset for "));
       mk(x.active ? "Disable" : "Enable", async () => { const r = await sb.functions.invoke("admin-users", { body: { action: "active", id: x.id, active: !x.active } }); fail(r) || load(); });
       mk(x.role === "assistant" ? "Make lecturer" : "Make TA", async () => { const r = await sb.rpc("set_staff_role", { p_email: x.email, p_role: x.role === "assistant" ? "lecturer" : "assistant" }); if (r.error) say("msg", r.error.message, "bad"); else load(); });
-      mk("Set name", async () => { const n = (prompt("Full name for " + x.email + ":", x.full_name || "") || "").trim(); if (n.length < 3) return; const r = await sb.rpc("admin_set_name", { p_email: x.email, p_name: n }); if (r.error) say("msg", r.error.message, "bad"); else load(); });
+      mk("Edit name", async () => { const n = (prompt("Full name for " + x.email + ":", x.full_name || "") || "").trim(); if (n.length < 3) return; const r = await sb.rpc("admin_set_name", { p_email: x.email, p_name: n }); if (r.error) say("msg", r.error.message, "bad"); else load(); });
       mk("Add course", async () => { const n = (prompt("Course name for " + x.email + ":") || "").trim(); if (n.length < 2) return; const r = await sb.rpc("admin_add_course", { p_owner: x.id, p_name: n }); if (r.error) say("msg", r.error.message, "bad"); else load(); });
     }
     tr.appendChild(td); $("lb").appendChild(tr);
@@ -136,3 +137,23 @@ $("add").addEventListener("submit", async (e) => {
   $("aemail").value = ""; $("aname").value = ""; load();
 });
 start();
+
+// ---- Name change requests ----
+const abtn = (t, cls, f) => { const b = document.createElement("button"); b.type = "button"; b.className = "abtn " + cls; b.textContent = t; b.addEventListener("click", f); return b; };
+function drawReq() {
+  const box = $("reqBox"), L = $("reqList"); L.textContent = ""; box.hidden = !nameReqs.length; $("reqN").textContent = nameReqs.length;
+  for (const r of nameReqs) {
+    const row = document.createElement("div"); row.className = "reqrow";
+    const t = document.createElement("div"); t.className = "reqtxt";
+    const b = document.createElement("b"); b.textContent = r.email || "Lecturer";
+    const sp = document.createElement("span"); sp.textContent = (r.current_name || "(no name)") + "  \u2192  " + r.requested_name;
+    t.append(b, sp);
+    const acts = document.createElement("div"); acts.className = "acts";
+    acts.append(abtn("Approve", "ok", () => decide(r.id, true)), abtn("Decline", "bad", () => decide(r.id, false)));
+    row.append(t, acts); L.appendChild(row);
+  }
+}
+async function decide(id, ok) {
+  const r = await sb.rpc("decide_name_request", { p_id: id, p_approve: ok });
+  if (r.error) say("msg", r.error.message, "bad"); else { say("msg", ok ? "Name updated." : "Request declined.", "ok"); load(); }
+}

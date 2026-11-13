@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Lecturer | KTU check-in</title>
-<link rel="stylesheet" href="style.css?v=7">
-<link rel="stylesheet" href="extra.css?v=7">
+<link rel="stylesheet" href="style.css?v=11">
+<link rel="stylesheet" href="extra.css?v=11">
 </head>
 <body>
 <main>
@@ -71,7 +71,7 @@
     </form>
 
     <section id="live" class="card" hidden>
-      <h2 id="liveCourse"></h2>
+      <div class="livehead"><h2 id="liveCourse"></h2><span id="liveStatus" class="badge"></span></div>
       <p id="liveGroups" class="note" hidden></p>
       <div id="groupSum" class="chips" hidden></div>
       <div class="code" id="liveCode"></div>
@@ -79,7 +79,7 @@
       <p class="link" id="liveLink"></p>
       <div class="row">
         <button id="copy" class="btn quiet" type="button">Copy student link</button>
-        <button id="close" class="btn quiet" type="button">Close check-in now</button>
+        <button id="close" class="btn quiet danger" type="button">Close check-in now</button>
         <button id="more" class="btn quiet" type="button">+10 minutes</button>
         <button id="addm" class="btn quiet" type="button">Add student manually</button>
         <button id="csv" class="btn quiet nota" type="button">Download CSV</button>
@@ -94,6 +94,11 @@
       </div>
       <div class="stats" id="stats"></div>
       <div class="bar"><input id="q" placeholder="Search name or index number"><select id="flt"><option value="all">All</option><option value="in">In class area</option><option value="out">Outside</option><option value="shared">Shared phone</option><option value="manual">Added manually</option><option value="late">Late</option><option value="flag">GPS warning</option></select><select id="gflt" hidden><option value="">All groups</option></select></div>
+      <div id="reopenBox" class="reopen" hidden>
+        <div><label for="reopenMins">Check-in has ended. Reopen for</label>
+        <select id="reopenMins"><option value="10">10 minutes</option><option value="20">20 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option></select></div>
+        <button id="reopen" class="btn" type="button">Reopen check-in</button>
+      </div>
       <p id="count" class="msg"></p>
       <div class="table-wrap">
         <table>
@@ -124,10 +129,12 @@
 
     <section class="card" id="nameCard">
       <h2>Your name</h2>
-      <p class="note">This name appears on your Excel files and on the student page.</p>
+      <p id="nameNote" class="note">This name appears on your Excel files and on the student page.</p>
       <label for="myName">Full name</label>
       <input id="myName" maxlength="100" autocomplete="name" placeholder="e.g. Kwame Mensah">
       <button id="saveName" class="btn quiet" type="button" style="margin-top:10px">Save name</button>
+      <button id="reqName" class="btn quiet" type="button" style="margin-top:10px" hidden>Request a name change</button>
+      <p id="reqInfo" class="note" hidden></p>
       <p id="nameMsg" class="msg" role="status"></p>
     </section>
 
@@ -146,8 +153,8 @@
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-<script src="shared.js?v=7"></script>
+<script src="shared.js?v=11"></script>
 <script src="programmes.js"></script>
-<script src="teacher.js?v=10"></script>
+<script src="teacher.js?v=11"></script>
 </body>
 </html>

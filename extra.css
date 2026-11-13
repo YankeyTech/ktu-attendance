@@ -127,3 +127,22 @@ body[data-role="assistant"] .nota{display:none!important}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:color-mix(in srgb,var(--blue) 10%,var(--card));border:1px solid var(--line);font-size:.88rem;font-weight:600}
 .chip button{border:0;background:transparent;font-size:1.15rem;line-height:1;cursor:pointer;color:var(--mut);padding:0 2px}
+
+/* Ended-class controls, status badge, action buttons, name requests */
+.livehead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px}.livehead h2{margin:0}
+.badge{display:inline-block;padding:4px 12px;border-radius:999px;font-weight:700;font-size:.82rem}
+.badge.on{background:color-mix(in srgb,var(--ok) 16%,var(--card));color:var(--ok)}
+.badge.off{background:color-mix(in srgb,var(--mut) 16%,var(--card));color:var(--mut)}
+.btn.danger{border-color:var(--bad);color:var(--bad)}
+.btn.danger:hover:not(:disabled){background:var(--bad);border-color:var(--bad);color:#fff}
+.reopen{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin:14px 0;padding:14px;border:1.5px dashed var(--line);border-radius:12px}
+.reopen>div{flex:1 1 180px}.reopen .btn{flex:0 0 auto;padding:0 22px}
+.abtn{font-family:var(--text);font-size:.8rem;font-weight:700;padding:6px 13px;margin:2px;border-radius:999px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;transition:background-color .15s,color .15s,border-color .15s,transform .1s}
+.abtn:hover{border-color:var(--blue);background:color-mix(in srgb,var(--blue) 8%,var(--card))}
+.abtn:active{transform:scale(.96)}
+.abtn.ok{color:var(--ok);border-color:var(--ok)}.abtn.ok:hover{background:var(--ok);color:#fff}
+.abtn.bad{color:var(--bad);border-color:var(--bad)}.abtn.bad:hover{background:var(--bad);color:#fff}
+.reqbox{margin:14px 0;padding:14px;border:1.5px solid var(--warn);border-radius:12px}
+.reqbox h3{font-family:var(--display);font-size:1.05rem;margin:0 0 8px}
+.reqrow{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--line)}
+.reqtxt b{display:block}.reqtxt span{color:var(--mut);font-size:.92rem}

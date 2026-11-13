@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=7"><link rel="stylesheet" href="extra.css?v=7">
+<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=11"><link rel="stylesheet" href="extra.css?v=11">
 <style>main{max-width:1000px}th[data-k]{cursor:pointer;user-select:none}.tabs{display:flex;gap:6px;margin:10px 0;flex-wrap:wrap}.tabs button{flex:1}.tabs .on{background:#004c84;color:#fff}.cred{background:#fff8d6;color:#222;border:1px solid #e0c200;border-radius:10px;padding:12px;margin:10px 0}.cred code{font-size:18px;font-weight:700}</style></head>
 <body><main>
   <header class="top"><h1>Admin</h1><p id="who">KTU class check-in</p></header>
@@ -15,6 +15,7 @@
     <section id="t-lect" class="card" hidden><h2>Lecturers</h2>
       <form id="add" class="bar"><input id="aemail" type="email" placeholder="Lecturer email" required><input id="aname" placeholder="Full name (optional)"><select id="arole"><option value="lecturer">Lecturer</option><option value="assistant">Teaching assistant</option></select><button class="btn" type="submit">Add lecturer</button></form>
       <div id="cred"></div>
+      <div id="reqBox" class="reqbox" hidden><h3>Name change requests <span id="reqN" class="badge on"></span></h3><div id="reqList"></div></div>
       <div class="bar"><input id="lq" placeholder="Search lecturers"></div>
       <div class="table-wrap"><table><thead id="lh"></thead><tbody id="lb"></tbody></table></div></section>
     <section id="t-cls" class="card" hidden><h2>All classes</h2>
@@ -24,5 +25,5 @@
   </div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="shared.js?v=7"></script>
-<script src="config.js"></script><script src="admin.js?v=10"></script></body></html>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="shared.js?v=11"></script>
+<script src="config.js"></script><script src="admin.js?v=11"></script></body></html>

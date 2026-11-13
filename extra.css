@@ -146,3 +146,10 @@ body[data-role="assistant"] .nota{display:none!important}
 .reqbox h3{font-family:var(--display);font-size:1.05rem;margin:0 0 8px}
 .reqrow{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--line)}
 .reqtxt b{display:block}.reqtxt span{color:var(--mut);font-size:.92rem}
+
+/* Show/hide password */
+.pwwrap{position:relative}
+.pwwrap input{padding-right:52px}
+.pweye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:0;border-radius:8px;background:transparent;color:var(--mut);cursor:pointer}
+.pweye:hover{color:var(--blue);background:color-mix(in srgb,var(--blue) 8%,transparent)}
+.pweye[aria-pressed="true"]{color:var(--blue)}

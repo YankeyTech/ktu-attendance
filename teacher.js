@@ -3,7 +3,7 @@ const $ = (id) => document.getElementById(id);
 const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no 0/O/1/I to avoid mix-ups
 let sortBy = ["checked_in_at", 1];
 let groups = [];
-let current = null, timer = null, records = [], role = "lecturer", qrTimer = null, lastWin = -1, rollRows = [], clockOffset = 0;
+let current = null, timer = null, records = [], role = "lecturer", qrTimer = null, lastWin = -1, rollRows = [], clockOffset = 0, myName = "", myEmail = "";
 
 function say(id, text, kind) { $(id).textContent = text; $(id).className = "msg " + (kind || ""); }
 
@@ -51,12 +51,13 @@ async function refreshAuth() {
   const { data: { session } } = await sb.auth.getSession();
   $("login").hidden = !!session;
   $("app").hidden = !session;
-  $("who").textContent = session ? session.user.email : "KTU class check-in";
+  $("who").textContent = session ? "Loading..." : "KTU class check-in";
   if (session) {
-    const { data: pr } = await sb.from("profiles").select("role,must_change,active").eq("id", session.user.id).single();
+    const { data: pr } = await sb.from("profiles").select("role,must_change,active,full_name").eq("id", session.user.id).single();
     if (pr && pr.must_change) return location.replace("change-password.html");
     if (pr && pr.active === false) { await sb.auth.signOut(); return say("loginMsg", "This account is disabled. Contact the admin.", "bad"); }
     role = (pr && pr.role) || "lecturer";
+    myName = (pr && pr.full_name) || ""; $("myName").value = myName; myEmail = session.user.email; applyName();
     document.body.dataset.role = role;
     $("adminLink").hidden = !(role === "admin" && session.user.email.toLowerCase() === "ygpedri@gmail.com");
     await loadCourses();
@@ -311,7 +312,7 @@ $("qrFs").addEventListener("click", () => { $("qrFs").hidden = true; });
 // ---- Excel ----
 $("xlsx").addEventListener("click", () => {
   if (role === "assistant" || !current) return;
-  const c = Object.assign({}, current, { _owner: $("who").textContent });
+  const c = Object.assign({}, current, { _owner: myName || myEmail });
   downloadXlsx(current.course + " " + fmtDay(current.created_at), buildSheets([c], records, absentees().map((r) => [r.student_name || "", r.index_number, r.programme || "", r.level || ""])));
 });
 $("cxlsx").addEventListener("click", async () => {
@@ -325,7 +326,7 @@ $("cxlsx").addEventListener("click", async () => {
   const { data: cls } = await qb.order("created_at", { ascending: false });
   if (!cls || !cls.length) return say("cmsg", "No classes found for that course.", "warn");
   const atts = await fetchAttendance(sb, cls.map((c) => c.id));
-  for (const c of cls) c._owner = $("who").textContent;
+  for (const c of cls) c._owner = myName || myEmail;
   downloadXlsx(course + " all classes", buildSheets(cls, atts));
   say("cmsg", "Downloaded.", "ok");
 });
@@ -551,5 +552,26 @@ async function keepAwake() {
   try { if (current && current.rotating && navigator.wakeLock && !document.hidden) wake = await navigator.wakeLock.request("screen"); } catch (e) {}
 }
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { keepAwake(); tickQr(); } });
+
+
+// ---- Your name (used in Excel files) ----
+$("saveName").addEventListener("click", async () => {
+  const name = $("myName").value.trim().replace(/\s+/g, " ").replace(/\S+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase());
+  if (name.length < 3) return say("nameMsg", "Enter your full name.", "warn");
+  const { error } = await sb.rpc("set_my_name", { p_name: name });
+  if (error) return say("nameMsg", "Could not save: " + error.message, "bad");
+  myName = name; $("myName").value = name; say("nameMsg", "Saved. Your Excel files will now show this name.", "ok"); applyName();
+});
+
+
+// ---- Welcome line and first-time name prompt ----
+const roleLabel = (r) => (r === "assistant" ? "Teaching assistant" : r === "admin" ? "Admin" : "Lecturer");
+function applyName() {
+  const need = !myName, card = $("nameCard"), app = $("app");
+  $("who").textContent = need ? "Welcome. Please add your full name to continue." : "Welcome, " + myName + "  |  " + roleLabel(role);
+  $("start").hidden = need;
+  if (need) { app.prepend(card); card.querySelector("h2").textContent = "What is your name?"; }
+  else { card.querySelector("h2").textContent = "Your name"; app.insertBefore(card, $("sessions").closest("section")); }
+}
 
 refreshAuth();

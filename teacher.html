@@ -122,6 +122,15 @@
       <div id="report"></div>
     </section>
 
+    <section class="card" id="nameCard">
+      <h2>Your name</h2>
+      <p class="note">This name appears on your Excel files and on the student page.</p>
+      <label for="myName">Full name</label>
+      <input id="myName" maxlength="100" autocomplete="name" placeholder="e.g. Kwame Mensah">
+      <button id="saveName" class="btn quiet" type="button" style="margin-top:10px">Save name</button>
+      <p id="nameMsg" class="msg" role="status"></p>
+    </section>
+
     <section class="card">
       <h2>Recent classes</h2>
       <div class="bar"><input id="cq" placeholder="Search classes by course, programme or level"><select id="cfilter"><option value="">All courses</option></select><select id="tfilter"><option value="">All types</option><option value="single">Single</option><option value="combined">Combined</option></select><select id="yfilter"><option value="">All years</option></select><select id="sfilter"><option value="">All semesters</option><option>Semester 1</option><option>Semester 2</option><option>Summer / Resit</option></select></div>
@@ -139,6 +148,6 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="shared.js?v=7"></script>
 <script src="programmes.js"></script>
-<script src="teacher.js?v=8"></script>
+<script src="teacher.js?v=10"></script>
 </body>
 </html>

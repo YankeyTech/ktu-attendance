@@ -38,15 +38,25 @@ try {
 } catch (e) {}
 
 // Hidden phone ID, created once and kept on this phone.
+const STORAGE_HELP = "This browser is not saving data, so check-in is blocked. Turn off Private Browsing, allow cookies for this site, and open the page in Safari or Chrome.";
+function readCookie() { const m = document.cookie.match(/(?:^|; )ktu_device=([^;]+)/); return m ? decodeURIComponent(m[1]) : ""; }
+function writeCookie(v) {
+  try { document.cookie = "ktu_device=" + encodeURIComponent(v) + "; max-age=31536000; path=/; SameSite=Lax" + (location.protocol === "https:" ? "; Secure" : ""); } catch (e) {}
+}
+// The phone's saved ID is kept in two places (browser storage and a cookie).
+// Returns "" when the browser will not save anything, so check-in can be refused.
 function deviceId() {
-  try {
-    let d = localStorage.getItem("ktu_device");
-    if (!d) {
-      d = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
-      localStorage.setItem("ktu_device", d);
-    }
-    return d;
-  } catch (e) { return (window._memDev = window._memDev || (Date.now().toString(36) + Math.random().toString(36).slice(2))); }
+  const ok = (v) => /^[\w-]{8,64}$/.test(v || "");
+  let ls = "", ck = "";
+  try { ls = localStorage.getItem("ktu_device") || ""; } catch (e) {}
+  try { ck = readCookie(); } catch (e) {}
+  let d = ok(ls) ? ls : ok(ck) ? ck : "";
+  if (!d) d = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  try { if (ls !== d) localStorage.setItem("ktu_device", d); } catch (e) {}
+  writeCookie(d);
+  let savedLs = false; try { savedLs = localStorage.getItem("ktu_device") === d; } catch (e) {}
+  let savedCk = false; try { savedCk = readCookie() === d; } catch (e) {}
+  return savedLs || savedCk ? d : "";
 }
 
 // Class code from the link (?s=CODE).
@@ -61,6 +71,7 @@ async function claim() {
   const tok = $("tok").value.replace(/\D/g, ""), code = $("code").value.trim().toUpperCase();
   pass = null; $("tokMsg").textContent = "";
   if (tok.length !== 6 || code.length < 4) return;
+  if (!deviceId()) { $("tokMsg").className = "msg bad"; $("tokMsg").textContent = STORAGE_HELP; return; }
   $("tokMsg").className = "msg"; $("tokMsg").textContent = "Checking the screen code...";
   const { data, error } = await sb.rpc("get_pass", { p_code: code, p_token: tok, p_device: deviceId() });
   if (error || !data) { $("tokMsg").className = "msg bad"; $("tokMsg").textContent = "Could not check the screen code. Try again."; return; }
@@ -127,6 +138,7 @@ const LOCATION_ERRORS = {
 
 $("f").addEventListener("submit", async (e) => {
   e.preventDefault();
+  if (!deviceId()) { say(STORAGE_HELP, "bad"); return; }
   $("go").disabled = true;
   say("Getting your location…");
   try {

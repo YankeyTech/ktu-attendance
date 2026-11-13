@@ -30,7 +30,8 @@ async function load() {
   people = p.data || []; classes = c.data || []; counts = {};
   for (const r of a.data || []) counts[r.session_id] = (counts[r.session_id] || 0) + 1;
   const byId = Object.fromEntries(people.map((x) => [x.id, x]));
-  for (const s of classes) { s._owner = (byId[s.owner] || {}).email || "-"; s._n = counts[s.id] || 0; }
+  const nameCount = {}; for (const p of people) if (p.full_name) nameCount[p.full_name.toLowerCase()] = (nameCount[p.full_name.toLowerCase()] || 0) + 1;
+  for (const s of classes) { const o = byId[s.owner] || {}; s._owner = o.full_name ? (nameCount[o.full_name.toLowerCase()] > 1 ? o.full_name + " (" + o.email + ")" : o.full_name) : o.email || "-"; s._n = counts[s.id] || 0; }
   for (const x of people) { x._classes = classes.filter((s) => s.owner === x.id).length; x._courseText = courses.filter((k) => k.owner === x.id).map((k) => k.name).join(", "); }
   $("stats").innerHTML = "";
   for (const [n, l] of [[people.length, "Staff accounts"], [people.filter((x) => x.role === "lecturer" && x.active).length, "Active lecturers"], [people.filter((x) => x.role === "assistant" && x.active).length, "Teaching assistants"], [classes.length, "Classes"], [(a.data || []).length, "Check-ins"]]) {
@@ -60,6 +61,7 @@ function drawL() {
       mk("Reset password", () => call({ action: "reset", id: x.id }, x.email, "Password reset for "));
       mk(x.active ? "Disable" : "Enable", async () => { const r = await sb.functions.invoke("admin-users", { body: { action: "active", id: x.id, active: !x.active } }); fail(r) || load(); });
       mk(x.role === "assistant" ? "Make lecturer" : "Make TA", async () => { const r = await sb.rpc("set_staff_role", { p_email: x.email, p_role: x.role === "assistant" ? "lecturer" : "assistant" }); if (r.error) say("msg", r.error.message, "bad"); else load(); });
+      mk("Set name", async () => { const n = (prompt("Full name for " + x.email + ":", x.full_name || "") || "").trim(); if (n.length < 3) return; const r = await sb.rpc("admin_set_name", { p_email: x.email, p_name: n }); if (r.error) say("msg", r.error.message, "bad"); else load(); });
       mk("Add course", async () => { const n = (prompt("Course name for " + x.email + ":") || "").trim(); if (n.length < 2) return; const r = await sb.rpc("admin_add_course", { p_owner: x.id, p_name: n }); if (r.error) say("msg", r.error.message, "bad"); else load(); });
     }
     tr.appendChild(td); $("lb").appendChild(tr);
@@ -123,9 +125,13 @@ async function call(body, email, lead) {
 }
 $("add").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const email = $("aemail").value.trim(), role = $("arole").value;
+  const email = $("aemail").value.trim(), role = $("arole").value, nm = $("aname").value.trim().replace(/\s+/g, " ");
   const ok = await call({ action: "create", email, name: $("aname").value, role }, null, "Account created for ");
   if (!ok) return;
+  if (nm.length >= 3) {
+    const r2 = await sb.rpc("admin_set_name", { p_email: email, p_name: nm.replace(/\S+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase()), p_only_if_empty: true });
+    if (r2.error) say("msg", "Account created, but the name could not be saved: " + r2.error.message, "bad");
+  }
   if (role !== "lecturer") { const r = await sb.rpc("set_staff_role", { p_email: email, p_role: role }); if (r.error) say("msg", "Account created, but the role could not be set: " + r.error.message, "bad"); }
   $("aemail").value = ""; $("aname").value = ""; load();
 });

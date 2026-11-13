@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Lecturer | KTU check-in</title>
-<link rel="stylesheet" href="style.css?v=13">
-<link rel="stylesheet" href="extra.css?v=13">
+<link rel="stylesheet" href="style.css?v=14">
+<link rel="stylesheet" href="extra.css?v=14">
 </head>
 <body>
 <main>
@@ -71,7 +71,7 @@
     </form>
 
     <section id="live" class="card" hidden>
-      <div class="livehead"><h2 id="liveCourse"></h2><span id="liveStatus" class="badge"></span></div>
+      <div class="livehead"><h2 id="liveCourse"></h2><span id="liveStatus" class="badge"></span><span id="countdown" class="countdown" hidden></span><label class="chk mini"><input id="snd" type="checkbox" checked> Sound alerts</label></div>
       <p id="liveGroups" class="note" hidden></p>
       <div id="groupSum" class="chips" hidden></div>
       <div class="code" id="liveCode"></div>
@@ -102,7 +102,7 @@
       <p id="count" class="msg"></p>
       <div class="table-wrap">
         <table>
-          <thead><tr><th data-k="student_name" style="cursor:pointer">Name &#8645;</th><th data-k="index_number" style="cursor:pointer">Index number &#8645;</th><th data-k="programme" style="cursor:pointer">Programme &#8645;</th><th data-k="level" style="cursor:pointer">Level &#8645;</th><th data-k="checked_in_at" style="cursor:pointer">Time &#8645;</th><th data-k="distance_m" style="cursor:pointer">Distance &#8645;</th><th data-k="in_range" style="cursor:pointer">In area &#8645;</th><th>Note</th><th>Actions</th></tr></thead>
+          <thead><tr><th data-k="student_name" style="cursor:pointer">Name &#8645;</th><th data-k="index_number" style="cursor:pointer">Index number &#8645;</th><th data-k="programme" style="cursor:pointer">Programme &#8645;</th><th data-k="level" style="cursor:pointer">Level &#8645;</th><th data-k="checked_in_at" style="cursor:pointer">Time &#8645;</th><th data-k="distance_m" style="cursor:pointer">Distance &#8645;</th><th data-k="in_range" style="cursor:pointer">Confidence &#8645;</th><th>Note</th><th>Actions</th></tr></thead>
           <tbody id="rows"></tbody>
         </table>
       </div>
@@ -153,8 +153,8 @@
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-<script src="shared.js?v=13"></script>
+<script src="shared.js?v=14"></script>
 <script src="programmes.js"></script>
-<script src="teacher.js?v=13"></script>
+<script src="teacher.js?v=14"></script>
 </body>
 </html>

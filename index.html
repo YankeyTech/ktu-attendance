@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Class check-in | KTU</title>
-<link rel="stylesheet" href="style.css?v=13">
-<link rel="stylesheet" href="extra.css?v=13">
+<link rel="stylesheet" href="style.css?v=14">
+<link rel="stylesheet" href="extra.css?v=14">
 </head>
 <body>
 <main>
@@ -34,8 +34,11 @@
     <select id="lvl" required><option value="">Select your level</option><option>Level 100</option><option>Level 200</option><option>Level 300</option><option>Level 400</option><option>Postgraduate</option></select>
 
     <p class="note">Your phone will ask to share your location. It is recorded once, at check-in, to confirm you are in the class. It is not tracked afterwards. Use a normal browser tab, not a Private one, so your phone can be recognised.</p>
+    <details class="privacy"><summary>Why we collect this</summary><p>We record your name, index number, programme, level, approximate location and phone type only to confirm attendance for this class. Your lecturer and the university administrator can see it. Your location is taken once, at check-in, and is not tracked afterwards. The administrator can delete old location data.</p></details>
     <button id="go" class="btn" type="submit">Check in</button>
+    <ol id="steps" class="steps" hidden><li>Finding your location</li><li>Checking in</li><li>Done</li></ol>
     <p id="msg" class="msg" role="status" aria-live="polite"></p>
+    <button id="again" class="btn quiet" type="button" hidden>Try again</button>
     <div id="locHelp" class="lochelp" hidden></div>
   </form>
 
@@ -44,13 +47,18 @@
     <h2 id="doneTitle">You are checked in</h2>
     <p id="doneSub"></p>
     <dl id="doneList"></dl>
+    <div id="retryBox" class="retrybox" hidden>
+      <p id="whyRed"></p>
+      <button id="retryLoc" class="btn" type="button">Try again with my location</button>
+      <p id="retryMsg" class="msg" aria-live="polite"></p>
+    </div>
     <p class="note">You can close this page now. Each index number can check in once per class.</p>
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
-<script src="shared.js?v=13"></script>
+<script src="shared.js?v=14"></script>
 <script src="programmes.js"></script>
-<script src="student.js?v=13"></script>
+<script src="student.js?v=14"></script>
 </body>
 </html>

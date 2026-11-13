@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=13"><link rel="stylesheet" href="extra.css?v=13">
+<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=14"><link rel="stylesheet" href="extra.css?v=14">
 <style>main{max-width:1000px}th[data-k]{cursor:pointer;user-select:none}.tabs{display:flex;gap:6px;margin:10px 0;flex-wrap:wrap}.tabs button{flex:1}.tabs .on{background:#004c84;color:#fff}.cred{background:#fff8d6;color:#222;border:1px solid #e0c200;border-radius:10px;padding:12px;margin:10px 0}.cred code{font-size:18px;font-weight:700}</style></head>
 <body><main>
   <header class="top"><h1>Admin</h1><p id="who">KTU class check-in</p></header>
@@ -11,7 +11,9 @@
   <div id="app" hidden>
     <div class="tabs"><button class="btn quiet on" data-t="over">Overview</button><button class="btn quiet" data-t="lect">Lecturers</button><button class="btn quiet" data-t="cls">All classes</button><a class="btn quiet" href="teacher.html">Lecturer portal</a><button id="out" class="btn quiet">Sign out</button></div>
     <p id="msg" class="msg" role="status"></p>
-    <section id="t-over" class="card"><h2>Overview</h2><div class="stats" id="stats"></div></section>
+    <section id="t-over" class="card"><h2>Overview</h2><div class="stats" id="stats"></div>
+      <div class="reqbox"><h3>Privacy: delete old location data</h3><p class="note">Removes the saved GPS position, phone ID and phone type from old check-ins. Names, index numbers and attendance results are kept.</p>
+      <div class="bar"><select id="purgeMonths"><option value="3">Older than 3 months</option><option value="6" selected>Older than 6 months</option><option value="12">Older than 12 months</option></select><button id="purge" class="abtn bad" type="button">Delete location data</button></div></div></section>
     <section id="t-lect" class="card" hidden><h2>Lecturers</h2>
       <form id="add" class="bar"><input id="aemail" type="email" placeholder="Lecturer email" required><input id="aname" placeholder="Full name (optional)"><select id="arole"><option value="lecturer">Lecturer</option><option value="assistant">Teaching assistant</option></select><button class="btn" type="submit">Add lecturer</button></form>
       <div id="cred"></div>
@@ -25,5 +27,5 @@
   </div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="shared.js?v=13"></script>
-<script src="config.js"></script><script src="admin.js?v=13"></script></body></html>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="shared.js?v=14"></script>
+<script src="config.js"></script><script src="admin.js?v=14"></script></body></html>

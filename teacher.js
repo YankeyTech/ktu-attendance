@@ -117,6 +117,7 @@ $("start").addEventListener("submit", async (e) => {
 });
 
 async function loadSessions() {
+  if (!$("sessions").firstChild) skelList();
   const { data, error } = await sb.from("sessions").select("*").order("created_at", { ascending: false }).limit(200);
   const box = $("sessions"); box.textContent = "";
   if (error) return;
@@ -158,7 +159,7 @@ function openSession(s) {
   $("endchk").hidden = !s.two_point; $("endchk").textContent = s.end_open ? "Close end-of-class check" : "Open end-of-class check (10 min)";
   lastWin = -1; if (qrTimer) clearInterval(qrTimer); qrTimer = setInterval(tickQr, 1000); tickQr();
   syncClock().then(() => { lastWin = -1; tickQr(); });
-  loadRoll(); applyState(); keepAwake();
+  wasOpen = null; beepFor = ""; skelRows(); loadRoll(); applyState(); keepAwake();
   stopPolling();
   timer = setInterval(loadAttendance, 8000);
   $("live").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -201,13 +202,19 @@ function renderRows() {
   for (const r of list) {
     const tr = document.createElement("tr"); tr.className = "rowin";
     tr.style.background = r.in_range ? "#d9f2dd" : "#f9d6d6"; tr.style.color = "#1a1a1a";
-    for (const c of [r.student_name || "-", r.index_number, r.programme, r.level || "-", fmtTime(r.checked_in_at), Math.round(r.distance_m) + " m", r.in_range ? "Yes" : "No", noteOf(r)]) {
-      const td = document.createElement("td"); td.textContent = c; tr.appendChild(td);
+    for (const c of [r.student_name || "-", r.index_number, r.programme, r.level || "-", fmtTime(r.checked_in_at), Math.round(r.distance_m) + " m", trustBadge(r), noteOf(r)]) {
+      const td = document.createElement("td"); if (c instanceof Node) td.appendChild(c); else td.textContent = c; tr.appendChild(td);
     }
     const act = document.createElement("td");
     const mk = (label, fn) => { const b = document.createElement("button"); b.type = "button"; b.textContent = label; b.addEventListener("click", fn); act.appendChild(b); };
     mk(r.in_range ? "Mark outside" : "Mark present", async () => { await sb.from("attendance").update({ in_range: !r.in_range, manual: true }).eq("id", r.id); loadAttendance(); });
-    if (role !== "assistant") mk("Remove", async () => { if (confirm("Remove " + r.index_number + " from this class?")) { await sb.from("attendance").delete().eq("id", r.id); loadAttendance(); } });
+    if (role !== "assistant") mk("Remove", async () => { if (confirm("Remove " + r.index_number + " from this class?")) {
+      const { error } = await sb.from("attendance").delete().eq("id", r.id);
+      if (error) return toast("Could not remove: " + error.message);
+      const row = {}; for (const k in r) if (!k.startsWith("_")) row[k] = r[k];
+      loadAttendance();
+      toast("Removed " + r.index_number + ".", { action: "Undo", ms: 9000, onAction: async () => { const u = await sb.from("attendance").insert(row); toast(u.error ? "Could not undo: " + u.error.message : "Restored " + r.index_number + "."); loadAttendance(); } });
+    } });
     tr.appendChild(act); body.appendChild(tr);
   }
   const inside = records.filter((r) => r.in_range).length, sc = records.filter((r) => r._shared).length;
@@ -226,7 +233,7 @@ $("more").addEventListener("click", async () => {
   const base = Math.max(Date.now(), new Date(current.closes_at).getTime());
   const t = new Date(base + 600000).toISOString();
   const { error } = await sb.from("sessions").update({ closes_at: t }).eq("id", current.id);
-  if (!error) { current.closes_at = t; applyState(); renderRows(); loadSessions(); }
+  if (!error) { current.closes_at = t; applyState(); renderRows(); loadSessions(); toast("Added 10 minutes."); }
 });
 $("addm").addEventListener("click", async () => {
   const idx = (prompt("Index number of the student:") || "").trim().toUpperCase(); if (!idx) return;
@@ -246,7 +253,7 @@ $("close").addEventListener("click", async () => {
   if (!confirm("Close check-in now? Students will no longer be able to check in.")) return;
   const now = new Date().toISOString();
   const { error } = await sb.from("sessions").update({ closes_at: now }).eq("id", current.id);
-  if (!error) { current.closes_at = now; applyState(); loadAttendance(); loadSessions(); }
+  if (!error) { current.closes_at = now; applyState(); loadAttendance(); loadSessions(); toast("Check-in closed.", { action: "Reopen 10 min", onAction: () => { $("reopenMins").value = "10"; $("reopen").click(); } }); }
 });
 
 // CSV: a leading ' stops Excel from running cells that start with = + - @
@@ -610,7 +617,61 @@ $("reopen").addEventListener("click", async () => {
   const { error } = await sb.from("sessions").update({ closes_at: t }).eq("id", current.id);
   if (error) return say("count", "Could not reopen: " + error.message, "bad");
   current.closes_at = t; applyState(); loadAttendance(); loadSessions();
-  say("count", "Check-in reopened.", "ok");
+  say("count", "Check-in reopened.", "ok"); toast("Check-in reopened.");
 });
+
+
+// ---- Confidence badge ----
+function trustOf(r) {
+  const rad = current.radius_m, why = [];
+  if (!r.in_range) return { lv: "low", label: "Outside", why: [Math.round(r.distance_m) + " m from you (allowed " + rad + " m)"] };
+  if (r.gps_flag) why.push(r.gps_flag);
+  if (r._shared) why.push("This phone was used for another student");
+  if ((r.accuracy_m || 0) > 60) why.push("Weak GPS (about " + Math.round(r.accuracy_m) + " m)");
+  if (r.retries > 0) why.push("Location retried " + r.retries + " time(s)");
+  if (r.distance_m > rad * 0.9) why.push("Close to the edge of the area");
+  return why.length ? { lv: "mid", label: "Check", why } : { lv: "high", label: "Good", why: ["Inside the area with a clear GPS reading"] };
+}
+function trustBadge(r) {
+  const t = trustOf(r), b = document.createElement("button");
+  b.type = "button"; b.className = "trust " + t.lv; b.textContent = t.label; b.title = t.why.join("; ");
+  b.addEventListener("click", () => toast(r.index_number + ": " + t.why.join("; ")));
+  return b;
+}
+
+// ---- Loading placeholders ----
+function skelRows() {
+  const body = $("rows"); body.textContent = "";
+  for (let i = 0; i < 4; i++) { const tr = document.createElement("tr"), td = document.createElement("td"); td.colSpan = 9; const d = document.createElement("div"); d.className = "skel"; td.appendChild(d); tr.appendChild(td); body.appendChild(tr); }
+}
+function skelList() {
+  const box = $("sessions");
+  for (let i = 0; i < 3; i++) { const d = document.createElement("div"); d.className = "skel big"; box.appendChild(d); }
+}
+
+// ---- Countdown and sound alerts ----
+let wasOpen = null, beepFor = "", beeped2 = false, audio = null;
+function beep(len) {
+  if (!$("snd").checked) return;
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime;
+    o.type = "sine"; o.frequency.value = 880; o.connect(g); g.connect(audio.destination);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.3, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    o.start(t); o.stop(t + len + 0.05);
+  } catch (e) {}
+}
+setInterval(() => {
+  const el = $("countdown");
+  if (!current) { el.hidden = true; return; }
+  const open = isOpen();
+  if (beepFor !== current.closes_at) { beepFor = current.closes_at; beeped2 = false; }
+  if (wasOpen === true && !open) { beep(0.8); toast("Check-in has closed.", { action: "Reopen 10 min", onAction: () => { $("reopenMins").value = "10"; $("reopen").click(); } }); }
+  wasOpen = open;
+  if (!open) { el.hidden = true; return; }
+  const ms = new Date(current.closes_at) - Date.now(), m = Math.floor(ms / 60000), sec = Math.floor((ms % 60000) / 1000);
+  el.hidden = false; el.textContent = "Closes in " + m + ":" + String(sec).padStart(2, "0"); el.className = "countdown" + (ms <= 120000 ? " soon" : "");
+  if (ms <= 120000 && !beeped2) { beeped2 = true; beep(0.35); toast("Check-in closes in 2 minutes.", { action: "+10 min", onAction: () => $("more").click() }); }
+}, 1000);
 
 refreshAuth();

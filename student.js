@@ -180,17 +180,33 @@ const LOCATION_ERRORS = {
   3: "Finding your location took too long. Move near a window and try again."
 };
 
+function setStep(n) {
+  const ol = $("steps"); ol.hidden = n < 0;
+  Array.from(ol.children).forEach((li, i) => { li.className = i < n ? "done" : i === n ? "now" : ""; });
+}
+// Network hiccups: try again up to 3 times before giving up.
+async function rpcRetry(name, args) {
+  for (let i = 0; i < 3; i++) {
+    const r = await sb.rpc(name, args);
+    if (!r.error) return { data: r.data, retried: i > 0 };
+    if (i < 2) { say("Weak connection, trying again (" + (i + 2) + " of 3)...", "warn"); await new Promise((res) => setTimeout(res, 1500 * (i + 1))); }
+  }
+  throw new Error("Could not reach the server. Check your internet and try again.");
+}
+let lastDone = null, lastCtx = null;
+$("again").addEventListener("click", () => $("go").click());
+
 $("f").addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!deviceId()) { say(STORAGE_HELP, "bad"); return; }
-  $("go").disabled = true;
-  say("Getting your location…");
+  $("go").disabled = true; $("again").hidden = true;
+  setStep(0); say("Getting your location…");
   try {
     const pos = await getPosition();
-    say("Checking in…");
+    setStep(1); say("Checking in…");
     const code = $("code").value.trim().toUpperCase();
     const idx = $("idx").value.trim();
-    const { data, error } = await sb.rpc("check_in", {
+    const { data, retried } = await rpcRetry("check_in", {
       p_code: code,
       p_index: idx,
       p_programme: $("prog").value,
@@ -203,15 +219,16 @@ $("f").addEventListener("submit", async (e) => {
       p_level: $("lvl").value,
       p_token: pass || $("tok").value.replace(/\D/g, "") || null
     });
-    if (error) throw new Error("Could not reach the server. Check your internet and try again.");
-    if (!data.ok) { if (/screen code/i.test(data.error)) pass = null; say(data.error, "bad"); }
+    if (!data.ok && retried && /already checked in/i.test(data.error)) { setStep(-1); say("Your first attempt already went through, so you are checked in. Ask your lecturer if you are unsure.", "ok"); return; }
+    if (!data.ok) { if (/screen code/i.test(data.error)) pass = null; setStep(-1); say(data.error, "bad"); $("again").hidden = false; }
     else {
       try { localStorage.setItem("ktu_idx", idx); localStorage.setItem("ktu_prog", $("prog").value); localStorage.setItem("ktu_name", $("name").value.trim()); localStorage.setItem("ktu_lvl", $("lvl").value); } catch (e2) {}
-      showDone(data);
+      lastCtx = { code, idx }; setStep(2); showDone(data);
     }
   } catch (err) {
     say(err && err.message ? err.message : (LOCATION_ERRORS[err && err.code] || "Something went wrong. Try again."), "bad");
     if (err && err.code === 1) showLocHelp();
+    setStep(-1); $("again").hidden = false;
   } finally {
     $("go").disabled = false;
   }
@@ -223,7 +240,13 @@ function showDone(d) {
   $("tick").className = "tick" + (d.in_range ? "" : " warn");
   $("tick").textContent = d.in_range ? "\u2713" : "!";
   if (d.in_range) confetti();
+  lastDone = d;
   const endPhase = d.phase === "end";
+  $("retryBox").hidden = d.in_range || endPhase;
+  if (!$("retryBox").hidden) {
+    const m = d.distance_m != null ? d.distance_m : "?", r = d.radius_m != null ? " (allowed: " + d.radius_m + " m)" : "", a = d.accuracy_m ? " Your GPS accuracy was about " + d.accuracy_m + " m." : "";
+    $("whyRed").textContent = "You were about " + m + " m from the class" + r + "." + a + " Move closer to where your lecturer is, ideally near a window, then try again. This only works while check-in is open.";
+  }
   $("doneTitle").textContent = endPhase ? "End-of-class check recorded, " + titleCase(d.name.split(" ")[0]) + "." : d.in_range ? "You're checked in, " + titleCase(d.name.split(" ")[0]) + "." : "Recorded, please see your lecturer";
   $("doneSub").textContent = endPhase ? "Thank you. Your end-of-class check is saved." : d.late && d.in_range ? "You were marked late for this class." : d.in_range ? "Your attendance is recorded for this class." : "You appear to be " + d.distance_m + " m from the class. Tell your lecturer if you are in the room.";
   const L = $("doneList"); L.textContent = "";
@@ -231,3 +254,21 @@ function showDone(d) {
     const a = document.createElement("dt"), b = document.createElement("dd"); a.textContent = k; b.textContent = v; b.className = "v-" + k.toLowerCase(); L.append(a, b);
   }
 }
+
+
+$("retryLoc").addEventListener("click", async () => {
+  const msg = (t, k) => { $("retryMsg").textContent = t; $("retryMsg").className = "msg " + (k || ""); };
+  $("retryLoc").disabled = true; msg("Getting your location...");
+  try {
+    const pos = await getPosition();
+    const { data } = await rpcRetry("retry_location", { p_code: lastCtx.code, p_index: lastCtx.idx, p_device: deviceId() || null, p_lat: pos.coords.latitude, p_lng: pos.coords.longitude, p_accuracy: pos.coords.accuracy });
+    if (!data.ok) return msg(data.error, "bad");
+    if (data.in_range) { showDone(Object.assign({}, lastDone, { in_range: true, distance_m: data.distance_m })); return; }
+    lastDone = Object.assign({}, lastDone, { distance_m: data.distance_m, radius_m: data.radius_m, accuracy_m: data.accuracy_m });
+    msg("Still about " + data.distance_m + " m away (allowed " + data.radius_m + " m). Move closer and try again.", "warn");
+    $("whyRed").textContent = "You were about " + data.distance_m + " m from the class (allowed: " + data.radius_m + " m). Move closer to where your lecturer is, then try again.";
+  } catch (err) {
+    msg(err && err.message ? err.message : (LOCATION_ERRORS[err && err.code] || "Could not get your location."), "bad");
+    if (err && err.code === 1) showLocHelp();
+  } finally { $("retryLoc").disabled = false; }
+});

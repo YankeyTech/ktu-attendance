@@ -157,3 +157,11 @@ async function decide(id, ok) {
   const r = await sb.rpc("decide_name_request", { p_id: id, p_approve: ok });
   if (r.error) say("msg", r.error.message, "bad"); else { say("msg", ok ? "Name updated." : "Request declined.", "ok"); load(); }
 }
+
+// ---- Privacy clean-up ----
+$("purge").addEventListener("click", async () => {
+  const m = Number($("purgeMonths").value);
+  if (!confirm("Delete location and phone details from check-ins older than " + m + " months? This cannot be undone.")) return;
+  const r = await sb.rpc("purge_locations", { p_months: m });
+  if (r.error) say("msg", r.error.message, "bad"); else say("msg", "Cleaned " + r.data + " check-in(s).", "ok");
+});

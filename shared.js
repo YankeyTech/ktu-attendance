@@ -106,3 +106,37 @@ function addPasswordToggles() {
   });
 }
 addPasswordToggles();
+
+
+// ---- Toasts ----
+function toast(msg, opt) {
+  opt = opt || {};
+  let box = document.getElementById("toasts");
+  if (!box) { box = document.createElement("div"); box.id = "toasts"; box.setAttribute("aria-live", "polite"); document.body.appendChild(box); }
+  const t = document.createElement("div"); t.className = "toast";
+  const s = document.createElement("span"); s.textContent = msg; t.appendChild(s);
+  if (opt.action) {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = opt.action;
+    b.addEventListener("click", () => { t.remove(); if (opt.onAction) opt.onAction(); }); t.appendChild(b);
+  }
+  box.appendChild(t); setTimeout(() => t.remove(), opt.ms || 6500);
+}
+
+// ---- Display options: larger text and high contrast (remembered on this device) ----
+function addDisplayOptions() {
+  const get = (k) => { try { return localStorage.getItem("ktu_" + k) === "1"; } catch (e) { return false; } };
+  const set = (k, v) => { try { localStorage.setItem("ktu_" + k, v ? "1" : "0"); } catch (e) {} };
+  const apply = () => { document.documentElement.classList.toggle("big", get("big")); document.documentElement.classList.toggle("hc", get("hc")); };
+  apply();
+  const btn = document.createElement("button"); btn.type = "button"; btn.className = "a11y"; btn.textContent = "Aa";
+  btn.setAttribute("aria-label", "Display options"); btn.setAttribute("aria-expanded", "false");
+  const menu = document.createElement("div"); menu.className = "a11ymenu"; menu.hidden = true;
+  for (const [label, key] of [["Larger text", "big"], ["High contrast", "hc"]]) {
+    const l = document.createElement("label"); const c = document.createElement("input"); c.type = "checkbox"; c.checked = get(key);
+    c.addEventListener("change", () => { set(key, c.checked); apply(); }); l.append(c, " " + label); menu.appendChild(l);
+  }
+  btn.addEventListener("click", (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; btn.setAttribute("aria-expanded", String(!menu.hidden)); });
+  document.addEventListener("click", (e) => { if (!menu.contains(e.target)) { menu.hidden = true; btn.setAttribute("aria-expanded", "false"); } });
+  document.body.append(btn, menu);
+}
+addDisplayOptions();

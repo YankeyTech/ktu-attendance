@@ -2,11 +2,28 @@
 const reduceMotion = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
 const safeName = (s) => (String(s || "").replace(/[^\w\- ]+/g, "").trim() || "attendance");
 
+// Supabase returns at most 1000 rows per request, so read page by page.
+async function fetchAllRows(sb, table, cols, order, asc) {
+  let out = [], from = 0;
+  for (;;) {
+    const { data, error } = await sb.from(table).select(cols).order(order, { ascending: asc !== false }).order("id").range(from, from + 999);
+    if (error) return { data: out, error };
+    out = out.concat(data || []);
+    if (!data || data.length < 1000) break;
+    from += 1000;
+  }
+  return { data: out };
+}
 async function fetchAttendance(sb, ids) {
   let out = [];
   for (let i = 0; i < ids.length; i += 40) {
-    const { data } = await sb.from("attendance").select("*").in("session_id", ids.slice(i, i + 40));
-    out = out.concat(data || []);
+    let from = 0;
+    for (;;) {
+      const { data } = await sb.from("attendance").select("*").in("session_id", ids.slice(i, i + 40)).order("id").range(from, from + 999);
+      const d = data || []; out = out.concat(d);
+      if (d.length < 1000) break;
+      from += 1000;
+    }
   }
   return out;
 }
@@ -48,7 +65,8 @@ function downloadXlsx(name, sheets) {
   const wb = XLSX.utils.book_new();
   for (const s of sheets) {
     const ws = XLSX.utils.aoa_to_sheet(s.rows);
-    ws["!cols"] = s.rows[0].map((_, i) => ({ wch: Math.min(40, Math.max(10, ...s.rows.map((r) => String(r[i] ?? "").length + 2))) }));
+    const sample = s.rows.slice(0, 200);
+    ws["!cols"] = s.rows[0].map((_, i) => ({ wch: Math.min(40, Math.max(10, ...sample.map((r) => String(r[i] ?? "").length + 2))) }));
     XLSX.utils.book_append_sheet(wb, ws, s.name);
   }
   XLSX.writeFile(wb, safeName(name) + ".xlsx");
@@ -135,8 +153,61 @@ function addDisplayOptions() {
     const l = document.createElement("label"); const c = document.createElement("input"); c.type = "checkbox"; c.checked = get(key);
     c.addEventListener("change", () => { set(key, c.checked); apply(); }); l.append(c, " " + label); menu.appendChild(l);
   }
+  const rb = document.createElement("button"); rb.type = "button"; rb.className = "rptbtn"; rb.textContent = "Report a problem";
+  rb.addEventListener("click", () => { menu.hidden = true; openReport(); }); menu.appendChild(rb);
   btn.addEventListener("click", (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; btn.setAttribute("aria-expanded", String(!menu.hidden)); });
   document.addEventListener("click", (e) => { if (!menu.contains(e.target)) { menu.hidden = true; btn.setAttribute("aria-expanded", "false"); } });
   document.body.append(btn, menu);
 }
 addDisplayOptions();
+
+
+// ---- Report a problem (works for students too) ----
+const _errs = [];
+window.addEventListener("error", (e) => { _errs.push((e.message || "error") + " (" + String(e.filename || "").split("/").pop() + ":" + e.lineno + ")"); if (_errs.length > 5) _errs.shift(); });
+window.addEventListener("unhandledrejection", (e) => { _errs.push("promise: " + ((e.reason && e.reason.message) || e.reason)); if (_errs.length > 5) _errs.shift(); });
+function openReport() {
+  if (document.getElementById("rpt")) return;
+  const box = document.createElement("div"); box.id = "rpt"; box.className = "rpt";
+  box.innerHTML = '<div class="rptc" role="dialog" aria-modal="true" aria-label="Report a problem"><h3>Report a problem</h3><p class="note">Tell us what went wrong. The page and your phone type are sent with it. Please do not include passwords.</p><label for="rptMsg">What happened?</label><textarea id="rptMsg" rows="4" maxlength="1000"></textarea><label for="rptContact">Your phone number or email (optional)</label><input id="rptContact" maxlength="100"><div class="row"><button id="rptSend" class="btn" type="button">Send report</button><button id="rptCancel" class="btn quiet" type="button">Cancel</button></div><p id="rptOut" class="msg" aria-live="polite"></p></div>';
+  document.body.appendChild(box);
+  const out = (t, k) => { document.getElementById("rptOut").textContent = t; document.getElementById("rptOut").className = "msg " + (k || ""); };
+  document.getElementById("rptCancel").addEventListener("click", () => box.remove());
+  document.getElementById("rptSend").addEventListener("click", async () => {
+    const msg = document.getElementById("rptMsg").value.trim();
+    if (msg.length < 3) return out("Please describe the problem.", "warn");
+    if (typeof sb === "undefined") return out("Could not send from this page.", "bad");
+    const details = navigator.userAgent + " | screen " + screen.width + "x" + screen.height + " | " + new Date().toISOString() + " | errors: " + (_errs.join(" ; ") || "none");
+    document.getElementById("rptSend").disabled = true; out("Sending...");
+    const { data, error } = await sb.rpc("report_problem", { p_page: location.pathname, p_message: msg, p_contact: document.getElementById("rptContact").value.trim() || null, p_details: details });
+    document.getElementById("rptSend").disabled = false;
+    if (error || !data) return out("Could not send. Check your internet and try again.", "bad");
+    if (!data.ok) return out(data.error, "bad");
+    box.remove(); toast("Thank you. Your report was sent.");
+  });
+  document.getElementById("rptMsg").focus();
+}
+
+// ---- Printable attendance sheet (use the browser's Save as PDF) ----
+function openAttendanceSheet(c, atts, roll, lecturer) {
+  const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+  const t = (iso) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const day = new Date(c.created_at).toLocaleDateString([], { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const present = [...atts].sort((a, b) => ((a.student_name || a.index_number) < (b.student_name || b.index_number) ? -1 : 1));
+  const here = new Set(present.map((a) => String(a.index_number).toUpperCase()));
+  const absent = (roll || []).filter((r) => !here.has(r.index_number));
+  const rows = present.map((a) => [a.student_name || "", a.index_number, a.programme || "", a.level || "", t(a.checked_in_at), a.late ? "Late" : a.in_range ? "Present" : "Present (outside area)"])
+    .concat(absent.map((r) => [r.student_name || "", r.index_number, r.programme || c.programme || "", r.level || "", "", "Absent"]));
+  const body = rows.map((r, i) => "<tr><td>" + (i + 1) + "</td>" + r.map((x) => "<td>" + esc(x) + "</td>").join("") + '<td class="sig"></td></tr>').join("");
+  const html = '<!doctype html><html><head><meta charset="utf-8"><title>Attendance sheet</title><style>@page{size:A4;margin:14mm}body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#000;margin:0}h1{font-size:19px;margin:0}h2{font-size:14px;margin:2px 0 10px;font-weight:normal}.meta{display:grid;grid-template-columns:1fr 1fr;gap:3px 20px;margin:10px 0 12px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #444;padding:6px 7px;text-align:left;vertical-align:middle}th{background:#e8e8e8}td.sig{width:120px;height:26px}.foot{display:flex;justify-content:space-between;margin-top:34px;gap:30px}.foot div{flex:1;border-top:1px solid #000;padding-top:4px}.noprint{margin:0 0 14px;padding:10px;background:#fff8d6;border:1px solid #e0c200}@media print{.noprint{display:none}}</style></head><body>'
+    + '<div class="noprint">Choose <b>Save as PDF</b> as the printer to keep a PDF copy. <button onclick="window.print()">Print</button></div>'
+    + "<h1>Koforidua Technical University</h1><h2>Class attendance sheet</h2>"
+    + '<div class="meta"><div><b>Course:</b> ' + esc(c.course) + "</div><div><b>Date:</b> " + esc(day) + "</div><div><b>Programme and level:</b> " + esc(progLabel(c)) + (c.combined ? "" : " " + esc(c.level || "")) + "</div><div><b>Term:</b> " + esc([c.academic_year, c.semester].filter(Boolean).join(", ")) + "</div><div><b>Lecturer:</b> " + esc(lecturer || "") + "</div><div><b>Present:</b> " + present.length + (absent.length ? " | <b>Absent (from roll):</b> " + absent.length : "") + "</div></div>"
+    + "<table><thead><tr><th>No.</th><th>Name</th><th>Index number</th><th>Programme</th><th>Level</th><th>Time in</th><th>Status</th><th>Signature</th></tr></thead><tbody>" + body + "</tbody></table>"
+    + '<div class="foot"><div>Lecturer signature</div><div>Date</div></div>'
+    + '<p style="color:#555;margin-top:14px">Printed ' + esc(new Date().toLocaleString()) + "</p>"
+    + "<script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script></body></html>";
+  const w = window.open("", "_blank");
+  if (!w) { toast("Allow pop-ups for this site, then try again."); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+}

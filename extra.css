@@ -218,3 +218,29 @@ html.hc input,html.hc select,html.hc .btn.quiet,html.hc .card{border-width:2px}
   #rows td:empty{display:none}
 }
 @media (prefers-reduced-motion:reduce){.radar .dot.new,.projcount b.bump{animation:none!important}}
+
+/* Batch C */
+.ch3{font-family:var(--display);font-size:1.05rem;margin:22px 0 6px}
+.vchart{display:flex;gap:6px;align-items:flex-end;overflow-x:auto;padding-bottom:6px}
+.vcol{flex:1 0 34px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.vnum{font-size:.78rem;font-weight:700;font-variant-numeric:tabular-nums}
+.vtrack{height:150px;width:100%;display:flex;align-items:flex-end;justify-content:center}
+.vbar{position:relative;width:70%;background:#e0a29c;border-radius:6px 6px 0 0;min-height:0}
+.vin{position:absolute;left:0;right:0;bottom:0;background:#1a7f4b;border-radius:0 0 0 0}
+.vlab{font-size:.7rem;color:var(--mut);white-space:nowrap}
+.hbars{display:flex;flex-direction:column;gap:8px}
+.hrow{display:grid;grid-template-columns:minmax(120px,1.2fr) 3fr minmax(110px,1fr);gap:10px;align-items:center;font-size:.88rem}
+.hl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.htrack{height:14px;background:color-mix(in srgb,var(--blue) 8%,var(--card));border-radius:7px;overflow:hidden}
+.hbar{height:100%;background:var(--blue);border-radius:7px}
+.hv{color:var(--mut);font-variant-numeric:tabular-nums}
+.heat{overflow-x:auto}
+.hrowh{display:grid;grid-template-columns:40px repeat(15,minmax(22px,1fr));gap:3px;margin-bottom:3px}
+.hd,.hc{font-size:.72rem;color:var(--mut);text-align:center}
+.hcell{height:24px;border-radius:5px;border:1px solid var(--line)}
+.rpt{position:fixed;inset:0;z-index:95;background:rgba(10,20,32,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+.rptc{width:min(480px,100%);background:var(--card);border-radius:14px;padding:20px;max-height:92vh;overflow:auto}
+.rptc h3{font-family:var(--display);margin:0 0 6px}
+textarea{width:100%;padding:11px 14px;border:1.5px solid var(--line);border-radius:10px;font:inherit;background:var(--card);color:var(--ink)}
+.rptbtn{display:block;margin-top:8px;padding:6px 0 0;border:0;border-top:1px solid var(--line);background:transparent;color:var(--blue);font-weight:700;font-family:var(--text);cursor:pointer;width:100%;text-align:left}
+@media (max-width:600px){.hrow{grid-template-columns:1fr}.hl{white-space:normal}}

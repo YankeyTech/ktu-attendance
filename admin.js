@@ -21,11 +21,12 @@ $("login").addEventListener("submit", async (e) => {
 $("out").addEventListener("click", async () => { await sb.auth.signOut(); start(); });
 document.querySelectorAll(".tabs [data-t]").forEach((b) => b.addEventListener("click", () => {
   document.querySelectorAll(".tabs [data-t]").forEach((x) => x.classList.toggle("on", x === b));
-  for (const t of ["over", "lect", "cls"]) $("t-" + t).hidden = t !== b.dataset.t;
+  for (const t of ["over", "lect", "cls", "ana", "act", "rep"]) $("t-" + t).hidden = t !== b.dataset.t;
+  if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "rep") loadReports();
 }));
 
 async function load() {
-  const [p, c, a, cr, rq] = await Promise.all([sb.from("profiles").select("*"), sb.from("sessions").select("*").order("created_at", { ascending: false }), sb.from("attendance").select("session_id"), sb.from("courses").select("owner,name").order("name"), sb.from("name_requests").select("*").eq("status", "pending").order("created_at")]);
+  const [p, c, a, cr, rq] = await Promise.all([sb.from("profiles").select("*"), fetchAllRows(sb, "sessions", "*", "created_at", false), fetchAllRows(sb, "attendance", "session_id", "id"), sb.from("courses").select("owner,name").order("name"), sb.from("name_requests").select("*").eq("status", "pending").order("created_at")]);
   nameReqs = rq.data || [];
   courses = cr.data || [];
   people = p.data || []; classes = c.data || []; counts = {};
@@ -38,7 +39,7 @@ async function load() {
   for (const [n, l] of [[people.length, "Staff accounts"], [people.filter((x) => x.role === "lecturer" && x.active).length, "Active lecturers"], [people.filter((x) => x.role === "assistant" && x.active).length, "Teaching assistants"], [nameReqs.length, "Name requests"], [classes.length, "Classes"], [(a.data || []).length, "Check-ins"]]) {
     const d = document.createElement("div"), b = document.createElement("b"); b.textContent = 0; countUp(b, n); d.append(b, l); $("stats").appendChild(d);
   }
-  fillFilters(); drawL(); drawC(); drawReq();
+  fillFilters(); drawL(); drawC(); drawReq(); loadStatus(); loadReports(true);
 }
 
 function grid(head, body, cols, rows, key) {
@@ -74,17 +75,19 @@ function drawC() {
   for (const s of rows) {
     const tr = document.createElement("tr");
     for (const v of [fmt(s.created_at), s.course, s.academic_year || "-", s.semester || "-", s.combined ? "Combined: " + (s.class_groups || []).map((g) => g.programme + " (" + g.level + ")").join("; ") : s.programme || "-", s.combined ? "Various" : s.level || "-", s._owner, s._n]) { const td = document.createElement("td"); td.textContent = v; tr.appendChild(td); }
-    const td = document.createElement("td"), b = document.createElement("button"); b.type = "button"; b.textContent = "Delete";
-    b.addEventListener("click", async () => { if (confirm("Delete this class and all its attendance?")) { await sb.from("sessions").delete().eq("id", s.id); load(); } });
-    td.appendChild(b); tr.appendChild(td); $("cb").appendChild(tr);
+    const td = document.createElement("td");
+    td.append(abtn("Sheet", "", () => adminSheet(s)), abtn(s.archived ? "Restore" : "Archive", "", () => archiveSome([s], !s.archived)),
+      abtn("Delete", "bad", async () => { if (confirm("Delete this class and all its attendance?")) { await sb.from("sessions").delete().eq("id", s.id); load(); } }));
+    tr.appendChild(td); $("cb").appendChild(tr);
   }
 }
 $("lq").addEventListener("input", drawL);
-for (const id of ["cq", "fc", "fp", "fl", "fo", "ft", "fy", "fs", "fd1", "fd2"]) $(id).addEventListener(id === "cq" ? "input" : "change", drawC);
+for (const id of ["cq", "fc", "fp", "fl", "fo", "ft", "fa", "fy", "fs", "fd1", "fd2"]) $(id).addEventListener(id === "cq" ? "input" : "change", drawC);
 const roleLabel = (r) => (r === "assistant" ? "Teaching assistant" : r === "admin" ? "Admin" : "Lecturer");
 function filteredClasses() {
-  const q = $("cq").value.trim().toLowerCase(), fc = $("fc").value, fp = $("fp").value, fl = $("fl").value, fo = $("fo").value, ft = $("ft").value, fy = $("fy").value, fs = $("fs").value, d1 = $("fd1").value, d2 = $("fd2").value;
+  const q = $("cq").value.trim().toLowerCase(), fc = $("fc").value, fp = $("fp").value, fl = $("fl").value, fo = $("fo").value, ft = $("ft").value, fa = $("fa").value, fy = $("fy").value, fs = $("fs").value, d1 = $("fd1").value, d2 = $("fd2").value;
   return classes.filter((s) => {
+    if ((fa === "active" && s.archived) || (fa === "archived" && !s.archived)) return false;
     if (fc && s.course !== fc) return false; if (fy && s.academic_year !== fy) return false; if (fs && s.semester !== fs) return false; if ((ft === "combined" && !s.combined) || (ft === "single" && s.combined)) return false;
     const gs = s.combined ? (s.class_groups || []) : [{ programme: s.programme, level: s.level }];
     if (fp && !gs.some((g) => g.programme === fp)) return false;
@@ -164,4 +167,155 @@ $("purge").addEventListener("click", async () => {
   if (!confirm("Delete location and phone details from check-ins older than " + m + " months? This cannot be undone.")) return;
   const r = await sb.rpc("purge_locations", { p_months: m });
   if (r.error) say("msg", r.error.message, "bad"); else say("msg", "Cleaned " + r.data + " check-in(s).", "ok");
+});
+
+// ================= Batch C =================
+const el = (t, c) => { const e = document.createElement(t); if (c) e.className = c; return e; };
+const pct = (a, b) => (b ? Math.round((a * 100) / b) : 0);
+const ago = (iso) => { const m = Math.round((Date.now() - new Date(iso)) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " days ago"; };
+
+// ---- Archive and printable sheet ----
+async function archiveSome(list, arch) {
+  if (!list.length) return say("msg", "No matching classes.", "warn");
+  if (list.length > 1 && !confirm((arch ? "Archive " : "Restore ") + list.length + " classes? " + (arch ? "They are hidden from the default lists but kept, and you can restore them." : ""))) return;
+  const r = await sb.rpc("archive_sessions", { p_ids: list.map((s) => s.id), p_archived: arch });
+  if (r.error) say("msg", r.error.message, "bad"); else { say("msg", (arch ? "Archived " : "Restored ") + r.data + " class(es).", "ok"); load(); }
+}
+$("arcBulk").addEventListener("click", () => archiveSome(filteredClasses().filter((s) => !s.archived), true));
+$("resBulk").addEventListener("click", () => archiveSome(filteredClasses().filter((s) => s.archived), false));
+async function adminSheet(s) {
+  say("msg", "Preparing the sheet...");
+  const [atts, { data: roll }] = await Promise.all([fetchAttendance(sb, [s.id]), sb.from("rolls").select("*").eq("owner", s.owner).eq("course", s.course)]);
+  say("msg", ""); openAttendanceSheet(s, atts, roll || [], s._owner);
+}
+
+// ---- Analytics ----
+async function loadAnalytics() {
+  const ys = $("anYear"), keep = ys.value; ys.textContent = "";
+  const o0 = el("option"); o0.value = ""; o0.textContent = "All years"; ys.appendChild(o0);
+  for (const y of [...new Set(classes.map((s) => s.academic_year).filter(Boolean))].sort().reverse()) { const o = el("option"); o.value = y; o.textContent = y; ys.appendChild(o); }
+  ys.value = Array.from(ys.options).some((o) => o.value === keep) ? keep : "";
+  const { data, error } = await sb.rpc("admin_stats", { p_year: $("anYear").value || null, p_sem: $("anSem").value || null, p_archived: $("anArch").checked });
+  if (error) return say("msg", "Could not load analytics: " + error.message, "bad");
+  say("msg", "");
+  const t = data.totals, box = $("anTotals"); box.textContent = "";
+  for (const [v, l, isPct] of [[t.classes, "Classes"], [t.checkins, "Check-ins"], [pct(t.in_range, t.checkins), "In the class area", 1], [pct(t.late, t.checkins), "Late", 1], [pct(t.flagged, t.checkins), "Flagged", 1]]) {
+    const d = el("div"), b = el("b"); if (isPct) b.textContent = v + "%"; else { b.textContent = 0; countUp(b, v); } d.append(b, l); box.appendChild(d);
+  }
+  drawWeekly(data.weekly); drawProgs(data.programmes); drawHeat(data.heat); drawScore(data.lecturers);
+}
+$("anGo").addEventListener("click", loadAnalytics);
+for (const id of ["anYear", "anSem", "anArch"]) $(id).addEventListener("change", loadAnalytics);
+function drawWeekly(w) {
+  const box = $("chWeek"); box.textContent = "";
+  const map = Object.fromEntries(w.map((x) => [x.week, x]));
+  const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  const rows = [];
+  for (let i = 11; i >= 0; i--) { const x = new Date(d); x.setDate(d.getDate() - i * 7); const k = x.toLocaleDateString("en-CA"); rows.push({ x, n: (map[k] || {}).n || 0, inr: (map[k] || {}).inr || 0 }); }
+  const max = Math.max(1, ...rows.map((r) => r.n));
+  for (const r of rows) {
+    const col = el("div", "vcol"), num = el("span", "vnum"), track = el("div", "vtrack"), bar = el("div", "vbar"), inn = el("div", "vin"), lab = el("span", "vlab");
+    num.textContent = r.n; bar.style.height = (r.n ? Math.max(4, (r.n / max) * 100) : 0) + "%"; inn.style.height = (r.n ? (r.inr / r.n) * 100 : 0) + "%";
+    lab.textContent = r.x.toLocaleDateString([], { day: "numeric", month: "short" }); col.title = r.n + " check-in(s), " + r.inr + " in the class area";
+    bar.appendChild(inn); track.appendChild(bar); col.append(num, track, lab); box.appendChild(col);
+  }
+}
+function drawProgs(p) {
+  const box = $("chProg"); box.textContent = "";
+  if (!p.length) { box.textContent = "No data yet."; return; }
+  const max = Math.max(...p.map((x) => x.n));
+  for (const x of p) {
+    const row = el("div", "hrow"), l = el("span", "hl"), tr = el("div", "htrack"), b = el("div", "hbar"), v = el("span", "hv");
+    l.textContent = x.programme || "-"; b.style.width = (x.n / max) * 100 + "%"; v.textContent = x.n + " (" + pct(x.inr, x.n) + "% in area)";
+    tr.appendChild(b); row.append(l, tr, v); box.appendChild(row);
+  }
+}
+function drawHeat(h) {
+  const box = $("chHeat"); box.textContent = "";
+  const map = {}; let max = 1; for (const x of h) { map[x.dow + "-" + x.hr] = x.n; max = Math.max(max, x.n); }
+  const order = [1, 2, 3, 4, 5, 6, 0], names = { 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 0: "Sun" }, hours = Array.from({ length: 15 }, (_, i) => i + 6);
+  const head = el("div", "hrowh"); head.appendChild(el("span", "hd")); for (const hr of hours) { const c = el("span", "hc"); c.textContent = hr; head.appendChild(c); } box.appendChild(head);
+  for (const dw of order) {
+    const row = el("div", "hrowh"), n = el("span", "hd"); n.textContent = names[dw]; row.appendChild(n);
+    for (const hr of hours) { const v = map[dw + "-" + hr] || 0, c = el("span", "hcell"); if (v) c.style.background = "rgba(0,76,132," + (0.15 + (0.85 * v) / max) + ")"; c.title = names[dw] + " " + hr + ":00, " + v + " check-in(s)"; row.appendChild(c); }
+    box.appendChild(row);
+  }
+}
+let scoreRows = [];
+function drawScore(l) {
+  scoreRows = l.map((x) => ({ name: x.full_name || x.email || "-", classes: x.classes, checkins: x.checkins, avg: x.classes ? Math.round((x.checkins / x.classes) * 10) / 10 : 0, inr: pct(x.inr, x.checkins), late: pct(x.late, x.checkins), flagged: pct(x.flagged, x.checkins) })).sort((a, b) => b.checkins - a.checkins);
+  const H = $("scH"), B = $("scB"); H.textContent = ""; B.textContent = "";
+  const tr = el("tr"); for (const h of ["Lecturer", "Classes", "Check-ins", "Avg per class", "In area %", "Late %", "Flagged %"]) { const th = el("th"); th.textContent = h; tr.appendChild(th); } H.appendChild(tr);
+  for (const x of scoreRows) { const r = el("tr"); for (const v of [x.name, x.classes, x.checkins, x.avg, x.inr + "%", x.late + "%", x.flagged + "%"]) { const td = el("td"); td.textContent = v; r.appendChild(td); } B.appendChild(r); }
+  if (!scoreRows.length) { const r = el("tr"), td = el("td"); td.colSpan = 7; td.textContent = "No classes in this selection."; r.appendChild(td); B.appendChild(r); }
+}
+$("scX").addEventListener("click", () => downloadXlsx("Lecturer scorecard", [{ name: "Scorecard", rows: [["Lecturer", "Classes", "Check-ins", "Avg per class", "In area %", "Late %", "Flagged %"]].concat(scoreRows.map((x) => [x.name, x.classes, x.checkins, x.avg, x.inr, x.late, x.flagged])) }]));
+
+// ---- Activity log ----
+const ACT = { account_created: "Account created", role_changed: "Role changed", account_enabled: "Account enabled", account_disabled: "Account disabled", name_changed: "Name changed", checkin_removed: "Check-in removed", manual_checkin_added: "Check-in added by hand", class_reopened: "Class reopened", class_archived: "Class archived", class_restored: "Class restored", class_deleted: "Class deleted", name_request_approved: "Name request approved", name_request_declined: "Name request declined" };
+let actRows = [];
+async function loadActivity() {
+  const { data, error } = await sb.from("audit_log").select("*").order("at", { ascending: false }).limit(300);
+  if (error) return say("msg", "Could not load the activity log: " + error.message, "bad");
+  actRows = data || [];
+  const sel = $("actFilter"), keep = sel.value; sel.textContent = ""; const o0 = el("option"); o0.value = ""; o0.textContent = "All actions"; sel.appendChild(o0);
+  for (const k of [...new Set(actRows.map((r) => r.action))]) { const o = el("option"); o.value = k; o.textContent = ACT[k] || k; sel.appendChild(o); }
+  sel.value = Array.from(sel.options).some((o) => o.value === keep) ? keep : ""; drawActivity();
+}
+function drawActivity() {
+  const f = $("actFilter").value, q = $("actQ").value.trim().toLowerCase(), B = $("actB"); B.textContent = "";
+  for (const r of actRows) {
+    if (f && r.action !== f) continue;
+    if (q && !((r.actor_email || "") + " " + (r.target || "") + " " + (r.detail || "")).toLowerCase().includes(q)) continue;
+    const tr = el("tr"); for (const v of [fmt(r.at), r.actor_email || "System", ACT[r.action] || r.action, r.target || "", r.detail || ""]) { const td = el("td"); td.textContent = v; tr.appendChild(td); } B.appendChild(tr);
+  }
+  if (!B.children.length) { const tr = el("tr"), td = el("td"); td.colSpan = 5; td.textContent = "Nothing to show yet."; tr.appendChild(td); B.appendChild(tr); }
+}
+$("actFilter").addEventListener("change", drawActivity); $("actQ").addEventListener("input", drawActivity);
+
+// ---- Problem reports ----
+let repRows = [];
+async function loadReports(quiet) {
+  const { data, error } = await sb.from("problem_reports").select("*").order("at", { ascending: false }).limit(200);
+  if (error) { if (!quiet) say("msg", "Could not load reports: " + error.message, "bad"); return; }
+  repRows = data || [];
+  const open = repRows.filter((r) => r.status === "open").length; $("repN").hidden = !open; $("repN").textContent = open;
+  drawReports();
+}
+function drawReports() {
+  const f = $("repFilter").value, L = $("repList"); L.textContent = "";
+  for (const r of repRows) {
+    if (f && r.status !== f) continue;
+    const row = el("div", "reqrow"), t = el("div", "reqtxt"), b = el("b"), sp = el("span");
+    b.textContent = r.message; sp.textContent = fmt(r.at) + "  |  " + (r.page || "") + (r.contact ? "  |  Contact: " + r.contact : "");
+    const det = el("details"), sm = el("summary"), pre = el("pre"); sm.textContent = "Technical details"; pre.textContent = r.details || ""; pre.style.whiteSpace = "pre-wrap"; det.append(sm, pre);
+    t.append(b, sp, det);
+    const acts = el("div", "acts"); acts.appendChild(abtn(r.status === "open" ? "Mark resolved" : "Reopen", r.status === "open" ? "ok" : "", async () => { const x = await sb.rpc("resolve_report", { p_id: r.id, p_resolved: r.status === "open" }); if (x.error) say("msg", x.error.message, "bad"); else loadReports(); }));
+    row.append(t, acts); L.appendChild(row);
+  }
+  if (!L.children.length) L.textContent = "No reports here.";
+}
+$("repFilter").addEventListener("change", drawReports);
+
+// ---- System status and backup ----
+async function loadStatus() {
+  const t0 = performance.now(), { data, error } = await sb.rpc("admin_status"), box = $("statusBody"); box.textContent = "";
+  if (error) { box.textContent = "Could not read the status: " + error.message; return; }
+  const ms = Math.round(performance.now() - t0);
+  for (const [k, v] of [["Database", "Responding (" + ms + " ms)"], ["Last check-in", data.last_checkin ? ago(data.last_checkin) : "none yet"], ["Check-ins in the last 24 hours", data.checkins_24h], ["Classes open right now", data.open_classes], ["Open problem reports", data.open_reports]]) {
+    const row = el("div", "absrow"), a = el("span"), b = el("b"); a.textContent = k; b.textContent = v; row.append(a, b); box.appendChild(row);
+  }
+}
+$("backup").addEventListener("click", async () => {
+  say("msg", "Preparing the backup. This can take a moment...");
+  const sheets = [];
+  for (const [name, tbl, ord] of [["Staff", "profiles", "created_at"], ["Classes", "sessions", "created_at"], ["Check-ins", "attendance", "id"], ["Courses", "courses", "id"], ["Rolls", "rolls", "id"], ["Venues", "venues", "id"]]) {
+    const { data } = await fetchAllRows(sb, tbl, "*", ord);
+    const rows = data || []; if (!rows.length) continue;
+    if (tbl === "sessions") rows.forEach((r) => { delete r.secret; });
+    const keys = [...new Set(rows.flatMap((r) => Object.keys(r)))];
+    sheets.push({ name, rows: [keys].concat(rows.map((r) => keys.map((k) => { const v = r[k]; return v && typeof v === "object" ? JSON.stringify(v) : v == null ? "" : v; }))) });
+  }
+  if (!sheets.length) return say("msg", "Nothing to back up yet.", "warn");
+  downloadXlsx("KTU backup " + new Date().toLocaleDateString("en-CA"), sheets); say("msg", "Backup downloaded.", "ok");
 });

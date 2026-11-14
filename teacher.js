@@ -127,6 +127,7 @@ async function loadSessions() {
   const cq = $("cq").value.trim().toLowerCase(), cf = $("cfilter").value;
   for (const s of data) {
     if (cf && s.course !== cf) continue;
+    if (s.archived && !$("showArch").checked) continue;
     const yf = $("yfilter").value, sf = $("sfilter").value;
     if ((yf && s.academic_year !== yf) || (sf && s.semester !== sf)) continue;
     const tf = $("tfilter").value;
@@ -805,5 +806,10 @@ $("repeatLast").addEventListener("click", async () => {
   fillFrom(data[0]);
 });
 $("repeat").addEventListener("click", () => { if (current) fillFrom(current); });
+
+
+// ---- Printable attendance sheet and archived classes ----
+$("pdfSheet").addEventListener("click", () => { if (!current || role === "assistant") return; openAttendanceSheet(Object.assign({}, current), records, rollRows, myName || myEmail); });
+$("showArch").addEventListener("change", loadSessions);
 
 refreshAuth();

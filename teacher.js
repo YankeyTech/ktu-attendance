@@ -3,6 +3,7 @@ const $ = (id) => document.getElementById(id);
 const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no 0/O/1/I to avoid mix-ups
 let sortBy = ["checked_in_at", 1];
 let groups = [];
+let myId = "", venues = [], seenDots = new Set(), projN = -1;
 let current = null, timer = null, records = [], role = "lecturer", qrTimer = null, lastWin = -1, rollRows = [], clockOffset = 0, myName = "", myEmail = "";
 
 function say(id, text, kind) { $(id).textContent = text; $(id).className = "msg " + (kind || ""); }
@@ -58,7 +59,7 @@ async function refreshAuth() {
     if (pr && pr.active === false) { await sb.auth.signOut(); return say("loginMsg", "This account is disabled. Contact the admin.", "bad"); }
     role = (pr && pr.role) || "lecturer";
     { const { data: pn } = await sb.from("name_requests").select("requested_name").eq("user_id", session.user.id).eq("status", "pending").maybeSingle(); pendingName = pn ? pn.requested_name : ""; }
-    myName = (pr && pr.full_name) || ""; $("myName").value = myName; myEmail = session.user.email; applyName();
+    myName = (pr && pr.full_name) || ""; $("myName").value = myName; myEmail = session.user.email; myId = session.user.id; loadVenues(); applyName();
     document.body.dataset.role = role;
     $("adminLink").hidden = !(role === "admin" && session.user.email.toLowerCase() === "ygpedri@gmail.com");
     await loadCourses();
@@ -73,7 +74,7 @@ $("login").addEventListener("submit", async (e) => {
   if (error) return say("loginMsg", "Wrong email or password.", "bad");
   $("pw").value = ""; say("loginMsg", ""); refreshAuth();
 });
-$("out").addEventListener("click", async () => { await sb.auth.signOut(); current = null; $("live").hidden = true; refreshAuth(); });
+$("out").addEventListener("click", async () => { await sb.auth.signOut(); current = null; $("live").hidden = true; $("stickybar").hidden = true; document.body.classList.remove("hasbar"); refreshAuth(); });
 
 $("start").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -85,7 +86,8 @@ $("start").addEventListener("submit", async (e) => {
     const isNew = $("coursePick").value === "__new";
     const courseName = isNew ? $("course").value.trim() : $("coursePick").value;
     if (courseName.length < 2) throw new Error("Choose a course, or type the new course name.");
-    const pos = await getPosition();
+    const vsel = venues.find((v) => v.id === $("venue").value);
+    const pos = vsel ? { coords: { latitude: vsel.lat, longitude: vsel.lng } } : await getPosition();
     let row = null, lastErr = null;
     for (let i = 0; i < 3 && !row; i++) {
       const { data, error } = await sb.from("sessions").insert({
@@ -159,7 +161,7 @@ function openSession(s) {
   $("endchk").hidden = !s.two_point; $("endchk").textContent = s.end_open ? "Close end-of-class check" : "Open end-of-class check (10 min)";
   lastWin = -1; if (qrTimer) clearInterval(qrTimer); qrTimer = setInterval(tickQr, 1000); tickQr();
   syncClock().then(() => { lastWin = -1; tickQr(); });
-  wasOpen = null; beepFor = ""; skelRows(); loadRoll(); applyState(); keepAwake();
+  wasOpen = null; beepFor = ""; seenDots = new Set(); projN = -1; skelRows(); loadRoll(); applyState(); keepAwake();
   stopPolling();
   timer = setInterval(loadAttendance, 8000);
   $("live").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -215,7 +217,7 @@ function renderRows() {
       loadAttendance();
       toast("Removed " + r.index_number + ".", { action: "Undo", ms: 9000, onAction: async () => { const u = await sb.from("attendance").insert(row); toast(u.error ? "Could not undo: " + u.error.message : "Restored " + r.index_number + "."); loadAttendance(); } });
     } });
-    tr.appendChild(act); body.appendChild(tr);
+    tr.appendChild(act); Array.from(tr.children).forEach((td, i) => { td.dataset.label = ROW_LABELS[i] || ""; }); body.appendChild(tr);
   }
   const inside = records.filter((r) => r.in_range).length, sc = records.filter((r) => r._shared).length;
   const open = new Date(current.closes_at) > new Date();
@@ -223,7 +225,7 @@ function renderRows() {
   for (const [n, l] of [[records.length, "Checked in"], [inside, "In class area"], [records.length - inside, "Outside"], [sc, "Shared phone"], [records.filter((r) => r.late).length, "Late"], [records.filter((r) => r.gps_flag).length, "GPS warnings"]]) {
     const d = document.createElement("div"); const b = document.createElement("b"); b.textContent = n; d.append(b, l); $("stats").appendChild(d);
   }
-  renderAbsent(); renderGroupSum(); applyState();
+  renderAbsent(); renderGroupSum(); applyState(); renderRadar(); updateProj();
   say("count", (open ? "Check-in is open until " + fmtTime(current.closes_at) + "." : "Check-in is closed.") + " Showing " + list.length + " of " + records.length + ".");
 }
 document.querySelectorAll("th[data-k]").forEach((th) => th.addEventListener("click", () => { sortBy = [th.dataset.k, sortBy[0] === th.dataset.k ? -sortBy[1] : 1]; renderRows(); }));
@@ -368,6 +370,7 @@ async function tickQr() {
   $("liveLink").textContent = studentLink(current.code);
   if (!$("qrBox").hidden) drawQr();
   if (!$("qrFs").hidden) drawFs();
+  if (!$("proj").hidden) drawProj(true);
 }
 $("endchk").addEventListener("click", async () => {
   const open = !current.end_open;
@@ -611,6 +614,7 @@ function applyState() {
   $("pinBox").hidden = !(open && current.rotating);
   if (!open) { $("qrBox").hidden = true; $("qrFs").hidden = true; stopQr(); }
   else if (current.rotating) { $("qrBox").hidden = false; if (!qrTimer) { lastWin = -1; qrTimer = setInterval(tickQr, 1000); tickQr(); keepAwake(); } }
+  renderBar();
 }
 $("reopen").addEventListener("click", async () => {
   const t = new Date(Date.now() + Number($("reopenMins").value) * 60000).toISOString();
@@ -662,6 +666,7 @@ function beep(len) {
   } catch (e) {}
 }
 setInterval(() => {
+  if (!$("proj").hidden) updateProj();
   const el = $("countdown");
   if (!current) { el.hidden = true; return; }
   const open = isOpen();
@@ -673,5 +678,132 @@ setInterval(() => {
   el.hidden = false; el.textContent = "Closes in " + m + ":" + String(sec).padStart(2, "0"); el.className = "countdown" + (ms <= 120000 ? " soon" : "");
   if (ms <= 120000 && !beeped2) { beeped2 = true; beep(0.35); toast("Check-in closes in 2 minutes.", { action: "+10 min", onAction: () => $("more").click() }); }
 }, 1000);
+
+
+// ---- Phone layout: labels for the card view, and a sticky action bar ----
+const ROW_LABELS = ["Name", "Index number", "Programme", "Level", "Time", "Distance", "Confidence", "Notes", ""];
+function renderBar() {
+  const bar = $("stickybar");
+  if (!current || $("live").hidden) { bar.hidden = true; document.body.classList.remove("hasbar"); return; }
+  bar.hidden = false; document.body.classList.add("hasbar"); bar.textContent = "";
+  const items = isOpen() ? [["Projector", "projBtn"], ["QR", "qr"], ["+10 min", "more"], ["Close", "close", "danger"]] : [["Reopen", "reopen"], ["Projector", "projBtn"]];
+  for (const [label, id, cls] of items) {
+    const b = document.createElement("button"); b.type = "button"; b.className = "btn quiet " + (cls || ""); b.textContent = label;
+    b.addEventListener("click", () => $(id).click()); bar.appendChild(b);
+  }
+}
+
+// ---- Radar view ----
+const SVGNS = "http://www.w3.org/2000/svg";
+function svgEl(n, a) { const e = document.createElementNS(SVGNS, n); for (const k in a) e.setAttribute(k, a[k]); return e; }
+function renderRadar() {
+  const box = $("radarBox"); if (!current || !box.open) return;
+  const svg = $("radar"); svg.textContent = "";
+  const R = current.radius_m, lat0 = current.lat, lng0 = current.lng, mx = 111320 * Math.cos((lat0 * Math.PI) / 180);
+  const pts = records.filter((r) => r.lat != null && r.lng != null).map((r) => ({ r, x: (r.lng - lng0) * mx, y: -(r.lat - lat0) * 110540 }));
+  const ext = Math.max(R * 1.25, ...pts.map((p) => Math.hypot(p.x, p.y) * 1.08)), k = 100 / ext;
+  svg.appendChild(svgEl("circle", { cx: 0, cy: 0, r: R * k, fill: "none", stroke: "#1a7f4b", "stroke-width": 1.2, "stroke-dasharray": "4 3" }));
+  svg.appendChild(svgEl("circle", { cx: 0, cy: 0, r: (R * k) / 2, fill: "none", stroke: "#8aa0b4", "stroke-width": 0.6, "stroke-dasharray": "2 3" }));
+  const lab = svgEl("text", { x: R * k * 0.7, y: -R * k * 0.72, "font-size": 6, fill: "#5a6878" }); lab.textContent = R + " m"; svg.appendChild(lab);
+  svg.appendChild(svgEl("circle", { cx: 0, cy: 0, r: 3.5, fill: "#004c84" }));
+  const you = svgEl("text", { x: 0, y: -6, "font-size": 6, "text-anchor": "middle", fill: "#5a6878" }); you.textContent = "You"; svg.appendChild(you);
+  for (const p of pts) {
+    const t = trustOf(p.r), isNew = !seenDots.has(p.r.id); seenDots.add(p.r.id);
+    const c = svgEl("circle", { cx: p.x * k, cy: p.y * k, r: 3.2, fill: t.lv === "high" ? "#1a7f4b" : t.lv === "mid" ? "#f2b705" : "#b3261e", stroke: "#fff", "stroke-width": 0.8, class: isNew ? "dot new" : "dot" });
+    const tt = svgEl("title", {}); tt.textContent = (p.r.student_name || p.r.index_number) + ", " + Math.round(p.r.distance_m) + " m"; c.appendChild(tt);
+    c.addEventListener("click", () => toast((p.r.student_name || p.r.index_number) + " (" + p.r.index_number + "), " + Math.round(p.r.distance_m) + " m from you."));
+    svg.appendChild(c);
+  }
+  if (!pts.length) { const t = svgEl("text", { x: 0, y: 30, "font-size": 7, "text-anchor": "middle", fill: "#5a6878" }); t.textContent = "No locations yet"; svg.appendChild(t); }
+}
+$("radarBox").addEventListener("toggle", renderRadar);
+
+// ---- Projector mode ----
+function drawProj(redraw) {
+  if (!current) return;
+  const open = isOpen();
+  $("projCourse").textContent = current.course;
+  $("projTerm").textContent = [current.academic_year, current.semester].filter(Boolean).join(", ") + (current.combined ? "  |  Combined class" : "");
+  $("projCode").textContent = current.code;
+  const pin = $("projPin"); pin.hidden = !(current.rotating && current._tok);
+  if (!pin.hidden) pin.textContent = current._tok.slice(0, 3) + " " + current._tok.slice(3);
+  const cv = $("projCanvas"); cv.hidden = !open;
+  if (open && redraw !== false) drawQR(cv, studentLink(current.code, current._tok), Math.min(innerHeight * 0.62, innerWidth * 0.38));
+  updateProj();
+}
+function updateProj() {
+  if ($("proj").hidden || !current) return;
+  const n = records.length, el = $("projN");
+  if (n !== projN) { el.textContent = n; el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); projN = n; }
+  const ins = records.filter((r) => r.in_range).length;
+  $("projSub").textContent = ins + " in the class area" + (n - ins ? ", " + (n - ins) + " outside" : "");
+  $("projCd").textContent = isOpen() ? $("countdown").textContent : "Check-in has ended";
+  const g = $("projGroups"); g.textContent = "";
+  if (current.combined) for (const x of current.class_groups || []) {
+    const c = document.createElement("span"); c.className = "chip";
+    c.textContent = groupLabel(x) + ": " + records.filter((r) => r.programme === x.programme && (x.level === "All levels" || r.level === x.level)).length; g.appendChild(c);
+  }
+}
+$("projBtn").addEventListener("click", () => {
+  $("proj").hidden = false; projN = -1; drawProj(true);
+  try { if ($("proj").requestFullscreen) $("proj").requestFullscreen(); } catch (e) {}
+});
+function closeProj() { $("proj").hidden = true; try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {} }
+$("projClose").addEventListener("click", closeProj);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("proj").hidden) closeProj(); });
+document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement) $("proj").hidden = true; });
+
+// ---- Venues ----
+async function loadVenues() {
+  const { data } = await sb.from("venues").select("*").order("name");
+  venues = data || [];
+  const sel = $("venue"), keep = sel.value; sel.textContent = "";
+  const add = (v, t) => { const o = document.createElement("option"); o.value = v; o.textContent = t; sel.appendChild(o); };
+  add("", "My current location (stand in the room)");
+  for (const v of venues) add(v.id, v.name);
+  sel.value = venues.some((v) => v.id === keep) ? keep : ""; syncVenue();
+}
+function syncVenue() {
+  $("venueDel").hidden = !$("venue").value;
+  const v = venues.find((x) => x.id === $("venue").value); if (v && v.radius_m) $("radius").value = v.radius_m;
+}
+$("venue").addEventListener("change", syncVenue);
+$("venueSave").addEventListener("click", async () => {
+  const name = (prompt("Name this place, for example Block B Lab 2:") || "").trim(); if (name.length < 2) return;
+  try {
+    toast("Getting your location...");
+    const pos = await getPosition();
+    const { error } = await sb.from("venues").insert({ name, lat: pos.coords.latitude, lng: pos.coords.longitude, radius_m: Number($("radius").value) || null });
+    if (error) return toast(error.code === "23505" ? "You already have a venue with that name." : "Could not save: " + error.message);
+    toast("Saved " + name + " (GPS accuracy about " + Math.round(pos.coords.accuracy) + " m). Save it from the middle of the room."); await loadVenues();
+  } catch (e) { toast(e.message || "Could not get your location."); }
+});
+$("venueDel").addEventListener("click", async () => {
+  const v = venues.find((x) => x.id === $("venue").value); if (!v || !confirm("Delete the venue " + v.name + "?")) return;
+  const { error } = await sb.from("venues").delete().eq("id", v.id); toast(error ? "Could not delete: " + error.message : "Venue deleted."); loadVenues();
+});
+
+// ---- Repeat a class ----
+function fillFrom(s) {
+  const pick = $("coursePick");
+  if (Array.from(pick.options).some((o) => o.value === s.course)) pick.value = s.course; else { pick.value = "__new"; $("course").value = s.course; }
+  pick.dispatchEvent(new Event("change"));
+  const comb = !!s.combined;
+  document.querySelector('input[name="ctype"][value="' + (comb ? "combined" : "single") + '"]').checked = true;
+  if (comb) { groups = (s.class_groups || []).map((g) => ({ programme: g.programme, level: g.level })); drawChips(); }
+  else { $("tprog").value = s.programme || ""; $("tlevel").value = s.level || ""; }
+  setType();
+  if (s.academic_year) $("tyear").value = s.academic_year; if (s.semester) $("tsem").value = s.semester;
+  $("rot").checked = !!s.rotating; $("blk").checked = s.block_shared !== false; $("two").checked = !!s.two_point; $("late").value = s.late_after_min || "";
+  if (s.radius_m) $("radius").value = s.radius_m;
+  $("start").scrollIntoView({ behavior: "smooth", block: "start" });
+  toast("Details loaded. Check them, then press Start check-in here.");
+}
+$("repeatLast").addEventListener("click", async () => {
+  const { data } = await sb.from("sessions").select("*").eq("owner", myId).order("created_at", { ascending: false }).limit(1);
+  if (!data || !data.length) return toast("You have no earlier class to repeat.");
+  fillFrom(data[0]);
+});
+$("repeat").addEventListener("click", () => { if (current) fillFrom(current); });
 
 refreshAuth();

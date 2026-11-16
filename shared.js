@@ -87,7 +87,8 @@ function buildSheets(classes, atts, absent) {
   const dev = {};
   for (const a of atts) if (a.device_id) (dev[a.session_id + "|" + a.device_id] = dev[a.session_id + "|" + a.device_id] || new Set()).add(String(a.index_number).toUpperCase());
   const shared = (a) => !!(a.device_id && dev[a.session_id + "|" + a.device_id].size > 1);
-  const sorted = [...atts].sort((a, b) => (byId[a.session_id].created_at < byId[b.session_id].created_at ? 1 : -1) || (a.checked_in_at > b.checked_in_at ? 1 : -1));
+  const grp = (a, b) => String(a.programme || "").localeCompare(String(b.programme || "")) || String(a.level || "").localeCompare(String(b.level || ""));
+  const sorted = [...atts].sort((a, b) => (byId[a.session_id].created_at < byId[b.session_id].created_at ? 1 : -1) || (byId[a.session_id].combined ? grp(a, b) : 0) || (a.checked_in_at > b.checked_in_at ? 1 : -1));
   const ci = [["Date", "Course", "Academic year", "Semester", "Programme", "Level", "Lecturer", "Name", "Index number", "Time", "Distance (m)", "In class area", "Shared phone", "Manual", "Late", "End check", "GPS warning"]];
   for (const a of sorted) {
     const c = byId[a.session_id];
@@ -244,7 +245,7 @@ function openAttendanceSheet(c, atts, roll, lecturer) {
   const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
   const t = (iso) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const day = new Date(c.created_at).toLocaleDateString([], { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-  const present = [...atts].sort((a, b) => ((a.student_name || a.index_number) < (b.student_name || b.index_number) ? -1 : 1));
+  const present = [...atts].sort((a, b) => (c.combined ? String(a.programme || "").localeCompare(String(b.programme || "")) || String(a.level || "").localeCompare(String(b.level || "")) : 0) || ((a.student_name || a.index_number) < (b.student_name || b.index_number) ? -1 : 1));
   const here = new Set(present.map((a) => String(a.index_number).toUpperCase()));
   const absent = (roll || []).filter((r) => !here.has(r.index_number));
   const rows = present.map((a) => [a.student_name || "", a.index_number, a.programme || "", a.level || "", t(a.checked_in_at), a.late ? "Late" : a.in_range ? "Present" : "Present (outside area)"])

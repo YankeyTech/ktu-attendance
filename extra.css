@@ -268,3 +268,8 @@ textarea{width:100%;padding:11px 14px;border:1.5px solid var(--line);border-radi
   #rows tr.open td:first-child,#rows tr.open td[data-label="Confidence"]{display:block}
   #rows tr.open .sub{display:none}
 }
+
+/* Forgot password / back buttons on the sign-in pages */
+.btn.forgot{display:flex;align-items:center;justify-content:center;width:100%;margin-top:12px;min-height:46px;background:transparent;color:var(--blue);border:1.5px solid var(--blue);border-radius:10px;font-weight:700}
+.btn.forgot:hover:not(:disabled){background:color-mix(in srgb,var(--blue) 10%,transparent);transform:none}
+.btn.forgot:focus-visible{outline:3px solid color-mix(in srgb,var(--blue) 45%,transparent);outline-offset:2px}

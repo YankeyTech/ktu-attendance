@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Lecturer | KTU check-in</title>
 <link rel="stylesheet" href="style.css?v=17">
-<link rel="stylesheet" href="extra.css?v=17">
+<link rel="stylesheet" href="extra.css?v=18">
 </head>
 <body>
 <main>
@@ -22,7 +22,7 @@
     <label for="pw">Password</label>
     <input id="pw" type="password" autocomplete="current-password" required>
     <button class="btn" type="submit">Sign in</button>
-    <p class="note" style="margin:8px 0 0"><a href="#" id="forgot">Forgot password?</a></p>
+    <button type="button" id="forgot" class="btn forgot"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px;margin-right:6px"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2 20 3m-3 3 3 3m-6-0 2 2"/></svg>Forgot password?</button>
     <p id="loginMsg" class="msg" role="status"></p>
   </form>
   <form id="forgotBox" class="card" hidden>
@@ -31,7 +31,7 @@
     <label for="forgotEmail">Email</label>
     <input id="forgotEmail" type="email" autocomplete="username" required>
     <button id="forgotGo" class="btn" type="submit">Send reset link</button>
-    <p class="note" style="margin:8px 0 0"><a href="#" id="forgotBack">Back to sign in</a></p>
+    <button type="button" id="forgotBack" class="btn forgot">Back to sign in</button>
     <p id="forgotMsg" class="msg" role="status"></p>
   </form>
 
@@ -215,8 +215,8 @@
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-<script src="shared.js?v=18"></script>
+<script src="shared.js?v=19"></script>
 <script src="programmes.js"></script>
-<script src="teacher.js?v=20"></script>
+<script src="teacher.js?v=21"></script>
 </body>
 </html>

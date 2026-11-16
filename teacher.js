@@ -237,11 +237,56 @@ $("more").addEventListener("click", async () => {
   const { error } = await sb.from("sessions").update({ closes_at: t }).eq("id", current.id);
   if (!error) { current.closes_at = t; applyState(); renderRows(); loadSessions(); toast("Added 10 minutes."); }
 });
+// Add a student by hand. In a combined class the lecturer also picks the student's programme and level, so the sheets separate them.
+function manualDialog() {
+  return new Promise((resolve) => {
+    const groups = current.combined ? (current.class_groups || []) : [];
+    const back = document.createElement("div");
+    back.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:60;display:flex;align-items:center;justify-content:center;padding:16px";
+    const form = document.createElement("form"); form.className = "card"; form.style.cssText = "max-width:440px;width:100%;max-height:92vh;overflow:auto;margin:0";
+    const add = (label, el) => { const l = document.createElement("label"); l.textContent = label; form.append(l, el); return el; };
+    const h = document.createElement("h2"); h.textContent = "Add student manually"; form.appendChild(h);
+    const nm = add("Full name", Object.assign(document.createElement("input"), { maxLength: 100, required: true, autocomplete: "off" }));
+    const ix = add("Index number", Object.assign(document.createElement("input"), { maxLength: 30, required: true, autocomplete: "off" }));
+    const pr = document.createElement("select"), lv = document.createElement("select");
+    const opt = (sel, v, tx) => { const o = document.createElement("option"); o.value = v; o.textContent = tx || v; sel.appendChild(o); };
+    if (groups.length) {
+      add("Programme", pr); add("Level", lv);
+      opt(pr, "", "Select the programme");
+      for (const p of Array.from(new Set(groups.map((g) => g.programme)))) opt(pr, p);
+      const fillLv = () => {
+        lv.textContent = ""; opt(lv, "", "Select the level");
+        const ls = groups.filter((g) => g.programme === pr.value).map((g) => g.level);
+        const all = ls.includes("All levels") ? ROLL_LEVELS : Array.from(new Set(ls));
+        for (const l of all) opt(lv, l);
+        if (all.length === 1) lv.value = all[0];
+      };
+      pr.addEventListener("change", fillLv); fillLv();
+      pr.required = lv.required = true;
+    } else {
+      const p = add("Programme", Object.assign(document.createElement("input"), { value: current.programme || "-", disabled: true }));
+      add("Level", Object.assign(document.createElement("input"), { value: current.level || "-", disabled: true }));
+    }
+    const row = document.createElement("div"); row.className = "row"; row.style.marginTop = "14px";
+    const ok = Object.assign(document.createElement("button"), { type: "submit", className: "btn", textContent: "Add student" });
+    const no = Object.assign(document.createElement("button"), { type: "button", className: "btn quiet", textContent: "Cancel" });
+    const err = document.createElement("p"); err.className = "msg bad"; err.setAttribute("role", "status");
+    row.append(ok, no); form.append(row, err); back.appendChild(form); document.body.appendChild(back); nm.focus();
+    const done = (v) => { back.remove(); resolve(v); };
+    no.addEventListener("click", () => done(null));
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const idx = ix.value.trim().toUpperCase(), name = nm.value.trim().replace(/\s+/g, " ");
+      if (name.length < 3) return (err.textContent = "Enter the student's full name.");
+      if (!/^[A-Z0-9\/\-]{4,30}$/.test(idx)) return (err.textContent = "Enter a valid index number.");
+      done({ idx, name, programme: groups.length ? pr.value : current.programme || "-", level: groups.length ? lv.value : current.level || "-" });
+    });
+  });
+}
 $("addm").addEventListener("click", async () => {
-  const idx = (prompt("Index number of the student:") || "").trim().toUpperCase(); if (!idx) return;
-  const name = (prompt("Full name of the student:") || "").trim(); if (!name) return;
-  const { error } = await sb.from("attendance").insert({ session_id: current.id, index_number: idx, student_name: name,
-    programme: current.programme || "-", level: current.level || "-", lat: current.lat, lng: current.lng, accuracy_m: 0, distance_m: 0, in_range: true, manual: true, note: "Added by lecturer" });
+  const v = await manualDialog(); if (!v) return;
+  const { error } = await sb.from("attendance").insert({ session_id: current.id, index_number: v.idx, student_name: v.name,
+    programme: v.programme, level: v.level, lat: current.lat, lng: current.lng, accuracy_m: 0, distance_m: 0, in_range: true, manual: true, note: "Added by lecturer" });
   say("count", error ? (error.code === "23505" ? "That index number is already in this class." : "Could not add: " + error.message) : "Student added.", error ? "bad" : "ok");
   loadAttendance();
 });

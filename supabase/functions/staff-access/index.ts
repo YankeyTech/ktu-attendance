@@ -102,5 +102,18 @@ Deno.serve(async (req) => {
     return reply({ ok: true });
   }
 
+  if (action === "delete") {
+    const id = String(b.id || "");
+    if (id === u.user.id) return reply({ error: "You cannot delete your own account." });
+    const { data: p } = await admin.from("profiles").select("email,role").eq("id", id).maybeSingle();
+    if (!p) return reply({ error: "Account not found." });
+    if (p.role === "admin") return reply({ error: "The admin account cannot be deleted." });
+    // Removing the login also removes their profile, classes, attendance, courses, rolls and venues (cascade).
+    const { error } = await admin.auth.admin.deleteUser(id);
+    if (error) return reply({ error: "Could not delete the account: " + error.message });
+    try { await admin.from("audit_log").insert({ actor: u.user.id, actor_email: u.user.email, action: "account_deleted", target: p.email, detail: "deleted by admin" }); } catch (_) { /* log only */ }
+    return reply({ ok: true });
+  }
+
   return reply({ error: "Unknown action." });
 });

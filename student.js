@@ -82,7 +82,7 @@ $("tok").addEventListener("input", claim);
 
 // Combined classes: only the programmes and levels the lecturer allowed can be chosen.
 const progAllHTML = $("prog").innerHTML;
-let groupsNow = null, restricted = false;
+let groupsNow = null, restricted = false, lockedNow = false;
 function syncLevels() {
   let al = null;
   if (groupsNow) { const ls = groupsNow.filter((g) => g.programme === $("prog").value); al = ls.some((g) => g.level === "All levels") ? null : ls.map((g) => g.level); }
@@ -106,6 +106,7 @@ $("prog").addEventListener("change", syncLevels);
 
 async function lookup() {
   const code = $("code").value.trim().toUpperCase();
+  if (lockedNow) { lockedNow = false; for (const id of ["prog", "lvl"]) { $(id).disabled = false; $(id).value = ""; } }
   $("course").textContent = ""; $("courseCard").hidden = true; if (groupsNow || restricted) setGroups(null); $("tokWrap").hidden = true; $("tok").required = false;
   if (code.length < 4) return;
   const { data, error } = await sb.rpc("get_session", { p_code: code });
@@ -116,8 +117,13 @@ async function lookup() {
   $("tokWrap").hidden = !s.rotating; $("tok").required = !!s.rotating;
   if (s.rotating && !pass) claim();
   $("courseCard").className = "coursecard" + (s.is_open ? "" : " closed"); $("courseCard").hidden = false;
-  const fill = (sel, v) => { if (v && !sel.value && Array.from(sel.options).some((o) => o.value === v)) sel.value = v; };
-  if (s.combined) setGroups(s.class_groups || []); else { fill($("prog"), s.programme); fill($("lvl"), s.level); }
+  // The lecturer chose the programme and level for this class, so the student cannot change them.
+  const lock = (sel, v) => {
+    if (!v) return;
+    if (!Array.from(sel.options).some((o) => o.value === v)) { const o = document.createElement("option"); o.value = v; o.textContent = v; sel.appendChild(o); }
+    sel.value = v; sel.disabled = true; lockedNow = true;
+  };
+  if (s.combined) setGroups(s.class_groups || []); else { lock($("prog"), s.programme); lock($("lvl"), s.level); }
 }
 $("code").addEventListener("input", lookup);
 lookup();

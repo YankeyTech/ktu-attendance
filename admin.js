@@ -21,8 +21,8 @@ $("login").addEventListener("submit", async (e) => {
 $("out").addEventListener("click", async () => { await sb.auth.signOut(); start(); });
 document.querySelectorAll(".tabs [data-t]").forEach((b) => b.addEventListener("click", () => {
   document.querySelectorAll(".tabs [data-t]").forEach((x) => x.classList.toggle("on", x === b));
-  for (const t of ["over", "lect", "cls", "ana", "act", "rep"]) $("t-" + t).hidden = t !== b.dataset.t;
-  if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "rep") loadReports();
+  for (const t of ["over", "lect", "cls", "roll", "ana", "act", "rep"]) $("t-" + t).hidden = t !== b.dataset.t;
+  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "rep") loadReports();
 }));
 
 async function load() {
@@ -82,6 +82,105 @@ function drawC() {
   }
 }
 $("lq").addEventListener("input", drawL);
+
+// ---- Class rolls: the admin can add, replace and delete a roll for any lecturer ----
+function fillProgSel(sel) {
+  const list = (typeof PROGRAMMES !== "undefined" && Array.isArray(PROGRAMMES)) ? PROGRAMMES : [];
+  const addOpt = (parent, name) => { const o = document.createElement("option"); o.value = name; o.textContent = name; parent.appendChild(o); };
+  for (const g of list) {
+    if (typeof g === "string") { addOpt(sel, g); continue; }
+    const items = (g && (g.items || g.programmes || g.options || g.list)) || [];
+    if (!Array.isArray(items) || !items.length) continue;
+    const og = document.createElement("optgroup"); og.label = g.group || g.label || g.name || "Programmes";
+    for (const name of items) addOpt(og, name);
+    sel.appendChild(og);
+  }
+}
+fillProgSel($("rlProg"));
+const staffName = (id) => { const x = people.find((p) => p.id === id); return x ? (x.full_name ? x.full_name + " (" + x.email + ")" : x.email) : "-"; };
+function drawRollForm() {
+  const keep = $("rlLect").value, sel = $("rlLect"); sel.textContent = "";
+  const add = (s, v, t) => { const o = document.createElement("option"); o.value = v; o.textContent = t; s.appendChild(o); };
+  add(sel, "", "Select the lecturer");
+  for (const x of people.filter((p) => p.role !== "admin").sort((a, b) => staffName(a.id).localeCompare(staffName(b.id)))) add(sel, x.id, staffName(x.id));
+  sel.value = Array.from(sel.options).some((o) => o.value === keep) ? keep : "";
+  drawRollCourses();
+}
+function drawRollCourses() {
+  const id = $("rlLect").value, sel = $("rlCourse"), keep = sel.value; sel.textContent = "";
+  const add = (v, t) => { const o = document.createElement("option"); o.value = v; o.textContent = t; sel.appendChild(o); };
+  add("", id ? "Select the course" : "Choose the lecturer first");
+  for (const k of courses.filter((c) => c.owner === id)) add(k.name, k.name);
+  sel.value = Array.from(sel.options).some((o) => o.value === keep) ? keep : "";
+}
+$("rlLect").addEventListener("change", drawRollCourses);
+async function loadRolls() {
+  drawRollForm();
+  const { data, error } = await fetchAllRows(sb, "rolls", "owner,course,programme", "created_at");
+  if (error) return say("rlMsg", "Could not load the rolls: " + error.message, "bad");
+  const by = new Map();
+  for (const r of data) { const k = [r.owner, r.course, (r.programme || "").trim()].join("\u0001"); const e = by.get(k) || { owner: r.owner, course: r.course, programme: (r.programme || "").trim(), n: 0 }; e.n++; by.set(k, e); }
+  rollList = Array.from(by.values()); drawRolls();
+}
+let rollList = [];
+function drawRolls() {
+  const q = $("rlQ").value.trim().toLowerCase(), body = $("rlB"); body.textContent = "";
+  const rows = rollList.map((r) => Object.assign({ _who: staffName(r.owner) }, r)).filter((r) => (r._who + " " + r.course + " " + r.programme).toLowerCase().includes(q))
+    .sort((a, b) => a._who.localeCompare(b._who) || a.course.localeCompare(b.course) || a.programme.localeCompare(b.programme));
+  if (!rows.length) { const tr = document.createElement("tr"), td = document.createElement("td"); td.colSpan = 5; td.textContent = "No saved rolls."; tr.appendChild(td); body.appendChild(tr); return; }
+  for (const r of rows) {
+    const tr = document.createElement("tr");
+    for (const v of [r._who, r.course, r.programme || "No programme (older upload)", r.n]) { const td = document.createElement("td"); td.textContent = v; tr.appendChild(td); }
+    const td = document.createElement("td");
+    td.appendChild(abtn("Delete", "bad", async () => {
+      if (!confirm("Delete the roll for " + r.course + " (" + (r.programme || "no programme") + "), " + r.n + " students, belonging to " + r._who + "? Attendance records are not affected.")) return;
+      let d = sb.from("rolls").delete().eq("owner", r.owner).eq("course", r.course);
+      d = r.programme ? d.eq("programme", r.programme) : d.or("programme.is.null,programme.eq.");
+      const x = await d.select("id");
+      if (x.error) return say("rlMsg", "Could not delete: " + x.error.message, "bad");
+      say("rlMsg", "Roll deleted (" + (x.data || []).length + " students).", "ok"); loadRolls();
+    }));
+    tr.appendChild(td); body.appendChild(tr);
+  }
+}
+$("rlQ").addEventListener("input", drawRolls);
+$("rlUp").addEventListener("click", async () => {
+  const owner = $("rlLect").value, course = $("rlCourse").value, prog = $("rlProg").value, f = $("rlFile").files[0];
+  if (!owner) return say("rlMsg", "Choose the lecturer first.", "warn");
+  if (!course) return say("rlMsg", "Choose the course. If the list is empty, use Add course on the Lecturers tab first.", "warn");
+  if (!prog) return say("rlMsg", "Choose the programme this roll is for.", "warn");
+  if (!f) return say("rlMsg", "Choose a CSV or Excel file first.", "warn");
+  if (!window.XLSX) return say("rlMsg", "The Excel library did not load. Check your internet.", "bad");
+  say("rlMsg", "Reading the file...");
+  try {
+    const wb = XLSX.read(await f.arrayBuffer(), { type: "array" });
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "" });
+    if (rows.length < 2) return say("rlMsg", "The file has no student rows.", "bad");
+    const head = rows[0].map((h) => String(h).toLowerCase());
+    const find = (re, fb) => { const i = head.findIndex((h) => re.test(h)); return i >= 0 ? i : fb; };
+    const ci = find(/index|student\s*(id|no)|reg|^id$/, 0), cn = find(/^(full |student )?name/, 1), cl = find(/level/, -1);
+    const map = new Map(); let skipped = 0;
+    for (const r of rows.slice(1)) {
+      const idx = String(r[ci] || "").trim().toUpperCase();
+      if (!/^[A-Z0-9\/\-]{4,30}$/.test(idx)) { if (idx || r.some((x) => String(x).trim())) skipped++; continue; }
+      map.set(idx, { owner, course, index_number: idx, student_name: String(r[cn] || "").trim().slice(0, 100) || null, programme: prog, level: cl >= 0 ? String(r[cl] || "").trim() || null : null });
+    }
+    if (!map.size) return say("rlMsg", "No valid index numbers found. Check the column headings.", "bad");
+    const list = Array.from(map.values());
+    const d1 = await sb.from("rolls").delete().eq("owner", owner).eq("course", course).eq("programme", prog);
+    if (d1.error) return say("rlMsg", "Could not replace the old roll: " + d1.error.message, "bad");
+    for (let i = 0; i < list.length; i += 200) {
+      const d2 = await sb.from("rolls").delete().eq("owner", owner).eq("course", course).in("index_number", list.slice(i, i + 200).map((x) => x.index_number));
+      if (d2.error) return say("rlMsg", "Could not replace the old roll: " + d2.error.message, "bad");
+    }
+    for (let i = 0; i < list.length; i += 200) {
+      const { error } = await sb.from("rolls").insert(list.slice(i, i + 200));
+      if (error) return say("rlMsg", "Upload failed: " + error.message, "bad");
+    }
+    say("rlMsg", "Roll saved for " + staffName(owner) + ", " + course + " (" + prog + "): " + list.length + " students" + (skipped ? ", " + skipped + " rows skipped (invalid index number)." : "."), "ok");
+    $("rlFile").value = ""; loadRolls();
+  } catch (e) { say("rlMsg", "Could not read that file.", "bad"); }
+});
 for (const id of ["cq", "fc", "fp", "fl", "fo", "ft", "fa", "fy", "fs", "fd1", "fd2"]) $(id).addEventListener(id === "cq" ? "input" : "change", drawC);
 const roleLabel = (r) => (r === "assistant" ? "Teaching assistant" : r === "admin" ? "Admin" : "Lecturer");
 function filteredClasses() {

@@ -9,7 +9,7 @@
     <label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password" required>
     <button class="btn" type="submit">Sign in</button><p id="loginMsg" class="msg" role="status"></p></form>
   <div id="app" hidden>
-    <div class="tabs"><button class="btn quiet on" data-t="over">Overview</button><button class="btn quiet" data-t="lect">Lecturers</button><button class="btn quiet" data-t="cls">All classes</button><button class="btn quiet" data-t="ana">Analytics</button><button class="btn quiet" data-t="act">Activity</button><button class="btn quiet" data-t="rep">Reports <span id="repN" class="badge on" hidden></span></button><a class="btn quiet" href="teacher.html">Lecturer portal</a><button id="out" class="btn quiet">Sign out</button></div>
+    <div class="tabs"><button class="btn quiet on" data-t="over">Overview</button><button class="btn quiet" data-t="lect">Lecturers</button><button class="btn quiet" data-t="cls">All classes</button><button class="btn quiet" data-t="roll">Class rolls</button><button class="btn quiet" data-t="ana">Analytics</button><button class="btn quiet" data-t="act">Activity</button><button class="btn quiet" data-t="rep">Reports <span id="repN" class="badge on" hidden></span></button><a class="btn quiet" href="teacher.html">Lecturer portal</a><button id="out" class="btn quiet">Sign out</button></div>
     <p id="msg" class="msg" role="status"></p>
     <section id="t-over" class="card"><h2>Overview</h2><div class="stats" id="stats"></div>
       <div class="reqbox"><h3>Privacy: delete old location data</h3><p class="note">Removes the saved GPS position, phone ID and phone type from old check-ins. Names, index numbers and attendance results are kept.</p>
@@ -26,6 +26,17 @@
       <div class="bar"><input id="cq" placeholder="Search course, programme or lecturer"><select id="fc"><option value="">All courses</option></select><select id="fp"><option value="">All programmes</option></select><select id="fl"><option value="">All levels</option></select><select id="fo"><option value="">All staff</option></select><select id="fy"><option value="">All years</option></select><select id="fs"><option value="">All semesters</option></select><select id="fa"><option value="active">Active classes</option><option value="archived">Archived</option><option value="all">All classes</option></select><select id="ft"><option value="">All types</option><option value="single">Single</option><option value="combined">Combined</option></select></div>
       <div class="bar"><label>From <input id="fd1" type="date"></label><label>To <input id="fd2" type="date"></label><button id="cx" class="btn quiet" type="button">Download Excel (filtered)</button><button id="arcBulk" class="btn quiet" type="button">Archive these</button><button id="resBulk" class="btn quiet" type="button">Restore these</button></div>
       <div class="table-wrap"><table><thead id="ch"></thead><tbody id="cb"></tbody></table></div></section>
+    <section id="t-roll" class="card" hidden><h2>Class rolls</h2>
+      <p class="note">Add, replace or delete a class roll for any lecturer, so they do not have to. The lecturer sees it on their page straight away. Upload a CSV or Excel file with Index number and Name columns. Uploading again for the same lecturer, course and programme replaces that roll only.</p>
+      <label for="rlLect">Lecturer</label><select id="rlLect"></select>
+      <label for="rlCourse">Course</label><select id="rlCourse"></select>
+      <label for="rlProg">Programme</label><select id="rlProg"><option value="">Select the programme</option></select>
+      <label for="rlFile">Roll file</label><input id="rlFile" type="file" accept=".csv,.xlsx,.xls">
+      <div class="row"><button id="rlUp" class="btn" type="button">Upload roll</button></div>
+      <p id="rlMsg" class="msg" role="status"></p>
+      <h3 class="ch3">Saved rolls</h3>
+      <div class="bar"><input id="rlQ" placeholder="Search lecturer, course or programme"></div>
+      <div class="table-wrap"><table><thead><tr><th>Lecturer</th><th>Course</th><th>Programme</th><th>Students</th><th>Actions</th></tr></thead><tbody id="rlB"></tbody></table></div></section>
     <section id="t-ana" class="card" hidden><h2>Analytics</h2>
       <div class="bar"><select id="anYear"><option value="">All years</option></select><select id="anSem"><option value="">All semesters</option><option>Semester 1</option><option>Semester 2</option><option>Summer / Resit</option></select><label class="chk mini"><input id="anArch" type="checkbox"> Include archived</label><button id="anGo" class="btn quiet" type="button">Refresh</button></div>
       <div id="anTotals" class="stats"></div>
@@ -43,4 +54,4 @@
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="shared.js?v=17"></script>
-<script src="config.js"></script><script src="admin.js?v=18"></script></body></html>
+<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=19"></script></body></html>

@@ -60,7 +60,7 @@
         <div><label for="radius">Allowed distance (m)</label><input id="radius" type="number" min="20" max="2000" value="300" required></div>
       </div>
       <details class="opts" open><summary>Anti-cheat and timing options</summary>
-        <label class="chk"><input id="rot" type="checkbox" checked> Rotating QR code (changes every 30 seconds)</label>
+        <label class="chk"><input id="rot" type="checkbox" checked> Rotating QR code (changes every 10 minutes)</label>
         <label class="chk"><input id="blk" type="checkbox" checked> Block one phone from checking in several students</label>
         <label class="chk"><input id="two" type="checkbox"> Two-point check-in (students scan again at the end)</label>
         <label for="late">Mark late after (minutes, optional)</label>
@@ -94,6 +94,7 @@
         <button id="projBtn" class="btn quiet" type="button">Projector mode</button>
         <button id="pdfSheet" class="btn quiet nota" type="button">Print attendance sheet</button>
         <button id="repeat" class="btn quiet" type="button">Repeat this class</button>
+        <button id="delClass" class="btn quiet danger" type="button">Delete this class</button>
         <button id="endchk" class="btn quiet" type="button" hidden>Open end-of-class check</button>
       </div>
       <div id="qrBox" class="qrbox" hidden>
@@ -130,9 +131,12 @@
 
     <section class="card">
       <h2>Class roll and reports</h2>
-      <p class="note">Upload a CSV or Excel list of a course's students, with Index number and Name columns. Then the class page shows who is missing, and the report shows each student's attendance rate. Uploading replaces the old roll for that course.</p>
+      <p class="note">Upload a CSV or Excel list of a course's students, with Index number and Name columns. Choose the programme the list belongs to, so the same course can have a separate roll for each programme. Then the class page shows who is missing (only students of that class's programme), and the report shows each student's attendance rate. Uploading again for the same course and programme replaces that roll only.</p>
       <label for="rollCourse">Course</label>
       <select id="rollCourse"></select>
+      <label for="rollProg">Programme</label>
+      <select id="rollProg"><option value="">Select the programme</option></select>
+      <div id="savedRolls" class="note"></div>
       <label for="rollFile">Roll file</label>
       <input id="rollFile" type="file" accept=".csv,.xlsx,.xls">
       <div class="row"><button id="rollUp" class="btn quiet" type="button">Upload roll</button><button id="rep" class="btn quiet" type="button">Show attendance report</button></div>
@@ -201,6 +205,6 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="shared.js?v=17"></script>
 <script src="programmes.js"></script>
-<script src="teacher.js?v=17"></script>
+<script src="teacher.js?v=18"></script>
 </body>
 </html>

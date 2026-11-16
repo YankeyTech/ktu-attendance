@@ -77,7 +77,7 @@ function drawC() {
     for (const v of [fmt(s.created_at), s.course, s.academic_year || "-", s.semester || "-", s.combined ? "Combined: " + (s.class_groups || []).map((g) => g.programme + " (" + g.level + ")").join("; ") : s.programme || "-", s.combined ? "Various" : s.level || "-", s._owner, s._n]) { const td = document.createElement("td"); td.textContent = v; tr.appendChild(td); }
     const td = document.createElement("td");
     td.append(abtn("Copy link", "", () => copyClassLink(s)), abtn("Sheet", "", () => adminSheet(s)), abtn(s.archived ? "Restore" : "Archive", "", () => archiveSome([s], !s.archived)),
-      abtn("Delete", "bad", async () => { if (confirm("Delete this class and all its attendance?")) { await sb.from("sessions").delete().eq("id", s.id); load(); } }));
+      abtn("Delete", "bad", async () => { if (confirm("Delete this class and all its attendance?")) { const x = await sb.from("sessions").delete().eq("id", s.id); if (x.error) say("msg", "Could not delete: " + x.error.message, "bad"); load(); } }));
     tr.appendChild(td); $("cb").appendChild(tr);
   }
 }

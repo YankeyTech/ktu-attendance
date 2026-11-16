@@ -211,3 +211,15 @@ function openAttendanceSheet(c, atts, roll, lecturer) {
   if (!w) { toast("Allow pop-ups for this site, then try again."); return; }
   w.document.open(); w.document.write(html); w.document.close();
 }
+
+
+// ---- Copy to clipboard (with a fallback for older phones) ----
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch (e) {
+    try {
+      const t = document.createElement("textarea"); t.value = text; t.setAttribute("readonly", ""); t.style.cssText = "position:fixed;opacity:0;top:0";
+      document.body.appendChild(t); t.select(); const ok = document.execCommand("copy"); t.remove(); return ok;
+    } catch (e2) { return false; }
+  }
+}

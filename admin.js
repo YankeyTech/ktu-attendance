@@ -76,7 +76,7 @@ function drawC() {
     const tr = document.createElement("tr");
     for (const v of [fmt(s.created_at), s.course, s.academic_year || "-", s.semester || "-", s.combined ? "Combined: " + (s.class_groups || []).map((g) => g.programme + " (" + g.level + ")").join("; ") : s.programme || "-", s.combined ? "Various" : s.level || "-", s._owner, s._n]) { const td = document.createElement("td"); td.textContent = v; tr.appendChild(td); }
     const td = document.createElement("td");
-    td.append(abtn("Sheet", "", () => adminSheet(s)), abtn(s.archived ? "Restore" : "Archive", "", () => archiveSome([s], !s.archived)),
+    td.append(abtn("Copy link", "", () => copyClassLink(s)), abtn("Sheet", "", () => adminSheet(s)), abtn(s.archived ? "Restore" : "Archive", "", () => archiveSome([s], !s.archived)),
       abtn("Delete", "bad", async () => { if (confirm("Delete this class and all its attendance?")) { await sb.from("sessions").delete().eq("id", s.id); load(); } }));
     tr.appendChild(td); $("cb").appendChild(tr);
   }
@@ -319,3 +319,10 @@ $("backup").addEventListener("click", async () => {
   if (!sheets.length) return say("msg", "Nothing to back up yet.", "warn");
   downloadXlsx("KTU backup " + new Date().toLocaleDateString("en-CA"), sheets); say("msg", "Backup downloaded.", "ok");
 });
+
+// ---- Copy a class link to paste in a class group ----
+async function copyClassLink(s) {
+  const link = new URL("index.html?s=" + s.code, location.href).href;
+  const ok = await copyText(link), open = new Date(s.closes_at) > new Date();
+  toast(ok ? (open ? "Link copied. Paste it in the class group." : "Link copied, but this class has ended.") + (s.rotating ? " Rotating code is on: students also need the screen code." : "") : "Copy failed.", { ms: 8000 });
+}

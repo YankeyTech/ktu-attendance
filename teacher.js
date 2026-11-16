@@ -3,6 +3,7 @@ const $ = (id) => document.getElementById(id);
 const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no 0/O/1/I to avoid mix-ups
 let sortBy = ["checked_in_at", 1];
 let groups = [];
+let rowLimit = 50, openRows = new Set(), knownOut = new Set(), popQueue = [], popId = null, popReady = false, reviewAll = false;
 let myId = "", venues = [], seenDots = new Set(), projN = -1;
 let current = null, timer = null, records = [], role = "lecturer", qrTimer = null, lastWin = -1, rollRows = [], clockOffset = 0, myName = "", myEmail = "";
 
@@ -158,11 +159,11 @@ function openSession(s) {
   $("liveLink").textContent = studentLink(s.code);
   loadAttendance();
   $("qrBox").hidden = !s.rotating;
-  $("pinBox").hidden = !s.rotating; $("copy").hidden = !!s.rotating;
+  $("pinBox").hidden = !s.rotating;
   $("endchk").hidden = !s.two_point; $("endchk").textContent = s.end_open ? "Close end-of-class check" : "Open end-of-class check (10 min)";
   lastWin = -1; if (qrTimer) clearInterval(qrTimer); qrTimer = setInterval(tickQr, 1000); tickQr();
   syncClock().then(() => { lastWin = -1; tickQr(); });
-  wasOpen = null; beepFor = ""; seenDots = new Set(); projN = -1; skelRows(); loadRoll(); applyState(); keepAwake();
+  wasOpen = null; beepFor = ""; seenDots = new Set(); projN = -1; rowLimit = 50; openRows = new Set(); knownOut = new Set(); popQueue = []; popId = null; popReady = false; reviewAll = false; $("reviewPop").hidden = true; skelRows(); loadRoll(); applyState(); keepAwake();
   stopPolling();
   timer = setInterval(loadAttendance, 8000);
   $("live").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -190,7 +191,7 @@ async function loadAttendance() {
   records = data;
   const shared = sharedIndexes(data);
   for (const r of records) r._shared = !!(r.device_id && shared.has(r.device_id));
-  renderRows();
+  renderRows(); feedReview();
 }
 function renderRows() {
   const q = $("q").value.trim().toLowerCase(), f = $("flt").value;
@@ -202,22 +203,17 @@ function renderRows() {
   });
   const [sk, sd] = sortBy; list.sort((a, b) => ((a[sk] ?? "") > (b[sk] ?? "") ? 1 : (a[sk] ?? "") < (b[sk] ?? "") ? -1 : 0) * sd);
   const body = $("rows"); body.textContent = "";
-  for (const r of list) {
-    const tr = document.createElement("tr"); tr.className = "rowin";
+  for (const r of list.slice(0, rowLimit)) {
+    const tr = document.createElement("tr"); tr.className = "rowin" + (openRows.has(r.id) ? " open" : "");
+    tr.addEventListener("click", (e) => { if (e.target.closest("button")) return; tr.classList.toggle("open"); if (tr.classList.contains("open")) openRows.add(r.id); else openRows.delete(r.id); });
     tr.style.background = r.in_range ? "#d9f2dd" : "#f9d6d6"; tr.style.color = "#1a1a1a";
-    for (const c of [r.student_name || "-", r.index_number, r.programme, r.level || "-", fmtTime(r.checked_in_at), Math.round(r.distance_m) + " m", trustBadge(r), noteOf(r)]) {
+    for (const c of [nameCell(r), r.index_number, r.programme, r.level || "-", fmtTime(r.checked_in_at), Math.round(r.distance_m) + " m", trustBadge(r), noteOf(r)]) {
       const td = document.createElement("td"); if (c instanceof Node) td.appendChild(c); else td.textContent = c; tr.appendChild(td);
     }
     const act = document.createElement("td");
     const mk = (label, fn) => { const b = document.createElement("button"); b.type = "button"; b.textContent = label; b.addEventListener("click", fn); act.appendChild(b); };
-    mk(r.in_range ? "Mark outside" : "Mark present", async () => { await sb.from("attendance").update({ in_range: !r.in_range, manual: true }).eq("id", r.id); loadAttendance(); });
-    if (role !== "assistant") mk("Remove", async () => { if (confirm("Remove " + r.index_number + " from this class?")) {
-      const { error } = await sb.from("attendance").delete().eq("id", r.id);
-      if (error) return toast("Could not remove: " + error.message);
-      const row = {}; for (const k in r) if (!k.startsWith("_")) row[k] = r[k];
-      loadAttendance();
-      toast("Removed " + r.index_number + ".", { action: "Undo", ms: 9000, onAction: async () => { const u = await sb.from("attendance").insert(row); toast(u.error ? "Could not undo: " + u.error.message : "Restored " + r.index_number + "."); loadAttendance(); } });
-    } });
+    mk(r.in_range ? "Mark outside" : "Accept", () => (r.in_range ? updateRec(r, { in_range: false, manual: true }) : acceptRec(r)));
+    if (role !== "assistant") mk("Remove", () => removeRecord(r));
     tr.appendChild(act); Array.from(tr.children).forEach((td, i) => { td.dataset.label = ROW_LABELS[i] || ""; }); body.appendChild(tr);
   }
   const inside = records.filter((r) => r.in_range).length, sc = records.filter((r) => r._shared).length;
@@ -226,8 +222,9 @@ function renderRows() {
   for (const [n, l] of [[records.length, "Checked in"], [inside, "In class area"], [records.length - inside, "Outside"], [sc, "Shared phone"], [records.filter((r) => r.late).length, "Late"], [records.filter((r) => r.gps_flag).length, "GPS warnings"]]) {
     const d = document.createElement("div"); const b = document.createElement("b"); b.textContent = n; d.append(b, l); $("stats").appendChild(d);
   }
-  renderAbsent(); renderGroupSum(); applyState(); renderRadar(); updateProj();
-  say("count", (open ? "Check-in is open until " + fmtTime(current.closes_at) + "." : "Check-in is closed.") + " Showing " + list.length + " of " + records.length + ".");
+  renderAbsent(); renderGroupSum(); applyState(); renderRadar(); updateProj(); renderReview();
+  $("moreRows").hidden = list.length <= rowLimit; $("moreRows").textContent = "Show more (" + (list.length - rowLimit) + " left)";
+  say("count", (open ? "Check-in is open until " + fmtTime(current.closes_at) + "." : "Check-in is closed.") + " Showing " + Math.min(list.length, rowLimit) + " of " + records.length + ".");
 }
 document.querySelectorAll("th[data-k]").forEach((th) => th.addEventListener("click", () => { sortBy = [th.dataset.k, sortBy[0] === th.dataset.k ? -sortBy[1] : 1]; renderRows(); }));
 $("cq").addEventListener("input", loadSessions);
@@ -247,10 +244,14 @@ $("addm").addEventListener("click", async () => {
   loadAttendance();
 });
 
-$("copy").addEventListener("click", async () => {
-  try { await navigator.clipboard.writeText(studentLink(current.code)); say("count", "Link copied.", "ok"); }
-  catch (e) { say("count", "Copy failed. Select the link above and copy it.", "warn"); }
-});
+function classMessage() {
+  const term = [current.academic_year, current.semester].filter(Boolean).join(", ");
+  return "Attendance: " + current.course + (term ? " (" + term + ")" : "") + "\nOpen this link on your phone and tap Check in:\n" + studentLink(current.code) + "\nClass code: " + current.code + "\nCheck-in closes at " + fmtTime(current.closes_at) + ".";
+}
+const rotNote = () => { if (current.rotating) toast("Rotating code is on, so students also need the 6-digit screen code. With no projector, start the class with Rotating QR switched off.", { ms: 10000 }); };
+$("copy").addEventListener("click", async () => { const ok = await copyText(studentLink(current.code)); toast(ok ? "Link copied. Paste it in your class group." : "Copy failed. Select the link above and copy it."); if (ok) rotNote(); });
+$("copyMsg").addEventListener("click", async () => { const ok = await copyText(classMessage()); toast(ok ? "Message copied. Paste it in your class group." : "Copy failed."); if (ok) rotNote(); });
+$("shareBtn").addEventListener("click", async () => { try { await navigator.share({ title: "Attendance: " + current.course, text: classMessage() }); rotNote(); } catch (e) {} });
 
 $("close").addEventListener("click", async () => {
   if (!confirm("Close check-in now? Students will no longer be able to check in.")) return;
@@ -611,7 +612,7 @@ function applyState() {
   const open = isOpen(), st = $("liveStatus");
   st.textContent = open ? "Check-in open" : "Check-in ended"; st.className = "badge " + (open ? "on" : "off");
   $("close").hidden = !open; $("more").hidden = !open; $("reopenBox").hidden = open;
-  $("qr").hidden = !open; $("copy").hidden = !open || !!current.rotating;
+  $("qr").hidden = !open; $("copy").hidden = !open; $("copyMsg").hidden = !open; $("shareBtn").hidden = !open || !navigator.share;
   $("pinBox").hidden = !(open && current.rotating);
   if (!open) { $("qrBox").hidden = true; $("qrFs").hidden = true; stopQr(); }
   else if (current.rotating) { $("qrBox").hidden = false; if (!qrTimer) { lastWin = -1; qrTimer = setInterval(tickQr, 1000); tickQr(); keepAwake(); } }
@@ -687,7 +688,7 @@ function renderBar() {
   const bar = $("stickybar");
   if (!current || $("live").hidden) { bar.hidden = true; document.body.classList.remove("hasbar"); return; }
   bar.hidden = false; document.body.classList.add("hasbar"); bar.textContent = "";
-  const items = isOpen() ? [["Projector", "projBtn"], ["QR", "qr"], ["+10 min", "more"], ["Close", "close", "danger"]] : [["Reopen", "reopen"], ["Projector", "projBtn"]];
+  const items = isOpen() ? [["Copy link", "copy"], ["QR", "qr"], ["+10 min", "more"], ["Close", "close", "danger"]] : [["Reopen", "reopen"], ["Projector", "projBtn"]];
   for (const [label, id, cls] of items) {
     const b = document.createElement("button"); b.type = "button"; b.className = "btn quiet " + (cls || ""); b.textContent = label;
     b.addEventListener("click", () => $(id).click()); bar.appendChild(b);
@@ -811,5 +812,90 @@ $("repeat").addEventListener("click", () => { if (current) fillFrom(current); })
 // ---- Printable attendance sheet and archived classes ----
 $("pdfSheet").addEventListener("click", () => { if (!current || role === "assistant") return; openAttendanceSheet(Object.assign({}, current), records, rollRows, myName || myEmail); });
 $("showArch").addEventListener("change", loadSessions);
+
+
+// ---- Compact rows, review list and review pop-up ----
+function nameCell(r) {
+  const c = document.createElement("span"), n = document.createElement("span"), s = document.createElement("small");
+  n.textContent = r.student_name || "-"; s.className = "sub";
+  s.textContent = r.index_number + "  |  " + Math.round(r.distance_m) + " m  |  " + fmtTime(r.checked_in_at);
+  c.append(n, s); return c;
+}
+$("moreRows").addEventListener("click", () => { rowLimit += 50; renderRows(); });
+
+let warnedCol = false;
+async function updateRec(r, patch, okMsg) {
+  let { error } = await sb.from("attendance").update(patch).eq("id", r.id);
+  if (error && "reviewed" in patch && /reviewed/i.test(error.message)) {
+    const p2 = Object.assign({}, patch); delete p2.reviewed;
+    ({ error } = await sb.from("attendance").update(p2).eq("id", r.id));
+    if (!warnedCol) { warnedCol = true; toast("Run the latest database update (upgrade14) so the review list remembers your choices."); }
+  }
+  if (error) { toast("Could not save: " + error.message); return false; }
+  if (okMsg) toast(okMsg);
+  await loadAttendance(); return true;
+}
+const acceptRec = (r) => updateRec(r, { in_range: true, manual: true, reviewed: true }, r.index_number + " accepted as present.");
+const keepOutRec = (r) => updateRec(r, { reviewed: true }, r.index_number + " kept outside.");
+async function removeRecord(r) {
+  if (!confirm("Remove " + r.index_number + " from this class?")) return;
+  const { error } = await sb.from("attendance").delete().eq("id", r.id);
+  if (error) return toast("Could not remove: " + error.message);
+  const row = {}; for (const k in r) if (!k.startsWith("_")) row[k] = r[k];
+  await loadAttendance();
+  toast("Removed " + r.index_number + ".", { action: "Undo", ms: 9000, onAction: async () => { const u = await sb.from("attendance").insert(row); toast(u.error ? "Could not undo: " + u.error.message : "Restored " + r.index_number + "."); loadAttendance(); } });
+}
+const needsReview = (r) => !r.in_range && !r.reviewed;
+
+function rvBtn(text, cls, fn) { const b = document.createElement("button"); b.type = "button"; b.className = "abtn " + cls; b.textContent = text; b.addEventListener("click", fn); return b; }
+function renderReview() {
+  const box = $("reviewBox"), L = $("reviewList"), list = records.filter(needsReview);
+  box.hidden = !list.length; $("reviewN").textContent = list.length; L.textContent = "";
+  for (const r of reviewAll ? list : list.slice(0, 8)) {
+    const row = document.createElement("div"); row.className = "rvrow";
+    const info = document.createElement("div"); info.className = "rvinfo";
+    const b = document.createElement("b"); b.textContent = r.student_name || r.index_number;
+    const sp = document.createElement("span"); sp.textContent = r.index_number + "  |  " + Math.round(r.distance_m) + " m away (allowed " + current.radius_m + " m)";
+    info.append(b, sp);
+    const acts = document.createElement("div"); acts.className = "acts";
+    acts.append(rvBtn("Accept", "ok", () => acceptRec(r)), rvBtn("Keep outside", "", () => keepOutRec(r)));
+    if (role !== "assistant") acts.appendChild(rvBtn("Remove", "bad", () => removeRecord(r)));
+    row.append(info, acts); L.appendChild(row);
+  }
+  if (!reviewAll && list.length > 8) { const m = document.createElement("button"); m.type = "button"; m.className = "btn quiet"; m.style.marginTop = "8px"; m.textContent = "Show all " + list.length; m.addEventListener("click", () => { reviewAll = true; renderReview(); }); L.appendChild(m); }
+}
+
+function feedReview() {
+  if (!current) return;
+  for (const r of records) {
+    if (!needsReview(r)) continue;
+    if (!knownOut.has(r.id)) { knownOut.add(r.id); if (popReady && isOpen()) popQueue.push(r.id); }
+  }
+  popReady = true;
+  popQueue = popQueue.filter((id) => records.some((r) => r.id === id && needsReview(r)));
+  showPop();
+}
+function showPop() {
+  const pop = $("reviewPop");
+  if (popId && !records.some((r) => r.id === popId && needsReview(r))) popId = null;
+  if (!popId && popQueue.length) { popId = popQueue.shift(); beep(0.25); }
+  if (!popId) { pop.hidden = true; return; }
+  const r = records.find((x) => x.id === popId);
+  $("rvWho").textContent = (r.student_name || r.index_number) + "  (" + r.index_number + ")";
+  $("rvInfo").textContent = (r.programme || "") + (r.level ? ", " + r.level : "") + ". About " + Math.round(r.distance_m) + " m from you; the allowed distance is " + current.radius_m + " m." + (r.accuracy_m ? " GPS accuracy about " + Math.round(r.accuracy_m) + " m." : "") + (noteOf(r) ? " " + noteOf(r) + "." : "");
+  $("rvMore").textContent = popQueue.length ? popQueue.length + " more waiting." : "";
+  $("rvRemove").hidden = role === "assistant";
+  pop.hidden = false;
+}
+function closePop() {
+  const waiting = records.filter(needsReview).length;
+  popQueue = []; popId = null; $("reviewPop").hidden = true;
+  if (waiting) toast(waiting + " student" + (waiting > 1 ? "s are" : " is") + " waiting in Needs review.");
+}
+$("rvClose").addEventListener("click", closePop); $("rvLater").addEventListener("click", closePop);
+$("rvAccept").addEventListener("click", () => { const r = records.find((x) => x.id === popId); if (r) acceptRec(r); });
+$("rvKeep").addEventListener("click", () => { const r = records.find((x) => x.id === popId); if (r) keepOutRec(r); });
+$("rvRemove").addEventListener("click", () => { const r = records.find((x) => x.id === popId); if (r) removeRecord(r); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("reviewPop").hidden) closePop(); });
 
 refreshAuth();

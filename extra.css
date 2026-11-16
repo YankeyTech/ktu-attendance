@@ -244,3 +244,27 @@ html.hc input,html.hc select,html.hc .btn.quiet,html.hc .card{border-width:2px}
 textarea{width:100%;padding:11px 14px;border:1.5px solid var(--line);border-radius:10px;font:inherit;background:var(--card);color:var(--ink)}
 .rptbtn{display:block;margin-top:8px;padding:6px 0 0;border:0;border-top:1px solid var(--line);background:transparent;color:var(--blue);font-weight:700;font-family:var(--text);cursor:pointer;width:100%;text-align:left}
 @media (max-width:600px){.hrow{grid-template-columns:1fr}.hl{white-space:normal}}
+
+/* Compact check-in list, review list and review pop-up */
+#rows .sub{display:none}
+.reviewbox{margin:14px 0;padding:14px;border:1.5px solid var(--warn);border-radius:12px;background:color-mix(in srgb,var(--warn) 7%,var(--card))}
+.reviewbox h3{display:flex;align-items:center;gap:10px;font-family:var(--display);font-size:1.05rem;margin:0 0 4px}
+.rvrow{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 0;border-top:1px solid var(--line)}
+.rvinfo b{display:block}.rvinfo span{color:var(--mut);font-size:.88rem}
+.rvpop{position:fixed;inset:0;z-index:96;background:rgba(10,20,32,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+.rvpc{position:relative;width:min(440px,100%);max-height:92vh;overflow:auto;background:var(--card);border-radius:16px;padding:22px 20px 18px;border-top:6px solid var(--bad)}
+.rvpc h3{font-family:var(--display);margin:0 40px 0 0;font-size:1.05rem;color:var(--bad)}
+.rvx{position:absolute;top:8px;right:10px;width:40px;height:40px;border:0;background:transparent;font-size:1.8rem;line-height:1;color:var(--mut);cursor:pointer}
+.rvwho{font-family:var(--display);font-size:1.3rem;font-weight:700;margin:8px 0 2px}
+.rvbtns{display:grid;gap:8px;margin:14px 0 8px}
+@media (max-width:700px){
+  #rows tr{display:grid;grid-template-columns:1fr auto;align-items:center;gap:0 10px;padding:9px 12px;margin:0 0 6px;cursor:pointer}
+  #rows td{display:none;grid-column:1/-1;padding:3px 0}
+  #rows td:first-child{display:block;grid-column:1;grid-row:1;padding:0;font-weight:700;text-align:left}
+  #rows td[data-label="Confidence"]{display:block;grid-column:2;grid-row:1;padding:0}
+  #rows td:first-child::before,#rows td[data-label="Confidence"]::before{content:none}
+  #rows .sub{display:block;font-weight:500;font-size:.8rem;color:#3a4756}
+  #rows tr.open td{display:flex}
+  #rows tr.open td:first-child,#rows tr.open td[data-label="Confidence"]{display:block}
+  #rows tr.open .sub{display:none}
+}

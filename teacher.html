@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Lecturer | KTU check-in</title>
-<link rel="stylesheet" href="style.css?v=16">
-<link rel="stylesheet" href="extra.css?v=16">
+<link rel="stylesheet" href="style.css?v=17">
+<link rel="stylesheet" href="extra.css?v=17">
 </head>
 <body>
 <main>
@@ -57,7 +57,7 @@
       </div>
       <div class="row">
         <div><label for="mins">Open for (minutes)</label><input id="mins" type="number" min="1" max="240" value="20" required></div>
-        <div><label for="radius">Allowed distance (m)</label><input id="radius" type="number" min="20" max="2000" value="200" required></div>
+        <div><label for="radius">Allowed distance (m)</label><input id="radius" type="number" min="20" max="2000" value="300" required></div>
       </div>
       <details class="opts" open><summary>Anti-cheat and timing options</summary>
         <label class="chk"><input id="rot" type="checkbox" checked> Rotating QR code (changes every 30 seconds)</label>
@@ -83,6 +83,8 @@
       <p class="link" id="liveLink"></p>
       <div class="row">
         <button id="copy" class="btn quiet" type="button">Copy student link</button>
+        <button id="copyMsg" class="btn quiet" type="button">Copy message for group</button>
+        <button id="shareBtn" class="btn quiet" type="button" hidden>Share</button>
         <button id="close" class="btn quiet danger" type="button">Close check-in now</button>
         <button id="more" class="btn quiet" type="button">+10 minutes</button>
         <button id="addm" class="btn quiet" type="button">Add student manually</button>
@@ -100,6 +102,11 @@
         <button id="qrFull" class="btn quiet" type="button">Full screen</button> <button id="qrDl" class="btn quiet" type="button">Download image</button></div>
       </div>
       <div class="stats" id="stats"></div>
+      <div id="reviewBox" class="reviewbox" hidden>
+        <h3>Needs review <span id="reviewN" class="badge on"></span></h3>
+        <p class="note">Students outside the allowed distance. Accept to count them as present, keep them outside, or remove them.</p>
+        <div id="reviewList"></div>
+      </div>
       <div class="bar"><input id="q" placeholder="Search name or index number"><select id="flt"><option value="all">All</option><option value="in">In class area</option><option value="out">Outside</option><option value="shared">Shared phone</option><option value="manual">Added manually</option><option value="late">Late</option><option value="flag">GPS warning</option></select><select id="gflt" hidden><option value="">All groups</option></select></div>
       <details id="radarBox" class="radar"><summary>Radar view: who is where</summary>
         <svg id="radar" viewBox="-110 -110 220 220" role="img" aria-label="Map of students around the lecturer"></svg>
@@ -117,6 +124,7 @@
           <tbody id="rows"></tbody>
         </table>
       </div>
+      <button id="moreRows" class="btn quiet" type="button" style="margin-top:10px;width:100%" hidden>Show more</button>
       <div id="absent" class="absent" hidden><h3>Not yet checked in, from the class roll (<span id="absN"></span>)</h3><div id="absList"></div></div>
     </section>
 
@@ -159,6 +167,21 @@
     </section>
   </div>
 </main>
+<div id="reviewPop" class="rvpop" hidden>
+  <div class="rvpc" role="dialog" aria-modal="true" aria-labelledby="rvTitle">
+    <button id="rvClose" class="rvx" type="button" aria-label="Close">&times;</button>
+    <h3 id="rvTitle">Student outside the class area</h3>
+    <p id="rvWho" class="rvwho"></p>
+    <p id="rvInfo" class="note"></p>
+    <div class="rvbtns">
+      <button id="rvAccept" class="btn" type="button">Accept as present</button>
+      <button id="rvKeep" class="btn quiet" type="button">Keep outside</button>
+      <button id="rvRemove" class="btn quiet danger" type="button">Remove</button>
+    </div>
+    <p id="rvMore" class="note"></p>
+    <button id="rvLater" class="btn quiet" type="button" style="width:100%">Close, review later</button>
+  </div>
+</div>
 <div id="proj" class="proj" hidden>
   <button id="projClose" class="projx" type="button" aria-label="Close projector mode">&times;</button>
   <div class="projl"><canvas id="projCanvas"></canvas></div>
@@ -176,8 +199,8 @@
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-<script src="shared.js?v=16"></script>
+<script src="shared.js?v=17"></script>
 <script src="programmes.js"></script>
-<script src="teacher.js?v=16"></script>
+<script src="teacher.js?v=17"></script>
 </body>
 </html>

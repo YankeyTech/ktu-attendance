@@ -22,7 +22,17 @@
     <label for="pw">Password</label>
     <input id="pw" type="password" autocomplete="current-password" required>
     <button class="btn" type="submit">Sign in</button>
+    <p class="note" style="margin:8px 0 0"><a href="#" id="forgot">Forgot password?</a></p>
     <p id="loginMsg" class="msg" role="status"></p>
+  </form>
+  <form id="forgotBox" class="card" hidden>
+    <h2>Reset your password</h2>
+    <p class="note">Enter the email your account uses. If it belongs to an active account, we email you a link to choose a new password.</p>
+    <label for="forgotEmail">Email</label>
+    <input id="forgotEmail" type="email" autocomplete="username" required>
+    <button id="forgotGo" class="btn" type="submit">Send reset link</button>
+    <p class="note" style="margin:8px 0 0"><a href="#" id="forgotBack">Back to sign in</a></p>
+    <p id="forgotMsg" class="msg" role="status"></p>
   </form>
 
   <div id="app" hidden>
@@ -131,11 +141,13 @@
 
     <section class="card">
       <h2>Class roll and reports</h2>
-      <p class="note">Upload a CSV or Excel list of a course's students, with Index number and Name columns. Choose the programme the list belongs to, so the same course can have a separate roll for each programme. Then the class page shows who is missing (only students of that class's programme), and the report shows each student's attendance rate. Uploading again for the same course and programme replaces that roll only.</p>
+      <p class="note">Upload a CSV or Excel list of a course's students, with Index number and Name columns. Choose the programme and level the list belongs to, so the same course can have a separate roll for each programme and level. Then the class page shows who is missing (only students of that class's programme and level), and the report shows each student's attendance rate. Uploading again for the same course, programme and level replaces that roll only. For the report, the level is optional.</p>
       <label for="rollCourse">Course</label>
       <select id="rollCourse"></select>
       <label for="rollProg">Programme</label>
       <select id="rollProg"><option value="">Select the programme</option></select>
+      <label for="rollLevel">Level</label>
+      <select id="rollLevel"></select>
       <div id="savedRolls" class="note"></div>
       <label for="rollFile">Roll file</label>
       <input id="rollFile" type="file" accept=".csv,.xlsx,.xls">
@@ -203,8 +215,8 @@
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-<script src="shared.js?v=17"></script>
+<script src="shared.js?v=18"></script>
 <script src="programmes.js"></script>
-<script src="teacher.js?v=19"></script>
+<script src="teacher.js?v=20"></script>
 </body>
 </html>

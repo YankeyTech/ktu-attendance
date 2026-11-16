@@ -1,5 +1,56 @@
 // Shared helpers: Excel export, QR code, count-up and confetti.
 const reduceMotion = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+// ---- Class rolls: level options and matching ----
+const ROLL_LEVELS = ["Level 100", "Level 200", "Level 300", "Level 400", "Postgraduate"];
+const sameText = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
+// "Level 100", "100" and "level100" all count as the same level.
+const levelKey = (x) => { const t = String(x || "").trim().toLowerCase(), m = t.match(/\d{3}/); return m ? m[0] : t; };
+// Does this roll row belong to this class? Rolls saved before programme or level existed still count.
+function rollMatchesClass(r, c) {
+  const rp = String(r.programme || "").trim(), rl = String(r.level || "").trim();
+  if (!rp) return true;
+  const levelOk = (cl) => !rl || !String(cl || "").trim() || String(cl).trim().toLowerCase() === "all levels" || levelKey(cl) === levelKey(rl);
+  const groups = c.combined ? (c.class_groups || []) : [{ programme: c.programme, level: c.level }];
+  return groups.some((g) => sameText(g.programme, rp) && levelOk(g.level));
+}
+function fillLevelSel(sel, placeholder) {
+  sel.textContent = "";
+  for (const t of [""].concat(ROLL_LEVELS)) { const o = document.createElement("option"); o.value = t; o.textContent = t || placeholder || "Select the level"; sel.appendChild(o); }
+}
+async function deleteRollIds(sb, ids) {
+  let n = 0;
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data, error } = await sb.from("rolls").delete().in("id", ids.slice(i, i + 100)).select("id");
+    if (error) return { error, n };
+    n += (data || []).length;
+  }
+  return { n };
+}
+// Forgot password: the server only sends an email when the address belongs to an active account.
+async function sendResetLink(sb, email) {
+  const r = await sb.functions.invoke("staff-access", { body: { action: "forgot", email } });
+  if (r.error) return { ok: false, error: "Could not reach the server. Check your internet and try again." };
+  return r.data && r.data.error ? { ok: false, error: r.data.error } : { ok: true };
+}
+function wireForgot(sb, loginId) {
+  const login = document.getElementById(loginId), box = document.getElementById("forgotBox");
+  if (!login || !box) return;
+  const msg = document.getElementById("forgotMsg"), em = document.getElementById("forgotEmail"), go = document.getElementById("forgotGo");
+  const say = (t, k) => { msg.textContent = t; msg.className = "msg " + (k || ""); };
+  document.getElementById("forgot").addEventListener("click", (e) => { e.preventDefault(); em.value = document.getElementById("email").value.trim(); say(""); login.hidden = true; box.hidden = false; em.focus(); });
+  document.getElementById("forgotBack").addEventListener("click", (e) => { e.preventDefault(); box.hidden = true; login.hidden = false; });
+  box.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = em.value.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return say("Enter a valid email address.", "bad");
+    go.disabled = true; say("Checking…");
+    const r = await sendResetLink(sb, email);
+    if (!r.ok) { go.disabled = false; return say(r.error, "bad"); }
+    say("If that email belongs to an active account, a reset link has been sent. Check your inbox and spam folder. The link works once.", "ok");
+    setTimeout(() => { go.disabled = false; }, 60000);
+  });
+}
+
 const safeName = (s) => (String(s || "").replace(/[^\w\- ]+/g, "").trim() || "attendance");
 
 // Supabase returns at most 1000 rows per request, so read page by page.

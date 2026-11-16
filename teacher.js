@@ -75,6 +75,7 @@ $("login").addEventListener("submit", async (e) => {
   if (error) return say("loginMsg", "Wrong email or password.", "bad");
   $("pw").value = ""; say("loginMsg", ""); refreshAuth();
 });
+wireForgot(sb, "login");
 $("out").addEventListener("click", async () => { await sb.auth.signOut(); current = null; $("live").hidden = true; $("stickybar").hidden = true; document.body.classList.remove("hasbar"); refreshAuth(); });
 
 $("start").addEventListener("submit", async (e) => {
@@ -347,7 +348,8 @@ $("cxlsx").addEventListener("click", async () => {
 
 
 // ---- Rotating screen code ----
-// Must match the 600 in the database functions check_in and get_pass (upgrade16.sql).
+// Must match the 600 in the database functions check_in and get_pass (upgrade18.sql).
+// The 10 minutes are counted from the moment this class started, so every new class begins with a full 10 minutes.
 const CODE_SECS = 600;
 // Use the database clock, so a wrong laptop clock cannot break the codes.
 async function syncClock() {
@@ -366,8 +368,8 @@ function drawFs() {
 }
 async function tickQr() {
   if (!current || !current.rotating || !current.secret || !isOpen()) return;
-  const now = Date.now() / 1000 + clockOffset, w = Math.floor(now / CODE_SECS);
-  $("cd").style.width = ((CODE_SECS - (now % CODE_SECS)) / CODE_SECS) * 100 + "%";
+  const now = Date.now() / 1000 + clockOffset, el = Math.max(0, now - new Date(current.opens_at).getTime() / 1000), w = Math.floor(el / CODE_SECS);
+  $("cd").style.width = ((CODE_SECS - (el % CODE_SECS)) / CODE_SECS) * 100 + "%";
   if (w === lastWin) return;
   lastWin = w;
   const t = await tokenFor(current.secret, w);
@@ -403,10 +405,8 @@ async function loadRoll() {
   rollRows = [];
   if (!current) return;
   const all = await fetchRolls(current.course);
-  const norm = (x) => String(x || "").trim().toLowerCase();
-  const progs = (current.combined ? (current.class_groups || []).map((g) => g.programme) : [current.programme]).map(norm);
-  // Only students of this class's programme(s). Older rolls saved without a programme still count.
-  rollRows = all.filter((r) => !norm(r.programme) || progs.includes(norm(r.programme)));
+  // Only students of this class's programme(s) and level(s). Older rolls saved without a programme or level still count.
+  rollRows = all.filter((r) => rollMatchesClass(r, current));
   renderAbsent();
 }
 // Rolls can hold more than 1000 rows, and the database returns 1000 at a time.
@@ -426,31 +426,29 @@ async function renderSavedRolls() {
   const all = await fetchRolls(course);
   if (course !== $("rollCourse").value) return;
   if (!all.length) { box.textContent = "No roll saved for this course yet."; return; }
-  const by = new Map(); for (const r of all) { const k = (r.programme || "").trim(); by.set(k, (by.get(k) || 0) + 1); }
+  const by = new Map(); for (const r of all) { const k = (r.programme || "").trim() + "\u0001" + (r.level || "").trim(); const e = by.get(k) || { prog: (r.programme || "").trim(), lvl: (r.level || "").trim(), ids: [] }; e.ids.push(r.id); by.set(k, e); }
   const h = document.createElement("b"); h.textContent = "Saved rolls for this course"; box.appendChild(h);
-  for (const [prog, n] of by) {
-    const row = document.createElement("div"); row.className = "absrow";
-    const s = document.createElement("span"); s.textContent = (prog || "No programme (older upload)") + ": " + n + " student" + (n === 1 ? "" : "s");
+  for (const g of by.values()) {
+    const n = g.ids.length, row = document.createElement("div"); row.className = "absrow";
+    const s = document.createElement("span"); s.textContent = (g.prog || "No programme (older upload)") + " | " + (g.lvl || "Level not set") + ": " + n + " student" + (n === 1 ? "" : "s");
     row.appendChild(s);
     if (role !== "assistant") {
       const b = document.createElement("button"); b.type = "button"; b.className = "btn quiet danger"; b.textContent = "Delete roll";
-      b.addEventListener("click", () => deleteRoll(course, prog, n));
+      b.addEventListener("click", () => deleteRoll(course, g));
       row.appendChild(b);
     }
     box.appendChild(row);
   }
 }
-async function deleteRoll(course, prog, n) {
-  if (!confirm("Delete the saved roll for " + course + " (" + (prog || "no programme") + "), " + n + " students? Attendance records are not affected.")) return;
-  let q = sb.from("rolls").delete().eq("course", course);
-  q = prog ? q.eq("programme", prog) : q.or("programme.is.null,programme.eq.");
-  const { data, error } = await q.select("id");
+async function deleteRoll(course, g) {
+  if (!confirm("Delete the saved roll for " + course + " (" + (g.prog || "no programme") + ", " + (g.lvl || "level not set") + "), " + g.ids.length + " students? Attendance records are not affected.")) return;
+  const { n, error } = await deleteRollIds(sb, g.ids);
   if (error) return say("rollMsg", "Could not delete the roll: " + error.message, "bad");
-  say("rollMsg", data && data.length ? "Roll deleted (" + data.length + " students)." : "Nothing was deleted. You can only delete rolls you uploaded.", data && data.length ? "ok" : "warn");
+  say("rollMsg", n ? "Roll deleted (" + n + " students)." : "Nothing was deleted. You can only delete rolls you uploaded.", n ? "ok" : "warn");
   renderSavedRolls(); if (current && current.course === course) loadRoll();
 }
 $("rollCourse").addEventListener("change", renderSavedRolls);
-fillProgrammes($("rollProg"));
+fillProgrammes($("rollProg")); fillLevelSel($("rollLevel"));
 function absentees() {
   const here = new Set(records.map((r) => String(r.index_number).toUpperCase()));
   return rollRows.filter((r) => !here.has(r.index_number));
@@ -477,9 +475,10 @@ function renderAbsent() {
 
 // ---- Class roll: upload ----
 $("rollUp").addEventListener("click", async () => {
-  const course = $("rollCourse").value, prog = $("rollProg").value, f = $("rollFile").files[0];
+  const course = $("rollCourse").value, prog = $("rollProg").value, lvl = $("rollLevel").value, f = $("rollFile").files[0];
   if (!course) return say("rollMsg", "Choose the course first.", "warn");
   if (!prog) return say("rollMsg", "Choose the programme this roll is for.", "warn");
+  if (!lvl) return say("rollMsg", "Choose the level this roll is for.", "warn");
   if (!f) return say("rollMsg", "Choose a CSV or Excel file first.", "warn");
   if (!window.XLSX) return say("rollMsg", "The Excel library did not load. Check your internet.", "bad");
   say("rollMsg", "Reading the file...");
@@ -489,18 +488,19 @@ $("rollUp").addEventListener("click", async () => {
     if (rows.length < 2) return say("rollMsg", "The file has no student rows.", "bad");
     const head = rows[0].map((h) => String(h).toLowerCase());
     const find = (re, fb) => { const i = head.findIndex((h) => re.test(h)); return i >= 0 ? i : fb; };
-    const ci = find(/index|student\s*(id|no)|reg|^id$/, 0), cn = find(/^(full |student )?name/, 1), cl = find(/level/, -1);
+    const ci = find(/index|student\s*(id|no)|reg|^id$/, 0), cn = find(/^(full |student )?name/, 1);
     const map = new Map(); let skipped = 0;
     for (const r of rows.slice(1)) {
       const idx = String(r[ci] || "").trim().toUpperCase();
       if (!/^[A-Z0-9\/\-]{4,30}$/.test(idx)) { if (idx || r.some((x) => String(x).trim())) skipped++; continue; }
-      map.set(idx, { course, index_number: idx, student_name: String(r[cn] || "").trim().slice(0, 100) || null, programme: prog, level: cl >= 0 ? String(r[cl] || "").trim() || null : null });
+      map.set(idx, { course, index_number: idx, student_name: String(r[cn] || "").trim().slice(0, 100) || null, programme: prog, level: lvl });
     }
     if (!map.size) return say("rollMsg", "No valid index numbers found. Check the column headings.", "bad");
     const { data: { session } } = await sb.auth.getSession();
     const list = Array.from(map.values()).map((x) => Object.assign(x, { owner: session.user.id }));
-    // Replace only this programme's roll. Also clear these index numbers from other rolls of the course, so nobody is listed twice.
-    const d1 = await sb.from("rolls").delete().eq("course", course).eq("programme", prog);
+    // Replace only this programme and level's roll. Also clear these index numbers from other rolls of the course, so nobody is listed twice.
+    const old = (await fetchRolls(course)).filter((r) => sameText(r.programme, prog) && levelKey(r.level) === levelKey(lvl)).map((r) => r.id);
+    const d1 = await deleteRollIds(sb, old);
     if (d1.error) return say("rollMsg", "Could not replace the old roll: " + d1.error.message, "bad");
     for (let i = 0; i < list.length; i += 200) {
       const d2 = await sb.from("rolls").delete().eq("course", course).in("index_number", list.slice(i, i + 200).map((x) => x.index_number));
@@ -510,27 +510,27 @@ $("rollUp").addEventListener("click", async () => {
       const { error } = await sb.from("rolls").insert(list.slice(i, i + 200));
       if (error) return say("rollMsg", "Upload failed: " + error.message, "bad");
     }
-    say("rollMsg", "Roll saved for " + prog + ": " + list.length + " students" + (skipped ? ", " + skipped + " rows skipped (invalid index number)." : "."), "ok");
+    say("rollMsg", "Roll saved for " + prog + ", " + lvl + ": " + list.length + " students" + (skipped ? ", " + skipped + " rows skipped (invalid index number)." : "."), "ok");
     $("rollFile").value = ""; renderSavedRolls(); if (current && current.course === course) loadRoll();
   } catch (e) { say("rollMsg", "Could not read that file.", "bad"); }
 });
 
 // ---- Attendance report and at-risk list ----
 $("rep").addEventListener("click", async () => {
-  const course = $("rollCourse").value, prog = $("rollProg").value, thr = Number($("thr").value) || 75;
+  const course = $("rollCourse").value, prog = $("rollProg").value, lvl = $("rollLevel").value, thr = Number($("thr").value) || 75;
   if (!course) return say("rollMsg", "Choose the course first.", "warn");
   say("rollMsg", "Working out the report...");
   let [{ data: cls }, roll] = await Promise.all([sessQ(course, true), fetchRolls(course)]);
   if (prog) {
-    const eq = (a) => String(a || "").trim().toLowerCase() === prog.trim().toLowerCase();
-    cls = (cls || []).filter((c) => c.combined ? (c.class_groups || []).some((g) => eq(g.programme)) : eq(c.programme));
-    roll = roll.filter((r) => eq(r.programme));
+    const eq = (a) => sameText(a, prog), lk = (x) => !lvl || levelKey(x) === levelKey(lvl);
+    cls = (cls || []).filter((c) => c.combined ? (c.class_groups || []).some((g) => eq(g.programme) && (!lvl || g.level === "All levels" || lk(g.level))) : eq(c.programme) && lk(c.level));
+    roll = roll.filter((r) => eq(r.programme) && lk(r.level));
   } else if (new Set(roll.map((r) => (r.programme || "").trim())).size > 1) {
-    return say("rollMsg", "This course has rolls for several programmes. Choose a programme above to get its report.", "warn");
+    return say("rollMsg", "This course has rolls for several programmes. Choose a programme (and level) above to get its report.", "warn");
   }
-  if (!cls || !cls.length) return say("rollMsg", "No classes found for that course" + (prog ? " and programme" : "") + " yet.", "warn");
+  if (!cls || !cls.length) return say("rollMsg", "No classes found for that course" + (prog ? " and programme" : "") + (lvl ? " and level" : "") + " yet.", "warn");
   let atts = await fetchAttendance(sb, cls.map((c) => c.id));
-  if (prog) atts = atts.filter((a) => String(a.programme || "").trim().toLowerCase() === prog.trim().toLowerCase());
+  if (prog) atts = atts.filter((a) => sameText(a.programme, prog) && (!lvl || levelKey(a.level) === levelKey(lvl)));
   const st = new Map();
   for (const r of roll) st.set(r.index_number, { name: r.student_name || "", set: new Set() });
   for (const a of atts) {

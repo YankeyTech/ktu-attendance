@@ -7,7 +7,12 @@
   <form id="login" class="card"><h2>Admin sign in</h2>
     <label for="email">Email</label><input id="email" type="email" autocomplete="username" required>
     <label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password" required>
-    <button class="btn" type="submit">Sign in</button><p id="loginMsg" class="msg" role="status"></p></form>
+    <button class="btn" type="submit">Sign in</button><p class="note" style="margin:8px 0 0"><a href="#" id="forgot">Forgot password?</a></p><p id="loginMsg" class="msg" role="status"></p></form>
+  <form id="forgotBox" class="card" hidden><h2>Reset your password</h2>
+    <p class="note">Enter your email. If it belongs to an active account, we email you a link to choose a new password.</p>
+    <label for="forgotEmail">Email</label><input id="forgotEmail" type="email" autocomplete="username" required>
+    <button id="forgotGo" class="btn" type="submit">Send reset link</button>
+    <p class="note" style="margin:8px 0 0"><a href="#" id="forgotBack">Back to sign in</a></p><p id="forgotMsg" class="msg" role="status"></p></form>
   <div id="app" hidden>
     <div class="tabs"><button class="btn quiet on" data-t="over">Overview</button><button class="btn quiet" data-t="lect">Lecturers</button><button class="btn quiet" data-t="cls">All classes</button><button class="btn quiet" data-t="roll">Class rolls</button><button class="btn quiet" data-t="ana">Analytics</button><button class="btn quiet" data-t="act">Activity</button><button class="btn quiet" data-t="rep">Reports <span id="repN" class="badge on" hidden></span></button><a class="btn quiet" href="teacher.html">Lecturer portal</a><button id="out" class="btn quiet">Sign out</button></div>
     <p id="msg" class="msg" role="status"></p>
@@ -17,8 +22,8 @@
       <div class="reqbox"><h3>System status</h3><div id="statusBody"></div></div>
       <div class="reqbox"><h3>Backup</h3><p class="note">Downloads staff, classes, check-ins, courses, rolls and venues as one Excel file. Secret class keys are left out.</p><button id="backup" class="btn quiet" type="button">Download full backup (Excel)</button></div></section>
     <section id="t-lect" class="card" hidden><h2>Lecturers</h2>
-      <form id="add" class="bar"><input id="aemail" type="email" placeholder="Lecturer email" required><input id="aname" placeholder="Full name (optional)"><select id="arole"><option value="lecturer">Lecturer</option><option value="assistant">Teaching assistant</option></select><button class="btn" type="submit">Add lecturer</button></form>
-      <div id="cred"></div>
+      <form id="add" class="bar"><input id="aemail" type="email" placeholder="Lecturer email" required><input id="aname" placeholder="Full name (optional)"><select id="arole"><option value="lecturer">Lecturer</option><option value="assistant">Teaching assistant</option></select><button class="btn" type="submit">Send invite</button></form>
+      <p class="note">Enter the email and click Send invite. They get an email with a link to choose their own password. Use Send reset link on their row if they lose it.</p>
       <div id="reqBox" class="reqbox" hidden><h3>Name change requests <span id="reqN" class="badge on"></span></h3><div id="reqList"></div></div>
       <div class="bar"><input id="lq" placeholder="Search lecturers"></div>
       <div class="table-wrap"><table><thead id="lh"></thead><tbody id="lb"></tbody></table></div></section>
@@ -27,16 +32,17 @@
       <div class="bar"><label>From <input id="fd1" type="date"></label><label>To <input id="fd2" type="date"></label><button id="cx" class="btn quiet" type="button">Download Excel (filtered)</button><button id="arcBulk" class="btn quiet" type="button">Archive these</button><button id="resBulk" class="btn quiet" type="button">Restore these</button></div>
       <div class="table-wrap"><table><thead id="ch"></thead><tbody id="cb"></tbody></table></div></section>
     <section id="t-roll" class="card" hidden><h2>Class rolls</h2>
-      <p class="note">Add, replace or delete a class roll for any lecturer, so they do not have to. The lecturer sees it on their page straight away. Upload a CSV or Excel file with Index number and Name columns. Uploading again for the same lecturer, course and programme replaces that roll only.</p>
+      <p class="note">Add, replace or delete a class roll for any lecturer, so they do not have to. The lecturer sees it on their page straight away. Upload a CSV or Excel file with Index number and Name columns. Uploading again for the same lecturer, course, programme and level replaces that roll only.</p>
       <label for="rlLect">Lecturer</label><select id="rlLect"></select>
       <label for="rlCourse">Course</label><select id="rlCourse"></select>
       <label for="rlProg">Programme</label><select id="rlProg"><option value="">Select the programme</option></select>
+      <label for="rlLevel">Level</label><select id="rlLevel"></select>
       <label for="rlFile">Roll file</label><input id="rlFile" type="file" accept=".csv,.xlsx,.xls">
       <div class="row"><button id="rlUp" class="btn" type="button">Upload roll</button></div>
       <p id="rlMsg" class="msg" role="status"></p>
       <h3 class="ch3">Saved rolls</h3>
-      <div class="bar"><input id="rlQ" placeholder="Search lecturer, course or programme"></div>
-      <div class="table-wrap"><table><thead><tr><th>Lecturer</th><th>Course</th><th>Programme</th><th>Students</th><th>Actions</th></tr></thead><tbody id="rlB"></tbody></table></div></section>
+      <div class="bar"><input id="rlQ" placeholder="Search lecturer, course, programme or level"></div>
+      <div class="table-wrap"><table><thead><tr><th>Lecturer</th><th>Course</th><th>Programme</th><th>Level</th><th>Students</th><th>Actions</th></tr></thead><tbody id="rlB"></tbody></table></div></section>
     <section id="t-ana" class="card" hidden><h2>Analytics</h2>
       <div class="bar"><select id="anYear"><option value="">All years</option></select><select id="anSem"><option value="">All semesters</option><option>Semester 1</option><option>Semester 2</option><option>Summer / Resit</option></select><label class="chk mini"><input id="anArch" type="checkbox"> Include archived</label><button id="anGo" class="btn quiet" type="button">Refresh</button></div>
       <div id="anTotals" class="stats"></div>
@@ -53,5 +59,5 @@
   </div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="shared.js?v=17"></script>
-<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=19"></script></body></html>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="shared.js?v=18"></script>
+<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=20"></script></body></html>

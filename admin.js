@@ -18,6 +18,7 @@ $("login").addEventListener("submit", async (e) => {
   if (error) return say("loginMsg", "Wrong email or password.", "bad");
   $("pw").value = ""; say("loginMsg", ""); start();
 });
+wireForgot(sb, "login");
 $("out").addEventListener("click", async () => { await sb.auth.signOut(); start(); });
 document.querySelectorAll(".tabs [data-t]").forEach((b) => b.addEventListener("click", () => {
   document.querySelectorAll(".tabs [data-t]").forEach((x) => x.classList.toggle("on", x === b));
@@ -60,8 +61,8 @@ function drawL() {
     const td = document.createElement("td");
     if (x.role !== "admin") {
       const mk = (t, f) => { const b = document.createElement("button"); b.type = "button"; b.textContent = t; b.className = "abtn " + (/^Disable/.test(t) ? "bad" : /^Enable/.test(t) ? "ok" : ""); b.addEventListener("click", f); td.appendChild(b); };
-      mk("Reset password", () => call({ action: "reset", id: x.id }, x.email, "Password reset for "));
-      mk(x.active ? "Disable" : "Enable", async () => { const r = await sb.functions.invoke("admin-users", { body: { action: "active", id: x.id, active: !x.active } }); fail(r) || load(); });
+      mk("Send reset link", async () => { if (!confirm("Email a password reset link to " + x.email + "?")) return; if (await call({ action: "reset", id: x.id }, "Reset link sent to " + x.email + ".")) load(); });
+      mk(x.active ? "Disable" : "Enable", async () => { const r = await sb.functions.invoke("staff-access", { body: { action: "active", id: x.id, active: !x.active } }); fail(r) || load(); });
       mk(x.role === "assistant" ? "Make lecturer" : "Make TA", async () => { const r = await sb.rpc("set_staff_role", { p_email: x.email, p_role: x.role === "assistant" ? "lecturer" : "assistant" }); if (r.error) say("msg", r.error.message, "bad"); else load(); });
       mk("Edit name", async () => { const n = (prompt("Full name for " + x.email + ":", x.full_name || "") || "").trim(); if (n.length < 3) return; const r = await sb.rpc("admin_set_name", { p_email: x.email, p_name: n }); if (r.error) say("msg", r.error.message, "bad"); else load(); });
       mk("Add course", async () => { const n = (prompt("Course name for " + x.email + ":") || "").trim(); if (n.length < 2) return; const r = await sb.rpc("admin_add_course", { p_owner: x.id, p_name: n }); if (r.error) say("msg", r.error.message, "bad"); else load(); });
@@ -96,7 +97,7 @@ function fillProgSel(sel) {
     sel.appendChild(og);
   }
 }
-fillProgSel($("rlProg"));
+fillProgSel($("rlProg")); fillLevelSel($("rlLevel"));
 const staffName = (id) => { const x = people.find((p) => p.id === id); return x ? (x.full_name ? x.full_name + " (" + x.email + ")" : x.email) : "-"; };
 function drawRollForm() {
   const keep = $("rlLect").value, sel = $("rlLect"); sel.textContent = "";
@@ -116,39 +117,38 @@ function drawRollCourses() {
 $("rlLect").addEventListener("change", drawRollCourses);
 async function loadRolls() {
   drawRollForm();
-  const { data, error } = await fetchAllRows(sb, "rolls", "owner,course,programme", "created_at");
+  const { data, error } = await fetchAllRows(sb, "rolls", "id,owner,course,programme,level", "created_at");
   if (error) return say("rlMsg", "Could not load the rolls: " + error.message, "bad");
   const by = new Map();
-  for (const r of data) { const k = [r.owner, r.course, (r.programme || "").trim()].join("\u0001"); const e = by.get(k) || { owner: r.owner, course: r.course, programme: (r.programme || "").trim(), n: 0 }; e.n++; by.set(k, e); }
+  for (const r of data) { const k = [r.owner, r.course, (r.programme || "").trim(), (r.level || "").trim()].join("\u0001"); const e = by.get(k) || { owner: r.owner, course: r.course, programme: (r.programme || "").trim(), level: (r.level || "").trim(), ids: [], n: 0 }; e.n++; e.ids.push(r.id); by.set(k, e); }
   rollList = Array.from(by.values()); drawRolls();
 }
 let rollList = [];
 function drawRolls() {
   const q = $("rlQ").value.trim().toLowerCase(), body = $("rlB"); body.textContent = "";
-  const rows = rollList.map((r) => Object.assign({ _who: staffName(r.owner) }, r)).filter((r) => (r._who + " " + r.course + " " + r.programme).toLowerCase().includes(q))
-    .sort((a, b) => a._who.localeCompare(b._who) || a.course.localeCompare(b.course) || a.programme.localeCompare(b.programme));
-  if (!rows.length) { const tr = document.createElement("tr"), td = document.createElement("td"); td.colSpan = 5; td.textContent = "No saved rolls."; tr.appendChild(td); body.appendChild(tr); return; }
+  const rows = rollList.map((r) => Object.assign({ _who: staffName(r.owner) }, r)).filter((r) => (r._who + " " + r.course + " " + r.programme + " " + r.level).toLowerCase().includes(q))
+    .sort((a, b) => a._who.localeCompare(b._who) || a.course.localeCompare(b.course) || a.programme.localeCompare(b.programme) || a.level.localeCompare(b.level));
+  if (!rows.length) { const tr = document.createElement("tr"), td = document.createElement("td"); td.colSpan = 6; td.textContent = "No saved rolls."; tr.appendChild(td); body.appendChild(tr); return; }
   for (const r of rows) {
     const tr = document.createElement("tr");
-    for (const v of [r._who, r.course, r.programme || "No programme (older upload)", r.n]) { const td = document.createElement("td"); td.textContent = v; tr.appendChild(td); }
+    for (const v of [r._who, r.course, r.programme || "No programme (older upload)", r.level || "Level not set", r.n]) { const td = document.createElement("td"); td.textContent = v; tr.appendChild(td); }
     const td = document.createElement("td");
     td.appendChild(abtn("Delete", "bad", async () => {
-      if (!confirm("Delete the roll for " + r.course + " (" + (r.programme || "no programme") + "), " + r.n + " students, belonging to " + r._who + "? Attendance records are not affected.")) return;
-      let d = sb.from("rolls").delete().eq("owner", r.owner).eq("course", r.course);
-      d = r.programme ? d.eq("programme", r.programme) : d.or("programme.is.null,programme.eq.");
-      const x = await d.select("id");
+      if (!confirm("Delete the roll for " + r.course + " (" + (r.programme || "no programme") + ", " + (r.level || "level not set") + "), " + r.n + " students, belonging to " + r._who + "? Attendance records are not affected.")) return;
+      const x = await deleteRollIds(sb, r.ids);
       if (x.error) return say("rlMsg", "Could not delete: " + x.error.message, "bad");
-      say("rlMsg", "Roll deleted (" + (x.data || []).length + " students).", "ok"); loadRolls();
+      say("rlMsg", "Roll deleted (" + x.n + " students).", "ok"); loadRolls();
     }));
     tr.appendChild(td); body.appendChild(tr);
   }
 }
 $("rlQ").addEventListener("input", drawRolls);
 $("rlUp").addEventListener("click", async () => {
-  const owner = $("rlLect").value, course = $("rlCourse").value, prog = $("rlProg").value, f = $("rlFile").files[0];
+  const owner = $("rlLect").value, course = $("rlCourse").value, prog = $("rlProg").value, lvl = $("rlLevel").value, f = $("rlFile").files[0];
   if (!owner) return say("rlMsg", "Choose the lecturer first.", "warn");
   if (!course) return say("rlMsg", "Choose the course. If the list is empty, use Add course on the Lecturers tab first.", "warn");
   if (!prog) return say("rlMsg", "Choose the programme this roll is for.", "warn");
+  if (!lvl) return say("rlMsg", "Choose the level this roll is for.", "warn");
   if (!f) return say("rlMsg", "Choose a CSV or Excel file first.", "warn");
   if (!window.XLSX) return say("rlMsg", "The Excel library did not load. Check your internet.", "bad");
   say("rlMsg", "Reading the file...");
@@ -158,16 +158,22 @@ $("rlUp").addEventListener("click", async () => {
     if (rows.length < 2) return say("rlMsg", "The file has no student rows.", "bad");
     const head = rows[0].map((h) => String(h).toLowerCase());
     const find = (re, fb) => { const i = head.findIndex((h) => re.test(h)); return i >= 0 ? i : fb; };
-    const ci = find(/index|student\s*(id|no)|reg|^id$/, 0), cn = find(/^(full |student )?name/, 1), cl = find(/level/, -1);
+    const ci = find(/index|student\s*(id|no)|reg|^id$/, 0), cn = find(/^(full |student )?name/, 1);
     const map = new Map(); let skipped = 0;
     for (const r of rows.slice(1)) {
       const idx = String(r[ci] || "").trim().toUpperCase();
       if (!/^[A-Z0-9\/\-]{4,30}$/.test(idx)) { if (idx || r.some((x) => String(x).trim())) skipped++; continue; }
-      map.set(idx, { owner, course, index_number: idx, student_name: String(r[cn] || "").trim().slice(0, 100) || null, programme: prog, level: cl >= 0 ? String(r[cl] || "").trim() || null : null });
+      map.set(idx, { owner, course, index_number: idx, student_name: String(r[cn] || "").trim().slice(0, 100) || null, programme: prog, level: lvl });
     }
     if (!map.size) return say("rlMsg", "No valid index numbers found. Check the column headings.", "bad");
     const list = Array.from(map.values());
-    const d1 = await sb.from("rolls").delete().eq("owner", owner).eq("course", course).eq("programme", prog);
+    const have = []; 
+    for (let from = 0; ; from += 1000) {
+      const { data: ex, error: ee } = await sb.from("rolls").select("id,programme,level").eq("owner", owner).eq("course", course).order("id").range(from, from + 999);
+      if (ee) return say("rlMsg", "Could not read the old roll: " + ee.message, "bad");
+      have.push(...(ex || [])); if (!ex || ex.length < 1000) break;
+    }
+    const d1 = await deleteRollIds(sb, have.filter((x) => sameText(x.programme, prog) && levelKey(x.level) === levelKey(lvl)).map((x) => x.id));
     if (d1.error) return say("rlMsg", "Could not replace the old roll: " + d1.error.message, "bad");
     for (let i = 0; i < list.length; i += 200) {
       const d2 = await sb.from("rolls").delete().eq("owner", owner).eq("course", course).in("index_number", list.slice(i, i + 200).map((x) => x.index_number));
@@ -177,7 +183,7 @@ $("rlUp").addEventListener("click", async () => {
       const { error } = await sb.from("rolls").insert(list.slice(i, i + 200));
       if (error) return say("rlMsg", "Upload failed: " + error.message, "bad");
     }
-    say("rlMsg", "Roll saved for " + staffName(owner) + ", " + course + " (" + prog + "): " + list.length + " students" + (skipped ? ", " + skipped + " rows skipped (invalid index number)." : "."), "ok");
+    say("rlMsg", "Roll saved for " + staffName(owner) + ", " + course + " (" + prog + ", " + lvl + "): " + list.length + " students" + (skipped ? ", " + skipped + " rows skipped (invalid index number)." : "."), "ok");
     $("rlFile").value = ""; loadRolls();
   } catch (e) { say("rlMsg", "Could not read that file.", "bad"); }
 });
@@ -212,30 +218,18 @@ $("cx").addEventListener("click", async () => {
 });
 
 function fail(r) { const m = r.error ? (r.data && r.data.error) || r.error.message : r.data && r.data.error; if (m) { say("msg", m, "bad"); return true; } return false; }
-function showCred(email, password, lead) {
-  const box = $("cred"); box.textContent = "";
-  const d = document.createElement("div"); d.className = "cred";
-  const p = document.createElement("p"); p.textContent = lead + email + ". Give them this default password. It is shown only now:";
-  const c = document.createElement("code"); c.textContent = password;
-  const b = document.createElement("button"); b.className = "btn quiet"; b.type = "button"; b.textContent = "Copy";
-  b.addEventListener("click", () => navigator.clipboard.writeText(password).then(() => (b.textContent = "Copied")));
-  const n = document.createElement("p"); n.className = "note"; n.textContent = "They sign in at the lecturer page and will be asked to choose their own password.";
-  d.append(p, c, document.createTextNode(" "), b, n); box.appendChild(d);
-}
-async function call(body, email, lead) {
-  say("msg", "Working…"); const r = await sb.functions.invoke("admin-users", { body });
-  if (fail(r)) return; say("msg", "Done.", "ok"); showCred(email || r.data.email, r.data.password, lead); document.querySelector('[data-t="lect"]').click(); load(); return true;
+async function call(body, okText) {
+  say("msg", "Working…"); const r = await sb.functions.invoke("staff-access", { body });
+  if (fail(r)) return false;
+  say("msg", okText || "Done.", "ok"); return true;
 }
 $("add").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const email = $("aemail").value.trim(), role = $("arole").value, nm = $("aname").value.trim().replace(/\s+/g, " ");
-  const ok = await call({ action: "create", email, name: $("aname").value, role }, null, "Account created for ");
+  const email = $("aemail").value.trim(), role = $("arole").value, nm = $("aname").value.trim().replace(/\s+/g, " ").replace(/\S+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase());
+  const btn = $("add").querySelector("button"); btn.disabled = true;
+  const ok = await call({ action: "invite", email, name: nm, role }, "Invite sent to " + email + ". They click the link in the email, then choose their own password.");
+  btn.disabled = false;
   if (!ok) return;
-  if (nm.length >= 3) {
-    const r2 = await sb.rpc("admin_set_name", { p_email: email, p_name: nm.replace(/\S+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase()), p_only_if_empty: true });
-    if (r2.error) say("msg", "Account created, but the name could not be saved: " + r2.error.message, "bad");
-  }
-  if (role !== "lecturer") { const r = await sb.rpc("set_staff_role", { p_email: email, p_role: role }); if (r.error) say("msg", "Account created, but the role could not be set: " + r.error.message, "bad"); }
   $("aemail").value = ""; $("aname").value = ""; load();
 });
 start();
@@ -285,7 +279,7 @@ $("resBulk").addEventListener("click", () => archiveSome(filteredClasses().filte
 async function adminSheet(s) {
   say("msg", "Preparing the sheet...");
   const [atts, { data: roll }] = await Promise.all([fetchAttendance(sb, [s.id]), sb.from("rolls").select("*").eq("owner", s.owner).eq("course", s.course)]);
-  say("msg", ""); openAttendanceSheet(s, atts, roll || [], s._owner);
+  say("msg", ""); openAttendanceSheet(s, atts, (roll || []).filter((r) => rollMatchesClass(r, s)), s._owner);
 }
 
 // ---- Analytics ----

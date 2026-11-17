@@ -265,6 +265,50 @@ function openAttendanceSheet(c, atts, roll, lecturer) {
 }
 
 
+// ---- Course attendance sheet for one programme and level: every class of the course in one grid ----
+function classMatchesGroup(c, prog, lvl) {
+  const eq = (a) => !prog || sameText(a, prog);
+  const lk = (x) => !lvl || String(x || "").trim().toLowerCase() === "all levels" || levelKey(x) === levelKey(lvl);
+  return c.combined ? (c.class_groups || []).some((g) => eq(g.programme) && lk(g.level)) : eq(c.programme) && (!lvl || levelKey(c.level) === levelKey(lvl));
+}
+function studentMatches(x, prog, lvl, lenient) {
+  return (!prog || sameText(x.programme, prog)) && (!lvl || (lenient && !String(x.level || "").trim()) || levelKey(x.level) === levelKey(lvl));
+}
+function openCourseSheet(o) {
+  const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+  const classes = [...o.classes].sort((a, b) => (a.created_at > b.created_at ? 1 : -1));
+  if (!classes.length) { toast("No classes found for that course, programme and level yet."); return; }
+  const people = new Map();
+  for (const r of o.roll || []) if (studentMatches(r, o.programme, o.level, true)) people.set(String(r.index_number).toUpperCase(), { name: r.student_name || "" });
+  const rec = new Map(), ids = new Set(classes.map((c) => c.id));
+  for (const a of o.atts || []) {
+    if (!ids.has(a.session_id) || !studentMatches(a, o.programme, o.level, false)) continue;
+    const k = String(a.index_number).toUpperCase();
+    if (!people.has(k)) people.set(k, { name: a.student_name || "" }); else if (!people.get(k).name) people.get(k).name = a.student_name || "";
+    rec.set(a.session_id + "|" + k, a);
+  }
+  const list = Array.from(people, ([k, v]) => ({ k, name: v.name })).sort((a, b) => (a.name || a.k).localeCompare(b.name || b.k));
+  const dt = (iso) => new Date(iso).toLocaleDateString([], { day: "numeric", month: "short" });
+  const head = classes.map((c) => "<th class='d'>" + esc(dt(c.created_at)) + "</th>").join("");
+  const body = list.map((p, i) => {
+    let n = 0;
+    const cells = classes.map((c) => { const a = rec.get(c.id + "|" + p.k); if (a && a.in_range) { n++; return "<td class='c'>&#10003;</td>"; } return a ? "<td class='c'>O</td>" : "<td class='c'></td>"; }).join("");
+    return "<tr><td>" + (i + 1) + "</td><td>" + esc(p.name) + "</td><td>" + esc(p.k) + "</td>" + cells + "<td class='c'>" + n + "</td><td class='c'>" + Math.round((n / classes.length) * 100) + "%</td></tr>";
+  }).join("");
+  const term = [...new Set(classes.map((c) => [c.academic_year, c.semester].filter(Boolean).join(" ")).filter(Boolean))].join("; ");
+  const html = '<!doctype html><html><head><meta charset="utf-8"><title>Course attendance sheet</title><style>@page{size:A4 landscape;margin:10mm}body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#000;margin:0}h1{font-size:18px;margin:0}h2{font-size:13px;margin:2px 0 8px;font-weight:normal}.meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px 20px;margin:8px 0 10px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #444;padding:3px 5px;text-align:left}th{background:#e8e8e8}th.d{font-size:9px;text-align:center;padding:3px 2px}td.c{text-align:center}.noprint{margin:0 0 12px;padding:10px;background:#fff8d6;border:1px solid #e0c200}@media print{.noprint{display:none}}</style></head><body>'
+    + '<div class="noprint">Choose <b>Save as PDF</b> as the printer to keep a PDF copy. <button onclick="window.print()">Print</button></div>'
+    + "<h1>Koforidua Technical University</h1><h2>Course attendance sheet</h2>"
+    + '<div class="meta"><div><b>Course:</b> ' + esc(o.course) + "</div><div><b>Programme:</b> " + esc(o.programme || "All") + "</div><div><b>Level:</b> " + esc(o.level || "All") + "</div><div><b>Lecturer:</b> " + esc(o.lecturer || "") + "</div><div><b>Classes held:</b> " + classes.length + "</div><div><b>Term:</b> " + esc(term) + "</div></div>"
+    + "<table><thead><tr><th>No.</th><th>Name</th><th>Index number</th>" + head + "<th>Total</th><th>Rate</th></tr></thead><tbody>" + body + "</tbody></table>"
+    + '<p style="margin-top:8px;color:#333">&#10003; = present in the class area. O = checked in outside the class area. Blank = absent.</p>'
+    + '<p style="color:#555">Printed ' + esc(new Date().toLocaleString()) + "</p>"
+    + "<script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script></body></html>";
+  const w = window.open("", "_blank");
+  if (!w) { toast("Allow pop-ups for this site, then try again."); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+}
+
 // ---- Copy to clipboard (with a fallback for older phones) ----
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; }

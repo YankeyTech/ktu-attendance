@@ -14,7 +14,7 @@
     <button id="forgotGo" class="btn" type="submit">Send reset link</button>
     <button type="button" id="forgotBack" class="btn forgot">Back to sign in</button><p id="forgotMsg" class="msg" role="status"></p></form>
   <div id="app" hidden>
-    <div class="tabs"><button class="btn quiet on" data-t="over">Overview</button><button class="btn quiet" data-t="lect">Lecturers</button><button class="btn quiet" data-t="cls">All classes</button><button class="btn quiet" data-t="roll">Class rolls</button><button class="btn quiet" data-t="ana">Analytics</button><button class="btn quiet" data-t="act">Activity</button><button class="btn quiet" data-t="rep">Reports <span id="repN" class="badge on" hidden></span></button><a class="btn quiet" href="teacher.html">Lecturer portal</a><button id="out" class="btn quiet">Sign out</button></div>
+    <div class="tabs"><button class="btn quiet on" data-t="over">Overview</button><button class="btn quiet" data-t="lect">Lecturers</button><button class="btn quiet" data-t="cls">All classes</button><button class="btn quiet" data-t="roll">Class rolls</button><button class="btn quiet" data-t="ana">Analytics</button><button class="btn quiet" data-t="act">Activity</button><button class="btn quiet" data-t="sus">Suspicious <span id="susN" class="badge on" hidden></span></button><button class="btn quiet" data-t="rep">Reports <span id="repN" class="badge on" hidden></span></button><a class="btn quiet" href="teacher.html">Lecturer portal</a><button id="out" class="btn quiet">Sign out</button></div>
     <p id="msg" class="msg" role="status"></p>
     <section id="t-over" class="card"><h2>Overview</h2><div class="stats" id="stats"></div>
       <div class="reqbox"><h3>Privacy: delete old location data</h3><p class="note">Removes the saved GPS position, phone ID and phone type from old check-ins. Names, index numbers and attendance results are kept.</p>
@@ -23,6 +23,9 @@
       <div class="reqbox"><h3>Backup</h3><p class="note">Downloads staff, classes, check-ins, courses, rolls and venues as one Excel file. Secret class keys are left out.</p><button id="backup" class="btn quiet" type="button">Download full backup (Excel)</button></div></section>
     <section id="t-lect" class="card" hidden><h2>Lecturers</h2>
       <form id="add" class="bar"><input id="aemail" type="email" placeholder="Lecturer email" required><input id="aname" placeholder="Full name (optional)"><select id="arole"><option value="lecturer">Lecturer</option><option value="assistant">Teaching assistant</option></select><button class="btn" type="submit">Send invite</button></form>
+      <details class="reqbox"><summary><b>Invite many at once from a spreadsheet</b></summary>
+        <p class="note">Upload a CSV or Excel file with the columns <b>Email</b>, <b>Name</b> and (optional) <b>Role</b> (write Lecturer or TA). Each person gets their own invite email. Supabase sends at most 30 emails an hour by default, so for large lists raise the limit under Authentication, Rate Limits, or send in batches. Emails that already have an account are skipped.</p>
+        <input id="bulkFile" type="file" accept=".csv,.xlsx,.xls"><div class="row"><button id="bulkGo" class="btn quiet" type="button">Send invites from file</button></div><div id="bulkOut" class="note" role="status"></div></details>
       <p class="note">Enter the email and click Send invite. They get an email with a link to choose their own password. Use Send reset link on their row if they lose it.</p>
       <div id="reqBox" class="reqbox" hidden><h3>Name change requests <span id="reqN" class="badge on"></span></h3><div id="reqList"></div></div>
       <div class="bar"><input id="lq" placeholder="Search lecturers"></div>
@@ -50,14 +53,32 @@
       <h3 class="ch3">Top programmes</h3><div id="chProg" class="hbars"></div>
       <h3 class="ch3">When students check in</h3><p class="note">Darker means more check-ins. Hours shown: 6:00 to 20:59.</p><div id="chHeat" class="heat"></div>
       <h3 class="ch3">Lecturer scorecard</h3><div class="table-wrap"><table><thead id="scH"></thead><tbody id="scB"></tbody></table></div>
-      <button id="scX" class="btn quiet" type="button" style="margin-top:10px">Download scorecard (Excel)</button></section>
+      <button id="scX" class="btn quiet" type="button" style="margin-top:10px">Download scorecard (Excel)</button>
+      <h3 class="ch3">Attendance by programme and level</h3><p class="note">Uses the year and semester chosen above. "Students" counts different index numbers.</p>
+      <div class="table-wrap"><table><thead><tr><th>Programme</th><th>Level</th><th>Classes</th><th>Check-ins</th><th>Students</th><th>Avg per class</th><th>In area %</th><th>Late %</th></tr></thead><tbody id="pgB"></tbody></table></div>
+      <button id="pgX" class="btn quiet" type="button" style="margin-top:10px">Download (Excel)</button>
+      <h3 class="ch3">By course</h3>
+      <div class="table-wrap"><table><thead><tr><th>Course</th><th>Lecturer</th><th>Classes</th><th>Check-ins</th><th>Students</th><th>Avg per class</th><th>In area %</th></tr></thead><tbody id="coB"></tbody></table></div>
+      <h3 class="ch3">At-risk students</h3><p class="note">Students whose attendance is below the chosen percentage. A student counts only for classes of their own programme and level, and only for courses with at least the chosen number of classes. Students on a class roll who never came show as 0%.</p>
+      <div class="bar"><label>Below <input id="arThr" type="number" min="1" max="100" value="75" style="width:80px">%</label><label>At least <input id="arMin" type="number" min="1" max="60" value="3" style="width:80px"> classes held</label><button id="arGo" class="btn quiet" type="button">Show</button><button id="arX" class="btn quiet" type="button">Download (Excel)</button></div>
+      <div class="table-wrap"><table><thead><tr><th>Name</th><th>Index number</th><th>Programme</th><th>Level</th><th>Course</th><th>Lecturer</th><th>Attended</th><th>Rate</th></tr></thead><tbody id="arB"></tbody></table></div>
+      <h3 class="ch3">Lecturer activity</h3><p class="note">Last sign-in, and classes and check-ins in the last 30 days.</p>
+      <div class="table-wrap"><table><thead><tr><th>Lecturer</th><th>Role</th><th>Last sign-in</th><th>Last class</th><th>Classes (30 days)</th><th>Check-ins (30 days)</th><th>In area %</th><th>Total classes</th></tr></thead><tbody id="laB"></tbody></table></div>
+      <button id="laX" class="btn quiet" type="button" style="margin-top:10px">Download (Excel)</button></section>
     <section id="t-act" class="card" hidden><h2>Activity log</h2><p class="note">Who changed or removed what, newest first. Shows the last 300 entries.</p>
       <div class="bar"><select id="actFilter"><option value="">All actions</option></select><input id="actQ" placeholder="Search"></div>
       <div class="table-wrap"><table><thead><tr><th>When</th><th>Who</th><th>Action</th><th>About</th><th>Detail</th></tr></thead><tbody id="actB"></tbody></table></div></section>
+    <section id="t-sus" class="card" hidden><h2>Suspicious activity</h2>
+      <p class="note">When a phone inside the class area tries to check in a second student, the lecturer gets a popup and the attempt is saved here. Weak or repeated GPS readings are listed below it.</p>
+      <h3 class="ch3">Same-phone attempts</h3>
+      <div class="bar"><select id="susFilter"><option value="">All</option><option value="pending">Waiting for the lecturer</option><option value="allowed">Allowed</option><option value="rejected">Rejected</option></select><input id="susQ" placeholder="Search student, index number, course or lecturer"><button id="susX" class="btn quiet" type="button">Download (Excel)</button></div>
+      <div class="table-wrap"><table><thead><tr><th>When</th><th>Lecturer</th><th>Course</th><th>Tried to check in</th><th>Phone already used by</th><th>Distance</th><th>Decision</th></tr></thead><tbody id="susB"></tbody></table></div>
+      <h3 class="ch3">GPS warnings (latest 300)</h3>
+      <div class="table-wrap"><table><thead><tr><th>When</th><th>Lecturer</th><th>Course</th><th>Student</th><th>Warning</th><th>Distance</th></tr></thead><tbody id="gpsB"></tbody></table></div></section>
     <section id="t-rep" class="card" hidden><h2>Problem reports</h2>
       <div class="bar"><select id="repFilter"><option value="open">Open</option><option value="resolved">Resolved</option><option value="">All</option></select></div><div id="repList"></div></section>
   </div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="shared.js?v=19"></script>
-<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=21"></script></body></html>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="shared.js?v=20"></script>
+<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=22"></script></body></html>

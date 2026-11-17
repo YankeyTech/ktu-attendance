@@ -151,7 +151,7 @@
       <div id="savedRolls" class="note"></div>
       <label for="rollFile">Roll file</label>
       <input id="rollFile" type="file" accept=".csv,.xlsx,.xls">
-      <div class="row"><button id="rollUp" class="btn quiet" type="button">Upload roll</button><button id="rep" class="btn quiet" type="button">Show attendance report</button></div>
+      <div class="row"><button id="rollUp" class="btn quiet" type="button">Upload roll</button><button id="rep" class="btn quiet" type="button">Show attendance report</button><button id="sheetBtn" class="btn quiet" type="button">Print course attendance sheet</button></div>
       <div class="row">
         <div><label for="repYear">Academic year</label><select id="repYear"><option value="">All years</option></select></div>
         <div><label for="repSem">Semester</label><select id="repSem"><option value="">All semesters</option><option>Semester 1</option><option>Semester 2</option><option>Summer / Resit</option></select></div>
@@ -183,6 +183,19 @@
     </section>
   </div>
 </main>
+<div id="phonePop" class="rvpop" style="z-index:97" hidden>
+  <div class="rvpc" role="dialog" aria-modal="true" aria-labelledby="phTitle">
+    <h3 id="phTitle">Same phone, different student</h3>
+    <p id="phWho" class="rvwho"></p>
+    <p id="phInfo" class="note"></p>
+    <div class="rvbtns">
+      <button id="phAllow" class="btn" type="button">Allow this student</button>
+      <button id="phReject" class="btn quiet danger" type="button">Reject</button>
+    </div>
+    <p id="phMore" class="note"></p>
+    <button id="phLater" class="btn quiet" type="button" style="width:100%">Decide later</button>
+  </div>
+</div>
 <div id="reviewPop" class="rvpop" hidden>
   <div class="rvpc" role="dialog" aria-modal="true" aria-labelledby="rvTitle">
     <button id="rvClose" class="rvx" type="button" aria-label="Close">&times;</button>
@@ -215,8 +228,8 @@
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-<script src="shared.js?v=19"></script>
+<script src="shared.js?v=20"></script>
 <script src="programmes.js"></script>
-<script src="teacher.js?v=21"></script>
+<script src="teacher.js?v=22"></script>
 </body>
 </html>

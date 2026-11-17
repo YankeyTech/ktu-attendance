@@ -165,7 +165,7 @@ function openSession(s) {
   $("endchk").hidden = !s.two_point; $("endchk").textContent = s.end_open ? "Close end-of-class check" : "Open end-of-class check (10 min)";
   lastWin = -1; if (qrTimer) clearInterval(qrTimer); qrTimer = setInterval(tickQr, 1000); tickQr();
   syncClock().then(() => { lastWin = -1; tickQr(); });
-  wasOpen = null; beepFor = ""; seenDots = new Set(); projN = -1; rowLimit = 50; openRows = new Set(); knownOut = new Set(); popQueue = []; popId = null; popReady = false; reviewAll = false; $("reviewPop").hidden = true; skelRows(); loadRoll(); applyState(); keepAwake();
+  wasOpen = null; beepFor = ""; seenDots = new Set(); projN = -1; rowLimit = 50; openRows = new Set(); knownOut = new Set(); popQueue = []; popId = null; popReady = false; reviewAll = false; $("reviewPop").hidden = true; phoneQ = []; phoneSeen = new Set(); $("phonePop").hidden = true; skelRows(); loadRoll(); applyState(); keepAwake();
   stopPolling();
   timer = setInterval(loadAttendance, 8000);
   $("live").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -186,6 +186,52 @@ function sharedIndexes(data) {
   return shared;
 }
 
+// ---- Same phone, different student: alert with Allow / Reject ----
+let phoneQ = [], phoneSeen = new Set(), phoneHidden = false;
+async function loadBlocked() {
+  if (!current) { $("phonePop").hidden = true; return; }
+  const { data, error } = await sb.from("blocked_attempts").select("*").eq("session_id", current.id).eq("status", "pending").order("at");
+  if (error || !data) return; // the table only exists after upgrade19.sql
+  let fresh = false;
+  for (const b of data) if (!phoneSeen.has(b.id)) { phoneSeen.add(b.id); fresh = true; }
+  phoneQ = data;
+  if (fresh) { phoneHidden = false; if (isOpen()) beep(0.25); }
+  showPhonePop();
+}
+function showPhonePop() {
+  const pop = $("phonePop");
+  if (!phoneQ.length || phoneHidden) { pop.hidden = true; return; }
+  const b = phoneQ[0];
+  $("phWho").textContent = (b.student_name || b.index_number) + "  (" + b.index_number + ")";
+  $("phInfo").textContent = "is trying to check in on the same phone that " + (b.device_name || "another student") + (b.device_index ? " (" + b.device_index + ")" : "") + " already used. They are inside the class area" + (b.distance_m != null ? " (about " + Math.round(b.distance_m) + " m away)" : "") + ". " + (b.programme || "") + (b.level ? ", " + b.level : "") + ".";
+  $("phMore").textContent = phoneQ.length > 1 ? phoneQ.length - 1 + " more waiting." : "";
+  pop.hidden = false;
+}
+async function decidePhone(allow) {
+  const b = phoneQ[0]; if (!b) return;
+  $("phAllow").disabled = $("phReject").disabled = true;
+  const { data, error } = await sb.rpc("resolve_blocked", { p_id: b.id, p_allow: allow });
+  $("phAllow").disabled = $("phReject").disabled = false;
+  if (error || (data && data.error)) toast("Could not save: " + ((error && error.message) || data.error));
+  else toast(allow ? (b.student_name || b.index_number) + " added as present." : "Rejected.");
+  phoneQ = phoneQ.filter((x) => x.id !== b.id); showPhonePop(); loadAttendance();
+}
+$("phAllow").addEventListener("click", () => decidePhone(true));
+$("phReject").addEventListener("click", () => decidePhone(false));
+$("phLater").addEventListener("click", () => { phoneHidden = true; showPhonePop(); if (phoneQ.length) toast(phoneQ.length + " same-phone alert" + (phoneQ.length > 1 ? "s are" : " is") + " waiting. They will pop up again on the next new alert."); });
+
+// ---- Printable course attendance sheet for one programme and level ----
+$("sheetBtn").addEventListener("click", async () => {
+  const course = $("rollCourse").value, prog = $("rollProg").value, lvl = $("rollLevel").value;
+  if (!course) return say("rollMsg", "Choose the course first.", "warn");
+  say("rollMsg", "Preparing the sheet...");
+  const [{ data: cls }, roll] = await Promise.all([sessQ(course, true), fetchRolls(course)]);
+  const mine = (cls || []).filter((c) => classMatchesGroup(c, prog, lvl));
+  const atts = mine.length ? await fetchAttendance(sb, mine.map((c) => c.id)) : [];
+  say("rollMsg", "");
+  openCourseSheet({ course, programme: prog, level: lvl, lecturer: myName || myEmail, classes: mine, atts, roll });
+});
+
 async function loadAttendance() {
   if (!current) return;
   const { data, error } = await sb.from("attendance").select("*").eq("session_id", current.id).order("checked_in_at");
@@ -193,7 +239,7 @@ async function loadAttendance() {
   records = data;
   const shared = sharedIndexes(data);
   for (const r of records) r._shared = !!(r.device_id && shared.has(r.device_id));
-  renderRows(); feedReview();
+  renderRows(); feedReview(); loadBlocked();
 }
 function renderRows() {
   const q = $("q").value.trim().toLowerCase(), f = $("flt").value;
@@ -652,7 +698,7 @@ setType();
 function startYear() { const d = new Date(), y = d.getFullYear(); return d.getMonth() >= 7 ? y : y - 1; }
 function academicYears() { const s = startYear(); return [s + 1, s, s - 1, s - 2].map((a) => a + "/" + (a + 1)); }
 function sessQ(course, wide) {
-  let q = sb.from("sessions").select(wide ? "id,programme,combined,class_groups" : "id").eq("course", course);
+  let q = sb.from("sessions").select(wide ? "id,programme,level,combined,class_groups,created_at,academic_year,semester" : "id").eq("course", course);
   if ($("repYear").value) q = q.eq("academic_year", $("repYear").value);
   if ($("repSem").value) q = q.eq("semester", $("repSem").value);
   return q;

@@ -22,8 +22,8 @@ wireForgot(sb, "login");
 $("out").addEventListener("click", async () => { await sb.auth.signOut(); start(); });
 document.querySelectorAll(".tabs [data-t]").forEach((b) => b.addEventListener("click", () => {
   document.querySelectorAll(".tabs [data-t]").forEach((x) => x.classList.toggle("on", x === b));
-  for (const t of ["over", "lect", "cls", "roll", "ana", "act", "rep"]) $("t-" + t).hidden = t !== b.dataset.t;
-  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "rep") loadReports();
+  for (const t of ["over", "lect", "cls", "roll", "ana", "act", "sus", "rep"]) $("t-" + t).hidden = t !== b.dataset.t;
+  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") loadSus(); if (b.dataset.t === "rep") loadReports();
 }));
 
 async function load() {
@@ -140,6 +140,7 @@ function drawRolls() {
     const tr = document.createElement("tr");
     for (const v of [r._who, r.course, r.programme || "No programme (older upload)", r.level || "Level not set", r.n]) { const td = document.createElement("td"); td.textContent = v; tr.appendChild(td); }
     const td = document.createElement("td");
+    td.appendChild(abtn("Print sheet", "", () => printRollSheet(r)));
     td.appendChild(abtn("Delete", "bad", async () => {
       if (!confirm("Delete the roll for " + r.course + " (" + (r.programme || "no programme") + ", " + (r.level || "level not set") + "), " + r.n + " students, belonging to " + r._who + "? Attendance records are not affected.")) return;
       const x = await deleteRollIds(sb, r.ids);
@@ -303,6 +304,7 @@ async function loadAnalytics() {
     const d = el("div"), b = el("b"); if (isPct) b.textContent = v + "%"; else { b.textContent = 0; countUp(b, v); } d.append(b, l); box.appendChild(d);
   }
   drawWeekly(data.weekly); drawProgs(data.programmes); drawHeat(data.heat); drawScore(data.lecturers);
+  loadBreakdown(); loadAtRisk(); loadLecAct();
 }
 $("anGo").addEventListener("click", loadAnalytics);
 for (const id of ["anYear", "anSem", "anArch"]) $(id).addEventListener("change", loadAnalytics);
@@ -426,3 +428,113 @@ async function copyClassLink(s) {
   const ok = await copyText(link), open = new Date(s.closes_at) > new Date();
   toast(ok ? (open ? "Link copied. Paste it in the class group." : "Link copied, but this class has ended.") + (s.rotating ? " Rotating code is on: students also need the screen code." : "") : "Copy failed.", { ms: 8000 });
 }
+
+
+// ---- Printable course sheet for a saved roll (programme and level) ----
+async function printRollSheet(r) {
+  say("rlMsg", "Preparing the sheet...");
+  const mine = classes.filter((c) => c.owner === r.owner && c.course === r.course && classMatchesGroup(c, r.programme, r.level));
+  const [atts, rl] = await Promise.all([mine.length ? fetchAttendance(sb, mine.map((c) => c.id)) : [], sb.from("rolls").select("*").eq("owner", r.owner).eq("course", r.course)]);
+  say("rlMsg", "");
+  openCourseSheet({ course: r.course, programme: r.programme, level: r.level, lecturer: r._who, classes: mine, atts, roll: rl.data || [] });
+}
+
+// ---- Analytics: by programme and level, by course, at-risk, lecturer activity ----
+const anArgs = () => ({ p_year: $("anYear").value || null, p_sem: $("anSem").value || null, p_archived: $("anArch").checked });
+const emptyRow = (body, cols, txt) => { const r = el("tr"), td = el("td"); td.colSpan = cols; td.textContent = txt; r.appendChild(td); body.appendChild(r); };
+const fillRow = (body, vals) => { const r = el("tr"); for (const v of vals) { const td = el("td"); td.textContent = v; r.appendChild(td); } body.appendChild(r); };
+let pgRows = [], arRows = [], laRows = [];
+async function loadBreakdown() {
+  const { data, error } = await sb.rpc("admin_breakdown", anArgs());
+  const pg = $("pgB"), co = $("coB"); pg.textContent = ""; co.textContent = "";
+  if (error) { emptyRow(pg, 8, "Run upgrade19.sql in Supabase to see this."); emptyRow(co, 7, "Run upgrade19.sql in Supabase to see this."); return; }
+  pgRows = (data.groups || []).map((g) => [g.programme, g.level, g.classes, g.checkins, g.students, g.classes ? Math.round((g.checkins / g.classes) * 10) / 10 : 0, pct(g.inr, g.checkins), pct(g.late, g.checkins)]);
+  for (const r of pgRows) fillRow(pg, [r[0], r[1], r[2], r[3], r[4], r[5], r[6] + "%", r[7] + "%"]);
+  if (!pgRows.length) emptyRow(pg, 8, "No check-ins in this selection.");
+  for (const c of data.courses || []) fillRow(co, [c.course, c.full_name || c.email || "-", c.classes, c.checkins, c.students, c.classes ? Math.round((c.checkins / c.classes) * 10) / 10 : 0, pct(c.inr, c.checkins) + "%"]);
+  if (!(data.courses || []).length) emptyRow(co, 7, "No classes in this selection.");
+}
+$("pgX").addEventListener("click", () => downloadXlsx("Attendance by programme and level", [{ name: "By programme and level", rows: [["Programme", "Level", "Classes", "Check-ins", "Students", "Avg per class", "In area %", "Late %"]].concat(pgRows) }]));
+async function loadAtRisk() {
+  const b = $("arB"); b.textContent = "";
+  const { data, error } = await sb.rpc("admin_at_risk", Object.assign({ p_threshold: Number($("arThr").value) || 75, p_min: Number($("arMin").value) || 3 }, anArgs()));
+  if (error) return emptyRow(b, 8, "Run upgrade19.sql in Supabase to see this.");
+  arRows = (data || []).map((x) => [x.name || "-", x.index_number, x.programme || "-", x.level || "-", x.course, x.lecturer || x.email || "-", x.attended + " of " + x.held, x.pct + "%"]);
+  for (const r of arRows) fillRow(b, r);
+  if (!arRows.length) emptyRow(b, 8, "No students below the limit. Try a higher percentage.");
+  else if (arRows.length >= 1000) emptyRow(b, 8, "Showing the 1,000 lowest. Raise the minimum classes or lower the percentage to narrow it.");
+}
+$("arGo").addEventListener("click", loadAtRisk);
+$("arX").addEventListener("click", () => downloadXlsx("At-risk students", [{ name: "At risk", rows: [["Name", "Index number", "Programme", "Level", "Course", "Lecturer", "Attended", "Rate"]].concat(arRows) }]));
+async function loadLecAct() {
+  const b = $("laB"); b.textContent = "";
+  const { data, error } = await sb.rpc("admin_lecturer_activity");
+  if (error) return emptyRow(b, 8, "Run upgrade19.sql in Supabase to see this.");
+  const day = (iso) => (iso ? fmt(iso) : "Never");
+  laRows = (data || []).map((x) => [x.full_name ? x.full_name + " (" + x.email + ")" : x.email, roleLabel(x.role) + (x.active ? "" : " (disabled)"), day(x.last_sign_in), x.last_class ? fmt(x.last_class) : "-", x.classes_30d, x.checkins_30d, pct(x.inr_30d, x.checkins_30d) + "%", x.classes_total]);
+  for (const r of laRows) fillRow(b, r);
+  if (!laRows.length) emptyRow(b, 8, "No staff yet.");
+}
+$("laX").addEventListener("click", () => downloadXlsx("Lecturer activity", [{ name: "Activity", rows: [["Lecturer", "Role", "Last sign-in", "Last class", "Classes (30 days)", "Check-ins (30 days)", "In area %", "Total classes"]].concat(laRows) }]));
+
+// ---- Suspicious activity ----
+let susRows = [];
+async function loadSus() {
+  const cls = Object.fromEntries(classes.map((c) => [c.id, c]));
+  const b = $("susB"), g = $("gpsB"); b.textContent = ""; g.textContent = "";
+  const { data, error } = await fetchAllRows(sb, "blocked_attempts", "*", "at", false);
+  if (error) { emptyRow(b, 7, "Run upgrade19.sql in Supabase to see this."); }
+  else {
+    susRows = (data || []).map((x) => { const c = cls[x.session_id] || {}; return { x, c, text: [x.student_name, x.index_number, x.device_name, x.device_index, c.course, c._owner].join(" ").toLowerCase() }; });
+    $("susN").hidden = true; const pend = susRows.filter((r) => r.x.status === "pending").length; $("susN").textContent = pend; $("susN").hidden = !pend;
+    drawSus();
+  }
+  const r2 = await sb.from("attendance").select("session_id,index_number,student_name,gps_flag,distance_m,checked_in_at").not("gps_flag", "is", null).order("checked_in_at", { ascending: false }).limit(300);
+  for (const a of r2.data || []) { const c = cls[a.session_id] || {}; fillRow(g, [fmt(a.checked_in_at), c._owner || "-", c.course || "-", (a.student_name || "-") + " (" + a.index_number + ")", a.gps_flag, Math.round(a.distance_m || 0) + " m"]); }
+  if (!(r2.data || []).length) emptyRow(g, 6, "No GPS warnings.");
+}
+const STATUS = { pending: "Waiting for the lecturer", allowed: "Allowed", rejected: "Rejected" };
+function drawSus() {
+  const q = $("susQ").value.trim().toLowerCase(), f = $("susFilter").value, b = $("susB"); b.textContent = "";
+  const rows = susRows.filter((r) => (!f || r.x.status === f) && (!q || r.text.includes(q)));
+  for (const { x, c } of rows) fillRow(b, [fmt(x.at), c._owner || "-", c.course || "-", (x.student_name || "-") + " (" + x.index_number + ")", (x.device_name || "-") + " (" + (x.device_index || "-") + ")", x.distance_m != null ? Math.round(x.distance_m) + " m" : "-", STATUS[x.status] || x.status]);
+  if (!rows.length) emptyRow(b, 7, "No same-phone attempts yet.");
+}
+$("susQ").addEventListener("input", drawSus); $("susFilter").addEventListener("change", drawSus);
+$("susX").addEventListener("click", () => downloadXlsx("Same-phone attempts", [{ name: "Attempts", rows: [["When", "Lecturer", "Course", "Student", "Index number", "Phone used by", "Their index number", "Distance (m)", "Decision"]].concat(susRows.map(({ x, c }) => [fmt(x.at), c._owner || "", c.course || "", x.student_name || "", x.index_number, x.device_name || "", x.device_index || "", Math.round(x.distance_m || 0), STATUS[x.status] || x.status])) }]));
+
+// ---- Bulk invite from a spreadsheet ----
+$("bulkGo").addEventListener("click", async () => {
+  const out = $("bulkOut"), f = $("bulkFile").files[0];
+  if (!f) { out.textContent = "Choose a CSV or Excel file first."; return; }
+  if (!window.XLSX) { out.textContent = "The Excel library did not load. Check your internet."; return; }
+  let rows;
+  try { const wb = XLSX.read(await f.arrayBuffer(), { type: "array" }); rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "" }); } catch (e) { out.textContent = "Could not read that file."; return; }
+  if (rows.length < 2) { out.textContent = "The file has no rows."; return; }
+  const head = rows[0].map((h) => String(h).toLowerCase());
+  const col = (re, fb) => { const i = head.findIndex((h) => re.test(h)); return i >= 0 ? i : fb; };
+  const ce = col(/mail/, 0), cn = col(/name/, 1), cr = col(/role|type|position/, -1);
+  const have = new Set(people.map((p) => String(p.email || "").toLowerCase())), seen = new Set(), todo = []; let skipped = 0, bad = 0;
+  for (const r of rows.slice(1)) {
+    const email = String(r[ce] || "").trim().toLowerCase(); if (!email) continue;
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { bad++; continue; }
+    if (have.has(email) || seen.has(email)) { skipped++; continue; }
+    seen.add(email);
+    const name = String(r[cn] || "").trim().replace(/\s+/g, " ").replace(/\S+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase());
+    todo.push({ email, name: name.length >= 3 ? name : "", role: cr >= 0 && /ta\b|assistant/i.test(String(r[cr])) ? "assistant" : "lecturer" });
+  }
+  if (!todo.length) { out.textContent = "Nothing to send. " + skipped + " already have accounts, " + bad + " invalid emails."; return; }
+  if (todo.length > 100) { out.textContent = "That is " + todo.length + " people. Send at most 100 at a time."; return; }
+  if (!confirm("Send " + todo.length + " invite email(s)? " + skipped + " existing account(s) and " + bad + " invalid row(s) will be skipped.")) return;
+  $("bulkGo").disabled = true; const failed = []; let ok = 0;
+  for (let i = 0; i < todo.length; i++) {
+    out.textContent = "Sending " + (i + 1) + " of " + todo.length + "…";
+    const r = await sb.functions.invoke("staff-access", { body: { action: "invite", email: todo[i].email, name: todo[i].name, role: todo[i].role } });
+    const msg = r.error ? r.error.message : r.data && r.data.error;
+    if (msg) { failed.push(todo[i].email + ": " + msg); if (/limit/i.test(msg)) { for (const t of todo.slice(i + 1)) failed.push(t.email + ": not sent (email limit reached)"); break; } } else ok++;
+    await new Promise((res) => setTimeout(res, 800));
+  }
+  $("bulkGo").disabled = false; $("bulkFile").value = "";
+  out.textContent = ok + " invite(s) sent." + (failed.length ? " " + failed.length + " not sent: " + failed.join(" | ") : "");
+  load();
+});

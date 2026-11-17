@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=17"><link rel="stylesheet" href="extra.css?v=19">
+<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=17"><link rel="stylesheet" href="extra.css?v=22">
 <style>main{max-width:1000px}th[data-k]{cursor:pointer;user-select:none}.tabs{display:flex;gap:6px;margin:10px 0;flex-wrap:wrap}.tabs button{flex:1}.tabs .on{background:#004c84;color:#fff}.cred{background:#fff8d6;color:#222;border:1px solid #e0c200;border-radius:10px;padding:12px;margin:10px 0}.cred code{font-size:18px;font-weight:700}</style></head>
-<body><main>
+<body class="adm"><main>
   <header class="top"><h1>Admin</h1><p id="who">KTU class check-in</p></header>
   <form id="login" class="card"><h2>Admin sign in</h2>
     <label for="email">Email</label><input id="email" type="email" autocomplete="username" required>
@@ -14,7 +14,7 @@
     <button id="forgotGo" class="btn" type="submit">Send reset link</button>
     <button type="button" id="forgotBack" class="btn forgot">Back to sign in</button><p id="forgotMsg" class="msg" role="status"></p></form>
   <div id="app" hidden>
-    <div class="tabs"><button class="btn quiet on" data-t="over">Overview</button><button class="btn quiet" data-t="lect">Lecturers</button><button class="btn quiet" data-t="cls">All classes</button><button class="btn quiet" data-t="roll">Class rolls</button><button class="btn quiet" data-t="ana">Analytics</button><button class="btn quiet" data-t="act">Activity</button><button class="btn quiet" data-t="sus">Suspicious <span id="susN" class="badge on" hidden></span></button><button class="btn quiet" data-t="rep">Reports <span id="repN" class="badge on" hidden></span></button><button class="btn quiet" data-t="set">Settings</button><a class="btn quiet" href="teacher.html">Lecturer portal</a><button id="out" class="btn quiet">Sign out</button></div>
+    <div class="tabs"><button class="btn quiet on" data-t="over">Overview</button><button class="btn quiet" data-t="lect">Lecturers</button><button class="btn quiet" data-t="cls">All classes</button><button class="btn quiet" data-t="roll">Class rolls</button><button class="btn quiet" data-t="ana">Analytics</button><button class="btn quiet" data-t="act">Activity</button><button class="btn quiet" data-t="sus">Suspicious <span id="susN" class="badge on" hidden></span></button><button class="btn quiet" data-t="rep">Reports <span id="repN" class="badge on" hidden></span></button><button class="btn quiet" data-t="trash">Trash <span id="trN" class="badge on" hidden></span></button><button class="btn quiet" data-t="set">Settings</button><a class="btn quiet" href="teacher.html">Lecturer portal</a><button id="out" class="btn quiet">Sign out</button></div>
     <p id="msg" class="msg" role="status"></p>
     <section id="t-over" class="card"><h2>Overview</h2><div class="stats" id="stats"></div>
       <div class="reqbox"><h3>Privacy: delete old location data</h3><p class="note">Removes the saved GPS position, phone ID and phone type from old check-ins. Names, index numbers and attendance results are kept.</p>
@@ -35,7 +35,7 @@
       <div class="bar"><label>From <input id="fd1" type="date"></label><label>To <input id="fd2" type="date"></label><button id="cx" class="btn quiet" type="button">Download Excel (filtered)</button><button id="arcBulk" class="btn quiet" type="button">Archive these</button><button id="resBulk" class="btn quiet" type="button">Restore these</button></div>
       <div class="table-wrap"><table><thead id="ch"></thead><tbody id="cb"></tbody></table></div></section>
     <section id="t-roll" class="card" hidden><h2>Class rolls</h2>
-      <p class="note">Add, replace or delete a class roll for any lecturer, so they do not have to. The lecturer sees it on their page straight away. Upload a CSV or Excel file with Index number and Name columns. Uploading again for the same lecturer, course, programme and level replaces that roll only.</p>
+      <p class="note">Add, replace or delete a class roll for any lecturer, so they do not have to. The lecturer sees it on their page straight away. Upload a CSV or Excel file with Index number and Name columns. Uploading again for the same lecturer, course, programme and level replaces that roll only. If the lecturer has no course yet, choose Add a new course in the Course list. Deleted rolls go to the Trash tab for 3 months.</p>
       <label for="rlLect">Lecturer</label><select id="rlLect"></select>
       <label for="rlCourse">Course</label><select id="rlCourse"></select>
       <label for="rlProg">Programme</label><select id="rlProg"><option value="">Select the programme</option></select>
@@ -89,10 +89,15 @@
       <div class="bar"><select id="roYear"></select><select id="roSem"><option value="">All semesters</option><option>Semester 1</option><option>Semester 2</option><option>Summer / Resit</option></select><button id="roGo" class="btn quiet" type="button">Archive this term</button></div><p id="roMsg" class="msg" role="status"></p>
       <h3 class="ch3">Backup</h3><p class="note">Download an Excel file with all classes, check-ins, class rolls, courses and staff. It holds student names and index numbers, so keep it private. Phone and location details are left out.</p>
       <button id="bkGo" class="btn quiet" type="button">Download backup (Excel)</button><p id="bkMsg" class="msg" role="status"></p></section>
+    <section id="t-trash" class="card" hidden><h2>Trash</h2>
+      <p class="note">Anything a lecturer or you delete is kept here for 3 months: classes with their attendance, class rolls, courses, venues, single check-ins and lecturer accounts. Restore it if it was deleted by mistake, or delete it for good. After 3 months it is removed automatically.</p>
+      <div class="bar"><select id="trKind"><option value="">All types</option><option value="class">Classes</option><option value="roll">Class rolls</option><option value="checkins">Check-ins</option><option value="course">Courses</option><option value="venue">Venues</option><option value="account">Lecturer accounts</option></select><input id="trQ" placeholder="Search item or lecturer"><button id="trEmpty" class="btn quiet" type="button">Empty the Trash</button></div>
+      <p id="trMsg" class="msg" role="status"></p>
+      <div class="table-wrap"><table><thead><tr><th>Deleted</th><th>Type</th><th>Item</th><th>Lecturer</th><th>Deleted by</th><th>Removed for good</th><th>Actions</th></tr></thead><tbody id="trB"></tbody></table></div></section>
     <section id="t-rep" class="card" hidden><h2>Problem reports</h2>
       <div class="bar"><select id="repFilter"><option value="open">Open</option><option value="resolved">Resolved</option><option value="">All</option></select></div><div id="repList"></div></section>
   </div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="shared.js?v=21"></script>
-<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=23"></script></body></html>
+<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=24"></script></body></html>

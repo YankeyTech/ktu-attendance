@@ -607,7 +607,7 @@ async function renderSavedRolls() {
   }
 }
 async function deleteRoll(course, g) {
-  if (!confirm("Delete the saved roll for " + course + " (" + (g.prog || "no programme") + ", " + (g.lvl || "level not set") + "), " + g.ids.length + " students? Attendance records are not affected.")) return;
+  if (!confirm("Delete the saved roll for " + course + " (" + (g.prog || "no programme") + ", " + (g.lvl || "level not set") + "), " + g.ids.length + " students? Attendance records are not affected.\n\nIt is kept in the admin Trash for 3 months. Ask the admin if you need it restored.")) return;
   const { n, error } = await deleteRollIds(sb, g.ids);
   if (error) return say("rollMsg", "Could not delete the roll: " + error.message, "bad");
   say("rollMsg", n ? "Roll deleted (" + n + " students)." : "Nothing was deleted. You can only delete rolls you uploaded.", n ? "ok" : "warn");
@@ -1041,7 +1041,7 @@ $("repeat").addEventListener("click", () => { if (current) fillFrom(current); })
 $("delClass").addEventListener("click", async () => {
   if (!current || role === "assistant") return;
   const s = current;
-  if (!confirm("Delete this class (" + s.course + ", " + fmtDay(s.created_at) + ") and its " + records.length + " check-in(s)? This cannot be undone.")) return;
+  if (!confirm("Delete this class (" + s.course + ", " + fmtDay(s.created_at) + ") and its " + records.length + " check-in(s)?\n\nIt is kept in the admin Trash for 3 months. Ask the admin if you need it restored.")) return;
   const { data, error } = await sb.from("sessions").delete().eq("id", s.id).select("id");
   if (error) return toast("Could not delete the class: " + error.message);
   if (!data || !data.length) return toast("Nothing was deleted. You can only delete your own classes.");

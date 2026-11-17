@@ -1,7 +1,7 @@
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $ = (i) => document.getElementById(i);
 const say = (id, t, k) => { $(id).textContent = t; $(id).className = "msg " + (k || ""); };
-let people = [], classes = [], courses = [], nameReqs = [], counts = {}, sort = { lect: ["email", 1], cls: ["created_at", -1] };
+let trashedPeople = [], people = [], classes = [], courses = [], nameReqs = [], counts = {}, sort = { lect: ["email", 1], cls: ["created_at", -1] };
 const fmt = (iso) => new Date(iso).toLocaleString([], { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
 async function start() {
@@ -22,25 +22,25 @@ wireForgot(sb, "login");
 $("out").addEventListener("click", async () => { await sb.auth.signOut(); start(); });
 document.querySelectorAll(".tabs [data-t]").forEach((b) => b.addEventListener("click", () => {
   document.querySelectorAll(".tabs [data-t]").forEach((x) => x.classList.toggle("on", x === b));
-  for (const t of ["over", "lect", "cls", "roll", "ana", "act", "sus", "rep", "set"]) $("t-" + t).hidden = t !== b.dataset.t;
-  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") loadSus(); if (b.dataset.t === "set") renderSettings(); if (b.dataset.t === "rep") loadReports();
+  for (const t of ["over", "lect", "cls", "roll", "ana", "act", "sus", "rep", "trash", "set"]) $("t-" + t).hidden = t !== b.dataset.t;
+  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") loadSus(); if (b.dataset.t === "set") renderSettings(); if (b.dataset.t === "trash") loadTrash(); if (b.dataset.t === "rep") loadReports();
 }));
 
 async function load() {
   const [p, c, a, cr, rq] = await Promise.all([sb.from("profiles").select("*"), fetchAllRows(sb, "sessions", "*", "created_at", false), fetchAllRows(sb, "attendance", "session_id", "id"), sb.from("courses").select("owner,name").order("name"), sb.from("name_requests").select("*").eq("status", "pending").order("created_at")]);
   nameReqs = rq.data || [];
   courses = cr.data || [];
-  people = p.data || []; classes = c.data || []; counts = {};
+  const allPeople = p.data || []; people = allPeople.filter((x) => !x.deleted_at); trashedPeople = allPeople.filter((x) => x.deleted_at); classes = c.data || []; counts = {};
   for (const r of a.data || []) counts[r.session_id] = (counts[r.session_id] || 0) + 1;
-  const byId = Object.fromEntries(people.map((x) => [x.id, x]));
+  const byId = Object.fromEntries(allPeople.map((x) => [x.id, x]));
   const nameCount = {}; for (const p of people) if (p.full_name) nameCount[p.full_name.toLowerCase()] = (nameCount[p.full_name.toLowerCase()] || 0) + 1;
-  for (const s of classes) { const o = byId[s.owner] || {}; s._owner = o.full_name ? (nameCount[o.full_name.toLowerCase()] > 1 ? o.full_name + " (" + o.email + ")" : o.full_name) : o.email || "-"; s._n = counts[s.id] || 0; }
+  for (const s of classes) { const o = byId[s.owner] || {}; s._owner = o.full_name ? (nameCount[o.full_name.toLowerCase()] > 1 ? o.full_name + " (" + o.email + ")" : o.full_name) : o.email || "-"; if (o.deleted_at) s._owner += " (deleted)"; s._n = counts[s.id] || 0; }
   for (const x of people) { x._classes = classes.filter((s) => s.owner === x.id).length; x._courseText = courses.filter((k) => k.owner === x.id).map((k) => k.name).join(", "); }
   $("stats").innerHTML = "";
   for (const [n, l] of [[people.length, "Staff accounts"], [people.filter((x) => x.role === "lecturer" && x.active).length, "Active lecturers"], [people.filter((x) => x.role === "assistant" && x.active).length, "Teaching assistants"], [nameReqs.length, "Name requests"], [classes.length, "Classes"], [(a.data || []).length, "Check-ins"]]) {
     const d = document.createElement("div"), b = document.createElement("b"); b.textContent = 0; countUp(b, n); d.append(b, l); $("stats").appendChild(d);
   }
-  fillFilters(); drawL(); drawC(); drawReq(); loadStatus(); loadReports(true);
+  fillFilters(); drawL(); drawC(); drawReq(); loadStatus(); loadReports(true); trashCount();
 }
 
 function grid(head, body, cols, rows, key) {
@@ -65,11 +65,8 @@ function drawL() {
       mk(x.active ? "Disable" : "Enable", async () => { const r = await sb.functions.invoke("staff-access", { body: { action: "active", id: x.id, active: !x.active } }); fail(r) || load(); });
       mk(x.role === "assistant" ? "Make lecturer" : "Make TA", async () => { const r = await sb.rpc("set_staff_role", { p_email: x.email, p_role: x.role === "assistant" ? "lecturer" : "assistant" }); if (r.error) say("msg", r.error.message, "bad"); else load(); });
       mk("Delete account", async () => {
-        const warn = "DELETE " + x.email + " permanently?\n\nThis also deletes their " + x._classes + " class(es) with all attendance records, their courses and class rolls. It cannot be undone.\n\nTo keep their records, use Disable instead.\n\nType the email address to confirm:";
-        const typed = (prompt(warn) || "").trim().toLowerCase();
-        if (!typed) return;
-        if (typed !== String(x.email).toLowerCase()) return say("msg", "The email did not match, so nothing was deleted.", "warn");
-        if (await call({ action: "delete", id: x.id }, "Account deleted: " + x.email + ".")) load();
+        if (!confirm("Delete the account of " + x.email + "?\n\nThey can no longer sign in. Their " + x._classes + " class(es), attendance records, courses and rolls are kept. The account goes to the Trash tab for 3 months, where you can restore it or delete it for good.")) return;
+        if (await call({ action: "delete", id: x.id }, "Account moved to the Trash: " + x.email + ".")) load();
       });
       mk("Edit name", async () => { const n = (prompt("Full name for " + x.email + ":", x.full_name || "") || "").trim(); if (n.length < 3) return; const r = await sb.rpc("admin_set_name", { p_email: x.email, p_name: n }); if (r.error) say("msg", r.error.message, "bad"); else load(); });
       mk("Add course", async () => { const n = (prompt("Course name for " + x.email + ":") || "").trim(); if (n.length < 2) return; const r = await sb.rpc("admin_add_course", { p_owner: x.id, p_name: n }); if (r.error) say("msg", r.error.message, "bad"); else load(); });
@@ -85,7 +82,7 @@ function drawC() {
     for (const v of [fmt(s.created_at), s.course, s.academic_year || "-", s.semester || "-", s.combined ? "Combined: " + (s.class_groups || []).map((g) => g.programme + " (" + g.level + ")").join("; ") : s.programme || "-", s.combined ? "Various" : s.level || "-", s._owner, s._n]) { const td = document.createElement("td"); td.textContent = v; tr.appendChild(td); }
     const td = document.createElement("td");
     td.append(abtn("Copy link", "", () => copyClassLink(s)), abtn("Sheet", "", () => adminSheet(s)), abtn(s.archived ? "Restore" : "Archive", "", () => archiveSome([s], !s.archived)),
-      abtn("Delete", "bad", async () => { if (confirm("Delete this class and all its attendance?")) { const x = await sb.from("sessions").delete().eq("id", s.id); if (x.error) say("msg", "Could not delete: " + x.error.message, "bad"); load(); } }));
+      abtn("Delete", "bad", async () => { if (confirm("Delete this class and all its attendance?\n\nIt goes to the Trash tab and is kept for 3 months, so you can restore it.")) { const x = await sb.from("sessions").delete().eq("id", s.id); if (x.error) say("msg", "Could not delete: " + x.error.message, "bad"); load(); } }));
     tr.appendChild(td); $("cb").appendChild(tr);
   }
 }
@@ -120,10 +117,22 @@ function drawRollCourses() {
   const id = $("rlLect").value, sel = $("rlCourse"), keep = sel.value; sel.textContent = "";
   const add = (v, t) => { const o = document.createElement("option"); o.value = v; o.textContent = t; sel.appendChild(o); };
   add("", id ? "Select the course" : "Choose the lecturer first");
-  for (const k of courses.filter((c) => c.owner === id)) add(k.name, k.name);
+  const mine = courses.filter((c) => c.owner === id);
+  for (const k of mine) add(k.name, k.name);
+  if (id) add("__new__", mine.length ? "+ Add a new course…" : "No courses yet: + Add a new course…");
   sel.value = Array.from(sel.options).some((o) => o.value === keep) ? keep : "";
 }
 $("rlLect").addEventListener("change", drawRollCourses);
+$("rlCourse").addEventListener("change", async () => {
+  if ($("rlCourse").value !== "__new__") return;
+  const owner = $("rlLect").value, n = (prompt("Name of the new course for " + staffName(owner) + ":") || "").trim().replace(/\s+/g, " ");
+  if (n.length < 2) return drawRollCourses();
+  const r = await sb.rpc("admin_add_course", { p_owner: owner, p_name: n });
+  if (r.error) { drawRollCourses(); return say("rlMsg", "Could not add the course: " + r.error.message, "bad"); }
+  if (!courses.some((c) => c.owner === owner && c.name.toLowerCase() === n.toLowerCase())) courses.push({ owner, name: n });
+  drawRollCourses(); $("rlCourse").value = (courses.find((c) => c.owner === owner && c.name.toLowerCase() === n.toLowerCase()) || {}).name || "";
+  say("rlMsg", "Course added: " + n + ". Now choose the programme, level and file.", "ok");
+});
 async function loadRolls() {
   drawRollForm();
   const { data, error } = await fetchAllRows(sb, "rolls", "id,owner,course,programme,level", "created_at");
@@ -144,10 +153,10 @@ function drawRolls() {
     const td = document.createElement("td");
     td.appendChild(abtn("Print sheet", "", () => printRollSheet(r)));
     td.appendChild(abtn("Delete", "bad", async () => {
-      if (!confirm("Delete the roll for " + r.course + " (" + (r.programme || "no programme") + ", " + (r.level || "level not set") + "), " + r.n + " students, belonging to " + r._who + "? Attendance records are not affected.")) return;
+      if (!confirm("Delete the roll for " + r.course + " (" + (r.programme || "no programme") + ", " + (r.level || "level not set") + "), " + r.n + " students, belonging to " + r._who + "?\n\nAttendance records are not affected. The roll goes to the Trash tab for 3 months, so you can restore it.")) return;
       const x = await deleteRollIds(sb, r.ids);
       if (x.error) return say("rlMsg", "Could not delete: " + x.error.message, "bad");
-      say("rlMsg", "Roll deleted (" + x.n + " students).", "ok"); loadRolls();
+      say("rlMsg", "Roll deleted (" + x.n + " students). It is in the Trash for 3 months.", "ok"); loadRolls();
     }));
     tr.appendChild(td); body.appendChild(tr);
   }
@@ -156,7 +165,7 @@ $("rlQ").addEventListener("input", drawRolls);
 $("rlUp").addEventListener("click", async () => {
   const owner = $("rlLect").value, course = $("rlCourse").value, prog = $("rlProg").value, lvl = $("rlLevel").value, f = $("rlFile").files[0];
   if (!owner) return say("rlMsg", "Choose the lecturer first.", "warn");
-  if (!course) return say("rlMsg", "Choose the course. If the list is empty, use Add course on the Lecturers tab first.", "warn");
+  if (!course || course === "__new__") return say("rlMsg", "Choose the course, or pick Add a new course if the lecturer has none.", "warn");
   if (!prog) return say("rlMsg", "Choose the programme this roll is for.", "warn");
   if (!lvl) return say("rlMsg", "Choose the level this roll is for.", "warn");
   if (!f) return say("rlMsg", "Choose a CSV or Excel file first.", "warn");
@@ -625,3 +634,63 @@ $("bkGo").addEventListener("click", async () => {
   } catch (e) { out("Could not make the backup: " + e.message, "bad"); }
   $("bkGo").disabled = false;
 });
+
+// ---- Trash: everything deleted is kept 3 months; restore it or delete it for good ----
+let trashRows = [];
+const daysLeft = (iso) => Math.max(0, Math.ceil((new Date(iso) - Date.now()) / 86400000));
+async function trashCount() {
+  const r = await sb.rpc("admin_trash_list");
+  const n = (r.data || []).length + trashedPeople.length;
+  $("trN").hidden = !n; $("trN").textContent = n;
+}
+async function loadTrash() {
+  say("trMsg", "Loading…");
+  sb.functions.invoke("staff-access", { body: { action: "purge_expired" } }).catch(() => {});
+  const r = await sb.rpc("admin_trash_list");
+  if (r.error) return say("trMsg", /function|exist/i.test(r.error.message) ? "Run upgrade22.sql in Supabase first." : r.error.message, "bad");
+  const rows = (r.data || []).map((t) => ({ id: t.id, kind: t.kind, label: t.label, detail: t.detail, who: t.owner_name, by: t.deleted_by_name, at: t.deleted_at, exp: t.expires_at }));
+  for (const p of trashedPeople) rows.push({ id: p.id, kind: "account", label: p.email, detail: roleLabel(p.role) + (p.full_name ? ": " + p.full_name : ""), who: p.full_name ? p.full_name + " (" + p.email + ")" : p.email, by: "Admin", at: p.deleted_at, exp: new Date(new Date(p.deleted_at).getTime() + 90 * 86400000).toISOString() });
+  trashRows = rows.sort((a, b) => new Date(b.at) - new Date(a.at)); say("trMsg", ""); drawTrash();
+}
+const KIND = { class: "Class", roll: "Class roll", checkins: "Check-ins", course: "Course", venue: "Venue", account: "Account" };
+function drawTrash() {
+  const q = $("trQ").value.trim().toLowerCase(), k = $("trKind").value, body = $("trB"); body.textContent = "";
+  const rows = trashRows.filter((t) => (!k || t.kind === k) && (t.label + " " + (t.detail || "") + " " + t.who).toLowerCase().includes(q));
+  if (!rows.length) { const tr = document.createElement("tr"), td = document.createElement("td"); td.colSpan = 7; td.textContent = "The Trash is empty."; tr.appendChild(td); body.appendChild(tr); return; }
+  for (const t of rows) {
+    const tr = document.createElement("tr");
+    const c = (node) => { const td = document.createElement("td"); td.append(node); tr.appendChild(td); return td; };
+    c(fmt(t.at));
+    const tag = document.createElement("span"); tag.className = "kindtag" + (t.kind === "account" ? " acct" : ""); tag.textContent = KIND[t.kind]; c(tag);
+    const it = document.createElement("div"); const b = document.createElement("b"); b.textContent = t.label; it.append(b);
+    if (t.detail) { const d = document.createElement("div"); d.className = "note"; d.textContent = t.detail; it.append(d); } c(it);
+    c(t.who); c(t.by);
+    const dl = daysLeft(t.exp), sp = document.createElement("span"); sp.textContent = dl + " day" + (dl === 1 ? "" : "s"); if (dl <= 7) sp.className = "expsoon"; c(sp);
+    const td = document.createElement("td");
+    td.append(abtn("Restore", "ok", () => trashRestore(t)), abtn("Delete forever", "bad", () => trashPurge(t)));
+    tr.appendChild(td); body.appendChild(tr);
+  }
+}
+async function trashRestore(t) {
+  if (t.kind === "account") { if (await call({ action: "restore_account", id: t.id }, "Account restored: " + t.label + ". They can sign in again.")) { await load(); loadTrash(); } return; }
+  const r = await sb.rpc("restore_trash", { p_id: t.id });
+  if (r.error) return say("trMsg", r.error.message, "bad");
+  if (!r.data.ok) return say("trMsg", r.data.error, "bad");
+  say("trMsg", "Restored: " + t.label, "ok"); await load(); loadTrash();
+}
+async function trashPurge(t) {
+  if (!confirm("Delete this for good?\n\n" + t.label + (t.kind === "account" ? "\n\nThe account and ALL its classes, attendance, courses and rolls will be erased. This cannot be undone." : "\n\nThis cannot be undone."))) return;
+  if (t.kind === "account") { if (await call({ action: "purge_account", id: t.id }, "Account deleted for good: " + t.label + ".")) { await load(); loadTrash(); } return; }
+  const r = await sb.rpc("purge_trash", { p_ids: [t.id] });
+  if (r.error) return say("trMsg", r.error.message, "bad");
+  say("trMsg", "Deleted for good.", "ok"); loadTrash(); trashCount();
+}
+$("trEmpty").addEventListener("click", async () => {
+  if (!trashRows.length) return;
+  if (!confirm("Empty the Trash? Everything in it (" + trashRows.length + " item(s), including deleted accounts) is erased for good.")) return;
+  for (const t of trashRows.filter((x) => x.kind === "account")) await sb.functions.invoke("staff-access", { body: { action: "purge_account", id: t.id } });
+  const r = await sb.rpc("purge_trash", { p_ids: null });
+  if (r.error) return say("trMsg", r.error.message, "bad");
+  say("trMsg", "Trash emptied.", "ok"); await load(); loadTrash();
+});
+$("trQ").addEventListener("input", drawTrash); $("trKind").addEventListener("change", drawTrash);

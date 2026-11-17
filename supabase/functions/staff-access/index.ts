@@ -30,6 +30,10 @@ async function sendReset(email: string) {
   return await admin.auth.resetPasswordForEmail(email, { redirectTo: REDIRECT });
 }
 
+async function logAct(u: any, action: string, target: string, detail: string) {
+  try { await admin.from("audit_log").insert({ actor: u.user.id, actor_email: u.user.email, action, target, detail }); } catch (_) { /* log only */ }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   let b: any;
@@ -67,7 +71,7 @@ Deno.serve(async (req) => {
     const { data, error } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo: REDIRECT, data: name ? { full_name: name } : {} });
     if (error) {
       const m = error.message || "";
-      if (/already|registered|exists/i.test(m)) return reply({ error: "That email already has an account. Use Send reset link on its row instead." });
+      if (/already|registered|exists/i.test(m)) return reply({ error: "That email already has an account. Use Send reset link on its row, or restore it from the Trash tab if it was deleted." });
       if (/rate limit/i.test(m)) return reply({ error: "Email limit reached for now. Wait a few minutes and try again." });
       return reply({ error: "Could not send the invite: " + m });
     }
@@ -102,17 +106,54 @@ Deno.serve(async (req) => {
     return reply({ ok: true });
   }
 
+  // Delete = move to the Trash (login blocked, nothing erased). Kept 90 days, then removed for good.
   if (action === "delete") {
     const id = String(b.id || "");
     if (id === u.user.id) return reply({ error: "You cannot delete your own account." });
     const { data: p } = await admin.from("profiles").select("email,role").eq("id", id).maybeSingle();
     if (!p) return reply({ error: "Account not found." });
     if (p.role === "admin") return reply({ error: "The admin account cannot be deleted." });
-    // Removing the login also removes their profile, classes, attendance, courses, rolls and venues (cascade).
+    const r1 = await admin.from("profiles").update({ active: false, deleted_at: new Date().toISOString() }).eq("id", id);
+    if (r1.error) return reply({ error: "Could not delete the account: " + r1.error.message });
+    await admin.auth.admin.updateUserById(id, { ban_duration: "876000h" });
+    await logAct(u, "account_deleted", p.email, "moved to Trash");
+    return reply({ ok: true });
+  }
+
+  if (action === "restore_account") {
+    const id = String(b.id || "");
+    const { data: p } = await admin.from("profiles").select("email,deleted_at").eq("id", id).maybeSingle();
+    if (!p || !p.deleted_at) return reply({ error: "That account is not in the Trash." });
+    const r1 = await admin.from("profiles").update({ active: true, deleted_at: null }).eq("id", id);
+    if (r1.error) return reply({ error: r1.error.message });
+    await admin.auth.admin.updateUserById(id, { ban_duration: "none" });
+    await logAct(u, "account_restored", p.email, "restored from Trash");
+    return reply({ ok: true });
+  }
+
+  // Delete an account for good (only accounts already in the Trash). Their classes, rolls, courses and venues go with it.
+  if (action === "purge_account") {
+    const id = String(b.id || "");
+    const { data: p } = await admin.from("profiles").select("email,role,deleted_at").eq("id", id).maybeSingle();
+    if (!p || !p.deleted_at) return reply({ error: "That account is not in the Trash." });
+    if (p.role === "admin") return reply({ error: "The admin account cannot be deleted." });
     const { error } = await admin.auth.admin.deleteUser(id);
     if (error) return reply({ error: "Could not delete the account: " + error.message });
-    try { await admin.from("audit_log").insert({ actor: u.user.id, actor_email: u.user.email, action: "account_deleted", target: p.email, detail: "deleted by admin" }); } catch (_) { /* log only */ }
+    await logAct(u, "account_purged", p.email, "deleted for good");
     return reply({ ok: true });
+  }
+
+  // Called when the Trash tab opens: remove accounts that have been in the Trash for more than 90 days.
+  if (action === "purge_expired") {
+    const cut = new Date(Date.now() - 90 * 86400 * 1000).toISOString();
+    const { data: old } = await admin.from("profiles").select("id,email,role").not("deleted_at", "is", null).lt("deleted_at", cut);
+    let n = 0;
+    for (const p of old || []) {
+      if (p.role === "admin") continue;
+      const { error } = await admin.auth.admin.deleteUser(p.id);
+      if (!error) { n++; await logAct(u, "account_purged", p.email, "Trash expired after 90 days"); }
+    }
+    return reply({ ok: true, removed: n });
   }
 
   return reply({ error: "Unknown action." });

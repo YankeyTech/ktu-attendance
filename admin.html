@@ -14,7 +14,7 @@
     <button id="forgotGo" class="btn" type="submit">Send reset link</button>
     <button type="button" id="forgotBack" class="btn forgot">Back to sign in</button><p id="forgotMsg" class="msg" role="status"></p></form>
   <div id="app" hidden>
-    <div class="tabs"><button class="btn quiet on" data-t="over">Overview</button><button class="btn quiet" data-t="lect">Lecturers</button><button class="btn quiet" data-t="cls">All classes</button><button class="btn quiet" data-t="roll">Class rolls</button><button class="btn quiet" data-t="stu">Student lookup</button><button class="btn quiet" data-t="ana">Analytics</button><button class="btn quiet" data-t="act">Activity</button><button class="btn quiet" data-t="sus">Suspicious <span id="susN" class="badge on" hidden></span></button><button class="btn quiet" data-t="rep">Reports <span id="repN" class="badge on" hidden></span></button><button class="btn quiet" data-t="trash">Trash <span id="trN" class="badge on" hidden></span></button><button class="btn quiet" data-t="set">Settings</button><a class="btn quiet" href="teacher.html">Lecturer portal</a><button id="out" class="btn quiet">Sign out</button></div>
+    <div class="tabs"><button class="btn quiet on" data-t="over">Overview</button><button class="btn quiet" data-t="lect">Lecturers</button><button class="btn quiet" data-t="cls">All classes</button><button class="btn quiet" data-t="roll">Class rolls</button><button class="btn quiet" data-t="stu">Student lookup</button><button class="btn quiet" data-t="ana">Analytics</button><button class="btn quiet" data-t="act">Activity</button><button class="btn quiet" data-t="sus">Suspicious <span id="susN" class="badge on" hidden></span></button><button class="btn quiet" data-t="rep">Reports <span id="repN" class="badge on" hidden></span></button><button class="btn quiet" data-t="trash">Trash <span id="trN" class="badge on" hidden></span></button><button class="btn quiet" data-t="tools">Tools</button><button class="btn quiet" data-t="set">Settings</button><a class="btn quiet" href="teacher.html">Lecturer portal</a><button id="out" class="btn quiet">Sign out</button></div>
     <p id="msg" class="msg" role="status"></p>
     <section id="t-over" class="card"><h2>Overview</h2><div class="stats" id="stats"></div>
       <div class="reqbox"><h3>Announcement to all lecturers</h3><p class="note">Appears at the top of every lecturer and teaching assistant Home tab until it expires. They can dismiss it.</p>
@@ -103,10 +103,18 @@
       <div class="bar"><select id="trKind"><option value="">All types</option><option value="class">Classes</option><option value="roll">Class rolls</option><option value="checkins">Check-ins</option><option value="course">Courses</option><option value="venue">Venues</option><option value="account">Lecturer accounts</option></select><input id="trQ" placeholder="Search item or lecturer"><button id="trEmpty" class="btn quiet" type="button">Empty the Trash</button></div>
       <p id="trMsg" class="msg" role="status"></p>
       <div class="table-wrap"><table><thead><tr><th>Deleted</th><th>Type</th><th>Item</th><th>Lecturer</th><th>Deleted by</th><th>Removed for good</th><th>Actions</th></tr></thead><tbody id="trB"></tbody></table></div></section>
+    <section id="t-tools" class="card" hidden><h2>Admin tools</h2>
+      <div class="reqbox"><h3>Pause all check-ins</h3><p class="note">Use this in an emergency or during maintenance. Every check-in is refused with your message until you resume. Lecturers see a banner too. Classes and data are not touched.</p>
+        <p id="pauseState" class="msg" role="status"></p>
+        <input id="pauseMsg" maxlength="300" placeholder="Message students will see (optional)">
+        <div class="row"><button id="pauseBtn" class="btn" type="button">Pause all check-ins</button></div></div>
+      <div class="reqbox"><h3>Health check</h3><p class="note">Looks for common problems in the data and fixes them with one click. Anything removed goes to the Trash.</p>
+        <div class="bar"><button id="hcRun" class="btn quiet" type="button">Run check again</button></div><div id="hcList"></div></div>
+      <p id="tlMsg" class="msg" role="status"></p></section>
     <section id="t-rep" class="card" hidden><h2>Problem reports</h2>
       <div class="bar"><select id="repFilter"><option value="open">Open</option><option value="resolved">Resolved</option><option value="">All</option></select></div><div id="repList"></div></section>
   </div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="shared.js?v=24"></script>
-<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=26"></script></body></html>
+<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=27"></script></body></html>

@@ -64,7 +64,7 @@ async function refreshAuth() {
     document.body.dataset.role = role;
     $("adminLink").hidden = !(role === "admin" && session.user.email.toLowerCase() === "ygpedri@gmail.com");
     await loadCourses();
-    loadSessions(); showAnnouncements(sb, $("announceBox"));
+    loadSessions(); showAnnouncements(sb, $("announceBox")); pausedBanner();
   } else { stopPolling(); stopQr(); }
 }
 
@@ -122,6 +122,11 @@ $("start").addEventListener("submit", async (e) => {
 
 // "Your week" strip on the Home tab: classes, check-ins and how many were inside the class area, since Monday.
 let mySessions = [];
+async function pausedBanner() {
+  try { const { data } = await sb.rpc("get_public_settings"); if (!data || !data.paused) return;
+    const d = document.createElement("div"); d.className = "announce warn"; const t = document.createElement("div"), b = document.createElement("b"), s = document.createElement("span");
+    b.textContent = "Check-in is paused by the admin"; s.textContent = data.message || "Students cannot check in right now."; t.append(b, s); d.appendChild(t); $("announceBox").prepend(d); } catch (e) {}
+}
 // "Courses at a glance": classes held and average check-ins per course.
 async function courseSummary(all) {
   const box = $("courseSum"); if (!box) return;

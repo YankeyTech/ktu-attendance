@@ -22,8 +22,8 @@ wireForgot(sb, "login");
 $("out").addEventListener("click", async () => { await sb.auth.signOut(); start(); });
 document.querySelectorAll(".tabs [data-t]").forEach((b) => b.addEventListener("click", () => {
   document.querySelectorAll(".tabs [data-t]").forEach((x) => x.classList.toggle("on", x === b));
-  for (const t of ["over", "lect", "cls", "roll", "stu", "ana", "act", "sus", "rep", "trash", "set"]) $("t-" + t).hidden = t !== b.dataset.t;
-  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") loadSus(); if (b.dataset.t === "set") renderSettings(); if (b.dataset.t === "trash") loadTrash(); if (b.dataset.t === "stu") $("stIdx").focus(); if (b.dataset.t === "rep") loadReports();
+  for (const t of ["over", "lect", "cls", "roll", "stu", "ana", "act", "sus", "rep", "trash", "tools", "set"]) $("t-" + t).hidden = t !== b.dataset.t;
+  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") loadSus(); if (b.dataset.t === "set") renderSettings(); if (b.dataset.t === "trash") loadTrash(); if (b.dataset.t === "stu") $("stIdx").focus(); if (b.dataset.t === "tools") loadTools(); if (b.dataset.t === "rep") loadReports();
 }));
 
 async function load() {
@@ -81,7 +81,7 @@ function drawC() {
     const tr = document.createElement("tr");
     for (const v of [fmt(s.created_at), s.course, s.academic_year || "-", s.semester || "-", s.combined ? "Combined: " + (s.class_groups || []).map((g) => g.programme + " (" + g.level + ")").join("; ") : s.programme || "-", s.combined ? "Various" : s.level || "-", s._owner, s._n]) { const td = document.createElement("td"); td.textContent = v; tr.appendChild(td); }
     const td = document.createElement("td");
-    td.append(abtn("Copy link", "", () => copyClassLink(s)), abtn("Sheet", "", () => adminSheet(s)), abtn(s.archived ? "Restore" : "Archive", "", () => archiveSome([s], !s.archived)),
+    td.append(abtn("Copy link", "", () => copyClassLink(s)), abtn("Sheet", "", () => adminSheet(s)), abtn("Manage", "", () => manageClass(s)), abtn(s.archived ? "Restore" : "Archive", "", () => archiveSome([s], !s.archived)),
       ...(new Date(s.closes_at) > new Date() ? [abtn("Close now", "ok", async () => { if (!confirm("Close check-in for " + s.course + " now?")) return; const x = await sb.from("sessions").update({ closes_at: new Date().toISOString() }).eq("id", s.id); if (x.error) say("msg", "Could not close: " + x.error.message, "bad"); else { say("msg", "Check-in closed for " + s.course + ".", "ok"); load(); } })] : []),
       abtn("Delete", "bad", async () => { if (confirm("Delete this class and all its attendance?\n\nIt goes to the Trash tab and is kept for 3 months, so you can restore it.")) { const x = await sb.from("sessions").delete().eq("id", s.id); if (x.error) say("msg", "Could not delete: " + x.error.message, "bad"); load(); } }));
     tr.appendChild(td); $("cb").appendChild(tr);
@@ -714,7 +714,7 @@ $("trQ").addEventListener("input", drawTrash); $("trKind").addEventListener("cha
 $("stGo").addEventListener("click", async () => {
   const idx = $("stIdx").value.trim().toUpperCase(); if (idx.length < 4) return $("stOut").textContent = "Enter the student's index number.";
   $("stOut").textContent = "Looking…";
-  try { renderLookup($("stOut"), await lookupStudent(sb, idx, classes), (id) => staffName(id), idx); } catch (e) { $("stOut").textContent = "Could not look up: " + (e.message || e); }
+  try { const res = await lookupStudent(sb, idx, classes); renderLookup($("stOut"), res, (id) => staffName(id), idx); lookupTools(idx, res); } catch (e) { $("stOut").textContent = "Could not look up: " + (e.message || e); }
 });
 $("stIdx").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("stGo").click(); } });
 
@@ -745,3 +745,99 @@ $("actX").addEventListener("click", () => {
   const rows = actRows.filter((r) => (!f || r.action === f) && (!q || ((r.actor_email || "") + " " + (r.target || "") + " " + (r.detail || "")).toLowerCase().includes(q)));
   downloadXlsx("Activity log", [{ name: "Activity", rows: [["When", "Who", "Action", "About", "Detail"]].concat(rows.map((r) => [fmt(r.at), r.actor_email || "", ACT[r.action] || r.action, r.target || "", r.detail || ""])) }]);
 });
+
+// ---- Tools tab: pause check-ins, health check ----
+async function loadTools() {
+  const r = await sb.rpc("get_public_settings");
+  if (r.error) { say("tlMsg", "Run upgrade25.sql in Supabase first.", "bad"); return; }
+  drawPause(r.data);
+  const d = await sb.rpc("admin_diagnostics");
+  const box = $("hcList"); box.textContent = "";
+  if (d.error) { box.textContent = d.error.message; return; }
+  for (const x of d.data || []) {
+    const row = el("div", "reqrow"), t = el("div", "reqtxt"), b = el("b"), sp = el("span");
+    b.textContent = (x.count ? "⚠ " : "✓ ") + x.label; sp.textContent = x.count ? x.count + " found" : "All good"; t.append(b, sp); row.appendChild(t);
+    if (x.count && x.fix) { const a = el("div", "acts"); a.append(abtn(x.fix, "ok", async () => { if (!confirm(x.label + "\n\n" + x.fix + " (" + x.count + ")?")) return; const f = await sb.rpc("admin_fix", { p_kind: x.key }); if (f.error) say("tlMsg", f.error.message, "bad"); else { say("tlMsg", "Done: " + f.data + " item(s) fixed.", "ok"); load(); loadTools(); } })); row.appendChild(a); }
+    box.appendChild(row);
+  }
+}
+function drawPause(s) {
+  $("pauseState").textContent = s.paused ? "Check-in is PAUSED. Students see your message and cannot check in." : "Check-in is running normally.";
+  $("pauseState").className = "msg " + (s.paused ? "bad" : "ok");
+  $("pauseBtn").textContent = s.paused ? "Resume check-in" : "Pause all check-ins"; $("pauseBtn").dataset.on = s.paused ? "1" : "";
+  if (s.paused && s.message) $("pauseMsg").value = s.message;
+}
+$("pauseBtn").addEventListener("click", async () => {
+  const turnOn = !$("pauseBtn").dataset.on;
+  if (turnOn && !confirm("Pause check-in for EVERY class? Students will not be able to check in until you resume.")) return;
+  const r = await sb.rpc("admin_set_pause", { p_on: turnOn, p_message: $("pauseMsg").value.trim() });
+  if (r.error) return say("tlMsg", r.error.message, "bad");
+  drawPause(r.data); say("tlMsg", turnOn ? "Check-in paused." : "Check-in resumed.", "ok");
+});
+$("hcRun").addEventListener("click", loadTools);
+
+// ---- Manage a class: edit details, move to another lecturer, fix check-ins ----
+async function manageClass(s) {
+  const ov = el("div", "rpt"), box = el("div", "rptc"); box.style.width = "min(760px,100%)"; ov.appendChild(box); document.body.appendChild(ov);
+  const close = () => { ov.remove(); load(); };
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  async function draw() {
+    box.textContent = "";
+    const h = el("h3"); h.textContent = "Manage: " + s.course; box.appendChild(h);
+    const f = el("div"); f.innerHTML = '<label>Course</label><input id="mcCourse" maxlength="120"><div class="row" id="mcPL"><div><label>Programme</label><select id="mcProg"><option value="">-</option></select></div><div><label>Level</label><select id="mcLevel"></select></div></div><div class="row"><div><label>Academic year</label><input id="mcYear" maxlength="20"></div><div><label>Semester</label><select id="mcSem"><option value="">-</option><option>Semester 1</option><option>Semester 2</option><option>Summer / Resit</option></select></div></div><div class="row"><div><label>Radius (metres)</label><input id="mcRad" type="number" min="20" max="2000"></div><div><label>Lecturer</label><select id="mcOwn"></select></div></div>';
+    box.appendChild(f);
+    const q = (id) => f.querySelector("#" + id);
+    q("mcCourse").value = s.course; q("mcYear").value = s.academic_year || ""; q("mcRad").value = s.radius_m; q("mcSem").value = s.semester || "";
+    fillProgSel(q("mcProg")); fillLevelSel(q("mcLevel")); if (s.programme && !Array.from(q("mcProg").options).some((o) => o.value === s.programme)) { const o = el("option"); o.value = o.textContent = s.programme; q("mcProg").appendChild(o); }
+    q("mcProg").value = s.programme || ""; if (s.level && !Array.from(q("mcLevel").options).some((o) => o.value === s.level)) { const o = el("option"); o.value = o.textContent = s.level; q("mcLevel").appendChild(o); } q("mcLevel").value = s.level || "";
+    if (s.combined) q("mcPL").hidden = true;
+    for (const x of people.filter((p) => p.role !== "admin").sort((a, b) => staffName(a.id).localeCompare(staffName(b.id)))) { const o = el("option"); o.value = x.id; o.textContent = staffName(x.id); q("mcOwn").appendChild(o); }
+    q("mcOwn").value = s.owner;
+    const msg = el("p", "msg"); msg.setAttribute("role", "status");
+    const save = el("button", "btn"); save.type = "button"; save.textContent = "Save changes";
+    save.addEventListener("click", async () => {
+      const r = await sb.rpc("admin_edit_class", { p_id: s.id, p_course: q("mcCourse").value, p_programme: q("mcProg").value, p_level: q("mcLevel").value, p_year: q("mcYear").value, p_sem: q("mcSem").value, p_radius: Number(q("mcRad").value), p_owner: q("mcOwn").value });
+      if (r.error) { msg.className = "msg bad"; msg.textContent = r.error.message; return; }
+      if (!r.data.ok) { msg.className = "msg bad"; msg.textContent = r.data.error; return; }
+      Object.assign(s, { course: q("mcCourse").value.trim(), academic_year: q("mcYear").value.trim() || null, semester: q("mcSem").value || null, radius_m: Number(q("mcRad").value), owner: q("mcOwn").value }); if (!s.combined) { s.programme = q("mcProg").value || null; s.level = q("mcLevel").value || null; }
+      msg.className = "msg ok"; msg.textContent = "Saved. If you moved the class to another lecturer, their class roll stays with the old lecturer, so upload or copy it for them.";
+    });
+    box.append(save, msg);
+    const h2 = el("h4", "ch3"); h2.textContent = "Check-ins in this class"; box.appendChild(h2);
+    const { data } = await sb.from("attendance").select("id,index_number,student_name,in_range,late,manual,checked_in_at").eq("session_id", s.id).order("checked_in_at");
+    const list = el("div", "scrollbox"); list.style.maxHeight = "280px";
+    for (const a of data || []) {
+      const row = el("div", "reqrow"), t = el("div", "reqtxt"), b = el("b"), sp = el("span"); b.textContent = (a.student_name || "(no name)") + "  " + a.index_number;
+      sp.textContent = (a.in_range ? "In class area" : "Outside area") + (a.late ? ", late" : "") + (a.manual ? ", added by hand" : ""); t.append(b, sp);
+      const acts = el("div", "acts"); const run = async (act, val) => { const r = await sb.rpc("admin_edit_checkin", { p_id: a.id, p_action: act, p_value: val || null }); if (r.error || !r.data.ok) { msg.className = "msg bad"; msg.textContent = r.error ? r.error.message : r.data.error; } else draw(); };
+      acts.append(abtn("Rename", "", () => { const n = prompt("Name for " + a.index_number + ":", a.student_name || ""); if (n && n.trim().length > 1) run("name", n.trim()); }), abtn(a.in_range ? "Mark outside" : "Mark inside", "", () => run("in_range")), abtn(a.late ? "Not late" : "Mark late", "", () => run("late")), abtn("Remove", "bad", () => { if (confirm("Remove " + a.index_number + " from this class? It goes to the Trash for 3 months.")) run("delete"); }));
+      row.append(t, acts); list.appendChild(row);
+    }
+    if (!(data || []).length) list.textContent = "No check-ins yet."; box.appendChild(list);
+    const add = el("div", "bar"); add.innerHTML = '<input id="mcIdx" placeholder="Index number" maxlength="30"><input id="mcNm" placeholder="Student name" maxlength="100">';
+    const ab = el("button", "btn quiet"); ab.type = "button"; ab.textContent = "Add student"; add.appendChild(ab);
+    ab.addEventListener("click", async () => { const r = await sb.rpc("admin_add_checkin", { p_session: s.id, p_index: add.querySelector("#mcIdx").value, p_name: add.querySelector("#mcNm").value, p_programme: s.programme || "", p_level: s.level || "" }); if (r.error || !r.data.ok) { msg.className = "msg bad"; msg.textContent = r.error ? r.error.message : r.data.error; } else draw(); });
+    box.appendChild(add);
+    const cl = el("button", "btn quiet"); cl.type = "button"; cl.textContent = "Close"; cl.style.marginTop = "14px"; cl.addEventListener("click", close); box.appendChild(cl);
+  }
+  draw();
+}
+
+// ---- Student lookup: fix index number / change name ----
+function lookupTools(idx, res) {
+  const bar = el("div", "bar"); bar.style.marginTop = "12px";
+  bar.append(abtn("Fix index number", "", async () => {
+    const n = (prompt("The correct index number for " + idx + ":") || "").trim(); if (!n) return;
+    if (!confirm("Change " + idx + " to " + n.toUpperCase() + " in every check-in, class roll and phone alert?")) return;
+    const r = await sb.rpc("admin_fix_index", { p_old: idx, p_new: n });
+    if (r.error || !r.data.ok) return alert(r.error ? r.error.message : r.data.error);
+    alert("Done. Check-ins changed: " + r.data.checkins + (r.data.checkins_skipped ? " (" + r.data.checkins_skipped + " skipped because the new number was already in that class)" : "") + ". Roll entries changed: " + r.data.rolls + ".");
+    $("stIdx").value = n.toUpperCase(); $("stGo").click(); load();
+  }), abtn("Change name everywhere", "", async () => {
+    const n = (prompt("The correct name for " + idx + ":", res ? res.name : "") || "").trim(); if (n.length < 2) return;
+    const r = await sb.rpc("admin_rename_student", { p_index: idx, p_name: n });
+    if (r.error || !r.data.ok) return alert(r.error ? r.error.message : r.data.error);
+    alert("Name changed on " + r.data.checkins + " check-in(s) and " + r.data.rolls + " roll entr" + (r.data.rolls === 1 ? "y." : "ies.")); $("stGo").click();
+  }));
+  $("stOut").appendChild(bar);
+}

@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Lecturer | KTU check-in</title>
 <link rel="stylesheet" href="style.css?v=17">
-<link rel="stylesheet" href="extra.css?v=19">
+<link rel="stylesheet" href="extra.css?v=23">
 </head>
-<body>
+<body class="tch">
 <main>
   <header class="top">
     <h1>Lecturer page</h1>
@@ -39,6 +39,7 @@
     <nav id="tabs" class="ttabs" aria-label="Sections"><button type="button" data-p="home" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 12 3l9 8"/><path d="M5 10v10h14V10"/></svg>Home</button><button type="button" data-p="alerts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Alerts <span id="alertN" class="tbadge" hidden></span></button><button type="button" data-p="rolls"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>Rolls</button><button type="button" data-p="classes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Classes</button><button type="button" data-p="account"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>Account</button></nav>
     <div id="p-home" class="tpanel">
     <div id="hello" class="hello"><div><b id="helloT"></b><span id="helloS"></span></div><button id="helloGo" class="btn" type="button" hidden>Open live class</button></div>
+    <div class="weekbar" id="weekBox" hidden><h3>Your week</h3><div class="stats" id="weekStats"></div></div>
     <form id="start" class="card">
       <h2>Start a class</h2>
       <button id="repeatLast" class="btn quiet" type="button">Repeat my last class</button>
@@ -73,7 +74,7 @@
         <div><label for="radius">Allowed distance (m)</label><input id="radius" type="number" min="20" max="2000" value="50" required></div>
       </div>
       <details class="opts" open><summary>Anti-cheat and timing options</summary>
-        <label class="chk"><input id="rot" type="checkbox" checked> Rotating QR code (changes every 10 minutes)</label>
+        <label class="chk"><input id="rot" type="checkbox" checked> Screen code and QR (valid for the whole class length)</label>
         <label class="chk"><input id="blk" type="checkbox" checked> Block one phone from checking in several students</label>
         <label class="chk"><input id="two" type="checkbox"> Two-point check-in (students scan again at the end)</label>
         <label for="late">Mark late after (minutes, optional)</label>
@@ -92,7 +93,7 @@
       <p id="liveGroups" class="note" hidden></p>
       <div id="groupSum" class="chips" hidden></div>
       <div class="code" id="liveCode"></div>
-      <div id="pinBox" class="pinbox" hidden><span>Screen code</span><b id="pin"></b><div class="cdwrap"><i id="cd"></i></div></div>
+      <div id="pinBox" class="pinbox" hidden><span>Screen code</span><b id="pin"></b><div class="cdwrap"><i id="cd"></i></div><small id="cdTxt" class="note"></small></div>
       <p class="link" id="liveLink"></p>
       <div class="row">
         <button id="copy" class="btn quiet" type="button">Copy student link</button>
@@ -254,6 +255,6 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="shared.js?v=21"></script>
 <script src="programmes.js"></script>
-<script src="teacher.js?v=24"></script>
+<script src="teacher.js?v=25"></script>
 </body>
 </html>

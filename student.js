@@ -65,7 +65,7 @@ const tokLink = new URLSearchParams(location.search).get("t");
 if (tokLink) $("tok").value = tokLink.replace(/\D/g, "").slice(0, 6);
 if (fromLink) $("code").value = fromLink.toUpperCase().slice(0, 8);
 
-// Screen code: checked as soon as it is known, then the phone gets a 10-minute pass.
+// Screen code: checked as soon as it is known, then the phone gets a pass for the rest of the class.
 let pass = null;
 async function claim() {
   const tok = $("tok").value.replace(/\D/g, ""), code = $("code").value.trim().toUpperCase();
@@ -76,7 +76,7 @@ async function claim() {
   const { data, error } = await sb.rpc("get_pass", { p_code: code, p_token: tok, p_device: deviceId() });
   if (error || !data) { $("tokMsg").className = "msg bad"; $("tokMsg").textContent = "Could not check the screen code. Try again."; return; }
   if (!data.ok) { $("tokMsg").className = "msg bad"; $("tokMsg").textContent = data.error; return; }
-  pass = data.pass; $("tokMsg").className = "msg ok"; $("tokMsg").textContent = "Screen code accepted. Finish your details within 10 minutes.";
+  pass = data.pass; $("tokMsg").className = "msg ok"; $("tokMsg").textContent = "Screen code accepted. Finish your details while the class check-in is open.";
 }
 $("tok").addEventListener("input", claim);
 

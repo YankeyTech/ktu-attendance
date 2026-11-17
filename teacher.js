@@ -120,11 +120,24 @@ $("start").addEventListener("submit", async (e) => {
   } finally { $("startBtn").disabled = false; }
 });
 
+// "Your week" strip on the Home tab: classes, check-ins and how many were inside the class area, since Monday.
+async function weekStats(all) {
+  const mon = new Date(); mon.setHours(0, 0, 0, 0); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
+  const wk = (all || []).filter((s) => new Date(s.created_at) >= mon);
+  $("weekBox").hidden = !wk.length; if (!wk.length) return;
+  let rows = []; try { rows = (await fetchAttendance(sb, wk.map((s) => s.id))) || []; } catch (e) { return; }
+  const inn = rows.filter((r) => r.in_range).length, stud = new Set(rows.map((r) => r.index_number)).size;
+  const box = $("weekStats"); box.textContent = "";
+  for (const [n, l] of [[wk.length, "Classes this week"], [rows.length, "Check-ins"], [stud, "Different students"], [rows.length ? Math.round((inn / rows.length) * 100) + "%" : "-", "Inside the class area"]]) {
+    const d = document.createElement("div"), b = document.createElement("b"); b.textContent = n; d.append(b, l); box.appendChild(d);
+  }
+}
 async function loadSessions() {
   if (!$("sessions").firstChild) skelList();
   const { data, error } = await sb.from("sessions").select("*").order("created_at", { ascending: false }).limit(200);
   const box = $("sessions"); box.textContent = "";
   if (error) return;
+  weekStats(data);
   if (!data.length) { box.textContent = "No classes yet."; return; }
   const cq = $("cq").value.trim().toLowerCase(), cf = $("cfilter").value;
   for (const s of data) {
@@ -514,9 +527,8 @@ $("cxlsx").addEventListener("click", async () => {
 
 
 // ---- Rotating screen code ----
-// Must match the 600 in the database functions check_in and get_pass (upgrade18.sql).
-// The 10 minutes are counted from the moment this class started, so every new class begins with a full 10 minutes.
-const CODE_SECS = 600;
+// The screen code lasts for the whole class (database functions check_in and get_pass, upgrade23.sql).
+// Adding time to the class keeps the same code running; the bar below it shows the class time left.
 // Use the database clock, so a wrong laptop clock cannot break the codes.
 async function syncClock() {
   try { const t0 = Date.now(); const { data } = await sb.rpc("server_epoch"); if (typeof data === "number") clockOffset = data - (t0 + Date.now()) / 2000; } catch (e) {}
@@ -534,8 +546,9 @@ function drawFs() {
 }
 async function tickQr() {
   if (!current || !current.rotating || !current.secret || !isOpen()) return;
-  const now = Date.now() / 1000 + clockOffset, el = Math.max(0, now - new Date(current.opens_at).getTime() / 1000), w = Math.floor(el / CODE_SECS);
-  $("cd").style.width = ((CODE_SECS - (el % CODE_SECS)) / CODE_SECS) * 100 + "%";
+  const now = Date.now() / 1000 + clockOffset, end = new Date(current.closes_at).getTime() / 1000, total = Math.max(60, end - new Date(current.opens_at).getTime() / 1000), left = Math.max(0, end - now), w = 0;
+  $("cd").style.width = Math.min(100, (left / total) * 100) + "%";
+  const lm = Math.floor(left / 60), ls = Math.floor(left % 60); if ($("cdTxt")) $("cdTxt").textContent = "Code valid for " + lm + ":" + String(ls).padStart(2, "0") + " more (until the class ends)";
   if (w === lastWin) return;
   lastWin = w;
   const t = await tokenFor(current.secret, w);

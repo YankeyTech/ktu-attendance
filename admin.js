@@ -40,7 +40,7 @@ async function load() {
   for (const [n, l] of [[people.length, "Staff accounts"], [people.filter((x) => x.role === "lecturer" && x.active).length, "Active lecturers"], [people.filter((x) => x.role === "assistant" && x.active).length, "Teaching assistants"], [nameReqs.length, "Name requests"], [classes.length, "Classes"], [(a.data || []).length, "Check-ins"]]) {
     const d = document.createElement("div"), b = document.createElement("b"); b.textContent = 0; countUp(b, n); d.append(b, l); $("stats").appendChild(d);
   }
-  fillFilters(); drawL(); drawC(); drawReq(); loadStatus(); loadReports(true); trashCount();
+  fillFilters(); drawL(); drawC(); drawReq(); loadStatus(); loadReports(true); trashCount(); drawAttn();
 }
 
 function grid(head, body, cols, rows, key) {
@@ -634,6 +634,19 @@ $("bkGo").addEventListener("click", async () => {
   } catch (e) { out("Could not make the backup: " + e.message, "bad"); }
   $("bkGo").disabled = false;
 });
+
+// ---- "Needs your attention" chips on the Overview tab ----
+function drawAttn() {
+  const box = $("attn"); if (!box) return; box.textContent = "";
+  const items = [["lect", "Name change requests", nameReqs.length], ["sus", "Phone alerts to review", +($("susN").textContent || 0) * (!$("susN").hidden)], ["rep", "Open problem reports", +($("repN").textContent || 0) * (!$("repN").hidden)], ["trash", "Items in the Trash", +($("trN").textContent || 0) * (!$("trN").hidden)]].filter((x) => x[2] > 0);
+  if (!items.length) { const c = document.createElement("span"); c.className = "calm"; c.textContent = "\u2713 All clear. Nothing is waiting for you."; box.appendChild(c); return; }
+  for (const [tab, label, n] of items) {
+    const b = document.createElement("button"), c = document.createElement("b"); b.type = "button"; c.textContent = n; b.append(c, label);
+    b.addEventListener("click", () => document.querySelector('.tabs [data-t="' + tab + '"]').click()); box.appendChild(b);
+  }
+}
+for (const id of ["susN", "repN", "trN"]) new MutationObserver(drawAttn).observe($(id), { attributes: true, childList: true, characterData: true, subtree: true });
+setTimeout(drawAttn, 1500);
 
 // ---- Trash: everything deleted is kept 3 months; restore it or delete it for good ----
 let trashRows = [];

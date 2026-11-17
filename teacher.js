@@ -149,7 +149,8 @@ async function loadSessions() {
 
 function openSession(s) {
   current = s;
-  $("live").hidden = false;
+  $("live").hidden = false; showTab("home", true);
+  $("classNotes").value = s.notes || ""; $("notesMsg").textContent = ""; phoneAll = []; updateHello();
   $("liveCourse").textContent = s.course + (s.combined ? " (Combined)" : s.programme ? " (" + s.programme + (s.level ? ", " + s.level : "") + ")" : "");
   const gs = s.class_groups || [];
   { const txt = [[s.academic_year, s.semester].filter(Boolean).join(", "), s.combined ? "Combined class. Open to: " + gs.map(groupLabel).join("; ") : ""].filter(Boolean).join("  |  "); $("liveGroups").hidden = !txt; $("liveGroups").textContent = txt; }
@@ -165,7 +166,7 @@ function openSession(s) {
   $("endchk").hidden = !s.two_point; $("endchk").textContent = s.end_open ? "Close end-of-class check" : "Open end-of-class check (10 min)";
   lastWin = -1; if (qrTimer) clearInterval(qrTimer); qrTimer = setInterval(tickQr, 1000); tickQr();
   syncClock().then(() => { lastWin = -1; tickQr(); });
-  wasOpen = null; beepFor = ""; seenDots = new Set(); projN = -1; rowLimit = 50; openRows = new Set(); knownOut = new Set(); popQueue = []; popId = null; popReady = false; reviewAll = false; $("reviewPop").hidden = true; phoneQ = []; phoneSeen = new Set(); $("phonePop").hidden = true; skelRows(); loadRoll(); applyState(); keepAwake();
+  wasOpen = null; beepFor = ""; seenDots = new Set(); projN = -1; rowLimit = 50; openRows = new Set(); knownOut = new Set(); popQueue = []; popId = null; popReady = false; reviewAll = false; $("reviewPop").hidden = true; phoneQ = []; phoneAll = []; phoneSeen = new Set(); $("phonePop").hidden = true; skelRows(); loadRoll(); applyState(); keepAwake();
   stopPolling();
   timer = setInterval(loadAttendance, 8000);
   $("live").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -188,37 +189,111 @@ function sharedIndexes(data) {
 
 // ---- Same phone, different student: alert with Allow / Reject ----
 let phoneQ = [], phoneSeen = new Set(), phoneHidden = false;
+let phoneAll = [];
 async function loadBlocked() {
   if (!current) { $("phonePop").hidden = true; return; }
-  const { data, error } = await sb.from("blocked_attempts").select("*").eq("session_id", current.id).eq("status", "pending").order("at");
+  const { data, error } = await sb.from("blocked_attempts").select("*").eq("session_id", current.id).order("at").limit(200);
   if (error || !data) return; // the table only exists after upgrade19.sql
+  phoneAll = data;
   let fresh = false;
-  for (const b of data) if (!phoneSeen.has(b.id)) { phoneSeen.add(b.id); fresh = true; }
-  phoneQ = data;
+  const pend = data.filter((b) => b.status === "pending");
+  for (const b of pend) if (!phoneSeen.has(b.id)) { phoneSeen.add(b.id); fresh = true; }
+  phoneQ = pend;
   if (fresh) { phoneHidden = false; if (isOpen()) beep(0.25); }
-  showPhonePop();
+  showPhonePop(); renderPhoneAlerts(); updateAlerts();
+}
+function phoneText(b) {
+  return "on the same phone that " + (b.device_name || "another student") + (b.device_index ? " (" + b.device_index + ")" : "") + " already used. They are " + (b.in_range === false ? "OUTSIDE the class area" : "inside the class area") + (b.distance_m != null ? " (about " + Math.round(b.distance_m) + " m away)" : "") + ". " + (b.programme || "") + (b.level ? ", " + b.level : "") + ".";
 }
 function showPhonePop() {
   const pop = $("phonePop");
   if (!phoneQ.length || phoneHidden) { pop.hidden = true; return; }
   const b = phoneQ[0];
   $("phWho").textContent = (b.student_name || b.index_number) + "  (" + b.index_number + ")";
-  $("phInfo").textContent = "is trying to check in on the same phone that " + (b.device_name || "another student") + (b.device_index ? " (" + b.device_index + ")" : "") + " already used. They are inside the class area" + (b.distance_m != null ? " (about " + Math.round(b.distance_m) + " m away)" : "") + ". " + (b.programme || "") + (b.level ? ", " + b.level : "") + ".";
-  $("phMore").textContent = phoneQ.length > 1 ? phoneQ.length - 1 + " more waiting." : "";
+  $("phInfo").textContent = "is trying to check in " + phoneText(b);
+  $("phMore").textContent = phoneQ.length > 1 ? phoneQ.length - 1 + " more waiting in the Alerts tab." : "You can also decide later in the Alerts tab.";
   pop.hidden = false;
 }
-async function decidePhone(allow) {
-  const b = phoneQ[0]; if (!b) return;
-  $("phAllow").disabled = $("phReject").disabled = true;
+async function decidePhone(allow, b) {
+  b = b || phoneQ[0]; if (!b) return;
   const { data, error } = await sb.rpc("resolve_blocked", { p_id: b.id, p_allow: allow });
-  $("phAllow").disabled = $("phReject").disabled = false;
   if (error || (data && data.error)) toast("Could not save: " + ((error && error.message) || data.error));
   else toast(allow ? (b.student_name || b.index_number) + " added as present." : "Rejected.");
-  phoneQ = phoneQ.filter((x) => x.id !== b.id); showPhonePop(); loadAttendance();
+  await loadBlocked(); loadAttendance();
+}
+function renderPhoneAlerts() {
+  const pend = phoneAll.filter((b) => b.status === "pending"), done = phoneAll.filter((b) => b.status !== "pending");
+  $("phoneBox").hidden = !pend.length; $("phoneN").textContent = pend.length;
+  const L = $("phoneList"); L.textContent = "";
+  for (const b of pend) {
+    const row = document.createElement("div"); row.className = "rvrow";
+    const info = document.createElement("div"); info.className = "rvinfo";
+    const n = document.createElement("b"); n.textContent = (b.student_name || b.index_number) + " (" + b.index_number + ")";
+    const sp = document.createElement("span"); sp.textContent = "Tried " + phoneText(b);
+    info.append(n, sp);
+    const acts = document.createElement("div"); acts.className = "acts";
+    acts.append(rvBtn("Allow", "ok", () => decidePhone(true, b)), rvBtn("Reject", "bad", () => decidePhone(false, b)));
+    row.append(info, acts); L.appendChild(row);
+  }
+  const D = $("phoneDone"); D.textContent = ""; $("phoneHist").hidden = !done.length;
+  for (const b of done) { const p = document.createElement("p"); p.className = "note"; p.textContent = (b.student_name || b.index_number) + " (" + b.index_number + "): " + (b.status === "allowed" ? "allowed" : "rejected"); D.appendChild(p); }
 }
 $("phAllow").addEventListener("click", () => decidePhone(true));
 $("phReject").addEventListener("click", () => decidePhone(false));
-$("phLater").addEventListener("click", () => { phoneHidden = true; showPhonePop(); if (phoneQ.length) toast(phoneQ.length + " same-phone alert" + (phoneQ.length > 1 ? "s are" : " is") + " waiting. They will pop up again on the next new alert."); });
+$("phLater").addEventListener("click", () => { phoneHidden = true; showPhonePop(); toast("Saved in the Alerts tab. Come back to it any time."); });
+
+// ---- Sections (tabs) ----
+const TABS = ["home", "alerts", "rolls", "classes", "account"];
+function showTab(name, keepScroll) {
+  for (const x of TABS) $("p-" + x).hidden = x !== name;
+  document.querySelectorAll("#tabs [data-p]").forEach((b) => { const on = b.dataset.p === name; b.classList.toggle("on", on); b.setAttribute("aria-current", on ? "page" : "false"); });
+  if (!keepScroll) window.scrollTo({ top: 0 });
+  if (name === "alerts") updateAlerts();
+}
+document.querySelectorAll("#tabs [data-p]").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.p)));
+function updateAlerts() {
+  const review = current ? records.filter(needsReview).length : 0, phone = current ? phoneQ.length : 0, n = review + phone;
+  $("alertN").textContent = n > 9 ? "9+" : n; $("alertN").hidden = !n;
+  $("alertEmpty").hidden = n > 0 || (current && phoneAll.length > 0);
+  $("alertEmpty").textContent = current ? "No alerts for this class right now. They appear here as they come in." : "Open a class on the Home tab to see its alerts here.";
+}
+function updateHello() {
+  const h = new Date().getHours(), part = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+  $("helloT").textContent = myName ? part + ", " + myName.split(" ")[0] : "Welcome";
+  const live = current && !$("live").hidden && isOpen();
+  $("helloS").textContent = live ? "Class running: " + current.course : current && !$("live").hidden ? "Last class: " + current.course + " (closed)" : "Start a class below, or open an earlier one from the Classes tab.";
+  $("helloGo").hidden = !(current && !$("live").hidden);
+}
+$("helloGo").addEventListener("click", () => { showTab("home", true); $("live").scrollIntoView({ behavior: "smooth", block: "start" }); });
+
+// ---- Class notes ----
+$("saveNotes").addEventListener("click", async () => {
+  if (!current) return;
+  const notes = $("classNotes").value.trim() || null;
+  const { error } = await sb.from("sessions").update({ notes }).eq("id", current.id);
+  if (error) return say("notesMsg", /notes/.test(error.message) ? "Run upgrade21.sql in Supabase first." : "Could not save: " + error.message, "bad");
+  current.notes = notes; say("notesMsg", "Saved.", "ok");
+});
+
+// ---- Absent list: Excel and a message to send ----
+$("absXlsx").addEventListener("click", () => {
+  const list = absentees(); if (!current || !list.length) return toast("Nobody is absent.");
+  downloadXlsx(current.course + " absent " + fmtDay(current.created_at), [{ name: "Absent", rows: [["Name", "Index number", "Programme", "Level"]].concat(list.map((r) => [r.student_name || "", r.index_number, r.programme || current.programme || "", r.level || current.level || ""])) }]);
+});
+$("absCopy").addEventListener("click", async () => {
+  const list = absentees(); if (!current || !list.length) return toast("Nobody is absent.");
+  const txt = "Dear students,\n\nThe following students were absent from " + current.course + " on " + fmtDay(current.created_at) + ":\n\n"
+    + list.map((r, i) => (i + 1) + ". " + (r.student_name || "-") + " (" + r.index_number + ")").join("\n")
+    + "\n\nPlease contact me as soon as possible. If you were present but could not check in, tell me and I will update the record.\n\n" + (myName || "");
+  toast((await copyText(txt)) ? "Message copied. Paste it into WhatsApp or email." : "Could not copy. Try again.");
+});
+
+// ---- Programme and level lists (the admin can change them) ----
+onCatalog(() => {
+  for (const id of ["tprog", "gprog", "rollProg"]) refillSelect($(id), fillProgrammes);
+  refillSelect($("tlevel"), (s) => fillLevels(s, false)); refillSelect($("glevel"), (s) => fillLevels(s, true)); refillSelect($("rollLevel"), (s) => fillLevels(s, false));
+});
+loadCatalog(sb);
 
 // ---- Printable course attendance sheet for one programme and level ----
 $("sheetBtn").addEventListener("click", async () => {
@@ -239,7 +314,7 @@ async function loadAttendance() {
   records = data;
   const shared = sharedIndexes(data);
   for (const r of records) r._shared = !!(r.device_id && shared.has(r.device_id));
-  renderRows(); feedReview(); loadBlocked();
+  renderRows(); feedReview(); loadBlocked(); updateAlerts(); updateHello();
 }
 function renderRows() {
   const q = $("q").value.trim().toLowerCase(), f = $("flt").value;
@@ -744,9 +819,10 @@ const roleLabel = (r) => (r === "assistant" ? "Teaching assistant" : r === "admi
 function applyName() {
   const need = !myName, locked = !!myName && role !== "admin", card = $("nameCard"), app = $("app");
   $("who").textContent = need ? "Welcome. Please add your full name to continue." : "Welcome, " + myName + "  |  " + roleLabel(role);
-  $("start").hidden = need;
-  if (need) { app.prepend(card); card.querySelector("h2").textContent = "What is your name?"; }
-  else { card.querySelector("h2").textContent = "Your name"; app.insertBefore(card, $("sessions").closest("section")); }
+  $("start").hidden = need; $("tabs").classList.toggle("locked", need);
+  if (need) { showTab("account", true); card.querySelector("h2").textContent = "What is your name?"; }
+  else { card.querySelector("h2").textContent = "Your name"; }
+  updateHello();
   if (!requesting) $("myName").value = myName;
   $("myName").disabled = locked && !requesting;
   $("saveName").hidden = locked && !requesting;
@@ -953,7 +1029,7 @@ function fillFrom(s) {
   if (s.academic_year) $("tyear").value = s.academic_year; if (s.semester) $("tsem").value = s.semester;
   $("rot").checked = !!s.rotating; $("blk").checked = s.block_shared !== false; $("two").checked = !!s.two_point; $("late").value = s.late_after_min || "";
   if (s.radius_m) $("radius").value = s.radius_m;
-  $("start").scrollIntoView({ behavior: "smooth", block: "start" });
+  showTab("home", true); $("start").scrollIntoView({ behavior: "smooth", block: "start" });
   toast("Details loaded. Check them, then press Start check-in here.");
 }
 $("repeatLast").addEventListener("click", async () => {
@@ -970,7 +1046,7 @@ $("delClass").addEventListener("click", async () => {
   if (error) return toast("Could not delete the class: " + error.message);
   if (!data || !data.length) return toast("Nothing was deleted. You can only delete your own classes.");
   stopPolling(); stopQr(); current = null; records = []; rollRows = [];
-  $("live").hidden = true; $("stickybar").hidden = true; document.body.classList.remove("hasbar");
+  $("live").hidden = true; $("stickybar").hidden = true; document.body.classList.remove("hasbar"); updateHello(); updateAlerts();
   toast("Class deleted."); loadSessions();
 });
 

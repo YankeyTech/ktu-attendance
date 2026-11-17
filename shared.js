@@ -254,7 +254,7 @@ function openAttendanceSheet(c, atts, roll, lecturer) {
   const html = '<!doctype html><html><head><meta charset="utf-8"><title>Attendance sheet</title><style>@page{size:A4;margin:14mm}body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#000;margin:0}h1{font-size:19px;margin:0}h2{font-size:14px;margin:2px 0 10px;font-weight:normal}.meta{display:grid;grid-template-columns:1fr 1fr;gap:3px 20px;margin:10px 0 12px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #444;padding:6px 7px;text-align:left;vertical-align:middle}th{background:#e8e8e8}td.sig{width:120px;height:26px}.foot{display:flex;justify-content:space-between;margin-top:34px;gap:30px}.foot div{flex:1;border-top:1px solid #000;padding-top:4px}.noprint{margin:0 0 14px;padding:10px;background:#fff8d6;border:1px solid #e0c200}@media print{.noprint{display:none}}</style></head><body>'
     + '<div class="noprint">Choose <b>Save as PDF</b> as the printer to keep a PDF copy. <button onclick="window.print()">Print</button></div>'
     + "<h1>Koforidua Technical University</h1><h2>Class attendance sheet</h2>"
-    + '<div class="meta"><div><b>Course:</b> ' + esc(c.course) + "</div><div><b>Date:</b> " + esc(day) + "</div><div><b>Programme and level:</b> " + esc(progLabel(c)) + (c.combined ? "" : " " + esc(c.level || "")) + "</div><div><b>Term:</b> " + esc([c.academic_year, c.semester].filter(Boolean).join(", ")) + "</div><div><b>Lecturer:</b> " + esc(lecturer || "") + "</div><div><b>Present:</b> " + present.length + (absent.length ? " | <b>Absent (from roll):</b> " + absent.length : "") + "</div></div>"
+    + '<div class="meta"><div><b>Course:</b> ' + esc(c.course) + "</div><div><b>Date:</b> " + esc(day) + "</div><div><b>Programme and level:</b> " + esc(progLabel(c)) + (c.combined ? "" : " " + esc(c.level || "")) + "</div><div><b>Term:</b> " + esc([c.academic_year, c.semester].filter(Boolean).join(", ")) + "</div><div><b>Lecturer:</b> " + esc(lecturer || "") + "</div><div><b>Present:</b> " + present.length + (absent.length ? " | <b>Absent (from roll):</b> " + absent.length : "") + "</div>" + (c.notes ? "<div style='grid-column:1/3'><b>Notes:</b> " + esc(c.notes) + "</div>" : "") + "</div>"
     + "<table><thead><tr><th>No.</th><th>Name</th><th>Index number</th><th>Programme</th><th>Level</th><th>Time in</th><th>Status</th><th>Signature</th></tr></thead><tbody>" + body + "</tbody></table>"
     + '<div class="foot"><div>Lecturer signature</div><div>Date</div></div>'
     + '<p style="color:#555;margin-top:14px">Printed ' + esc(new Date().toLocaleString()) + "</p>"
@@ -264,6 +264,46 @@ function openAttendanceSheet(c, atts, roll, lecturer) {
   w.document.open(); w.document.write(html); w.document.close();
 }
 
+
+// ---- Programme and level lists: built in, plus what the admin adds or hides ----
+let _baseP = null, catalogNow = { programmes: [], levels: [] };
+const _baseL = ROLL_LEVELS.slice(), catalogHooks = [];
+function onCatalog(fn) { catalogHooks.push(fn); }
+function catalogBase() {
+  if (!_baseP) _baseP = (typeof PROGRAMMES !== "undefined" && Array.isArray(PROGRAMMES)) ? JSON.parse(JSON.stringify(PROGRAMMES)) : [];
+  return { groups: _baseP, programmes: _baseP.flatMap((g) => g.items || []), levels: _baseL };
+}
+function applyCatalog(cat) {
+  catalogNow = { programmes: (cat && cat.programmes) || [], levels: (cat && cat.levels) || [] };
+  const base = catalogBase(), lc = (x) => String(x).toLowerCase();
+  const hideP = new Set(catalogNow.programmes.filter((x) => x.removed).map((x) => lc(x.name)));
+  const hideL = new Set(catalogNow.levels.filter((x) => x.removed).map((x) => lc(x.name)));
+  const out = base.groups.map((g) => ({ group: g.group, items: (g.items || []).filter((n) => !hideP.has(lc(n))) }));
+  for (const x of catalogNow.programmes.filter((y) => !y.removed)) {
+    const gn = x.grp || "Added by the admin"; let g = out.find((y) => y.group === gn);
+    if (!g) { g = { group: gn, items: [] }; out.push(g); }
+    if (!out.some((y) => y.items.some((n) => lc(n) === lc(x.name)))) g.items.push(x.name);
+  }
+  if (typeof PROGRAMMES !== "undefined") PROGRAMMES.splice(0, PROGRAMMES.length, ...out.filter((g) => g.items.length));
+  const lv = base.levels.filter((n) => !hideL.has(lc(n))).concat(catalogNow.levels.filter((x) => !x.removed && !base.levels.some((b) => lc(b) === lc(x.name))).map((x) => x.name));
+  ROLL_LEVELS.splice(0, ROLL_LEVELS.length, ...lv);
+  for (const fn of catalogHooks) { try { fn(); } catch (e) { console.warn(e); } }
+}
+async function loadCatalog(sb) {
+  try { const c = localStorage.getItem("ktu_catalog"); if (c) applyCatalog(JSON.parse(c)); } catch (e) {}
+  try { const { data } = await sb.rpc("get_catalog"); if (data) { applyCatalog(data); try { localStorage.setItem("ktu_catalog", JSON.stringify(data)); } catch (e) {} } } catch (e) {}
+}
+// Refill a dropdown but keep the first (placeholder) option and whatever is selected.
+function refillSelect(sel, fill) {
+  const v = sel.value, ph = sel.options.length && sel.options[0].value === "" ? sel.options[0] : null;
+  sel.textContent = ""; if (ph) sel.appendChild(ph);
+  fill(sel);
+  if (v && !Array.from(sel.options).some((o) => o.value === v)) { const o = document.createElement("option"); o.value = v; o.textContent = v; sel.appendChild(o); }
+  sel.value = v;
+}
+function fillLevels(sel, withAll) {
+  for (const n of (withAll ? ["All levels"] : []).concat(ROLL_LEVELS)) { const o = document.createElement("option"); o.value = n; o.textContent = n; sel.appendChild(o); }
+}
 
 // ---- Course attendance sheet for one programme and level: every class of the course in one grid ----
 function classMatchesGroup(c, prog, lvl) {

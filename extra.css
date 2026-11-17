@@ -273,3 +273,23 @@ textarea{width:100%;padding:11px 14px;border:1.5px solid var(--line);border-radi
 .btn.forgot{display:flex;align-items:center;justify-content:center;width:100%;margin-top:12px;min-height:46px;background:transparent;color:var(--blue);border:1.5px solid var(--blue);border-radius:10px;font-weight:700}
 .btn.forgot:hover:not(:disabled){background:color-mix(in srgb,var(--blue) 10%,transparent);transform:none}
 .btn.forgot:focus-visible{outline:3px solid color-mix(in srgb,var(--blue) 45%,transparent);outline-offset:2px}
+
+/* Lecturer sections */
+.ttabs{position:sticky;top:0;z-index:40;display:flex;gap:4px;margin:0 0 16px;padding:6px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 18px rgba(0,0,0,.08);overflow-x:auto}
+.ttabs button{position:relative;flex:1 1 0;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;padding:8px 2px 7px;border:0;border-radius:10px;background:transparent;color:var(--mut);font:600 .74rem/1.1 inherit;font-family:inherit;cursor:pointer}
+.ttabs button svg{width:21px;height:21px}
+.ttabs button:hover{background:color-mix(in srgb,var(--blue) 8%,transparent)}
+.ttabs button.on{background:var(--blue);color:var(--on-blue)}
+.ttabs.locked button:not([data-p=account]){opacity:.4;pointer-events:none}
+.tbadge{position:absolute;top:2px;right:6px;min-width:18px;padding:1px 5px;border-radius:999px;background:var(--bad);color:#fff;font-size:.68rem;font-weight:700;text-align:center}
+.hello{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 14px;padding:16px;border-radius:14px;background:linear-gradient(135deg,color-mix(in srgb,var(--blue) 14%,var(--card)),var(--card));border:1px solid var(--line)}
+.hello b{display:block;font-size:1.15rem}.hello span{display:block;color:var(--mut);font-size:.92rem;margin-top:2px}
+.hello .btn{width:auto;margin:0;white-space:nowrap}
+.notebox{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.notebox textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--card);font:inherit;color:var(--ink);resize:vertical}
+.tpanel > .card > h2{font-size:1.2rem}
+
+.scrollbox{max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin:8px 0}
+.setrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--line)}
+.setrow:last-child{border-bottom:0}
+.setgrp{margin:10px 0 2px;font-weight:700;color:var(--mut);font-size:.85rem}

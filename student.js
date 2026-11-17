@@ -81,7 +81,7 @@ async function claim() {
 $("tok").addEventListener("input", claim);
 
 // Combined classes: only the programmes and levels the lecturer allowed can be chosen.
-const progAllHTML = $("prog").innerHTML;
+let progAllHTML = $("prog").innerHTML;
 let groupsNow = null, restricted = false, lockedNow = false;
 function syncLevels() {
   let al = null;
@@ -125,6 +125,12 @@ async function lookup() {
   };
   if (s.combined) setGroups(s.class_groups || []); else { lock($("prog"), s.programme); lock($("lvl"), s.level); }
 }
+// Programmes and levels come from the shared lists, which the admin can change.
+onCatalog(() => {
+  if (!restricted && !lockedNow) { refillSelect($("prog"), fillProgrammes); progAllHTML = $("prog").innerHTML; }
+  refillSelect($("lvl"), (s) => fillLevels(s, false)); syncLevels();
+});
+loadCatalog(sb);
 $("code").addEventListener("input", lookup);
 lookup();
 

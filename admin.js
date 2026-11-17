@@ -22,8 +22,8 @@ wireForgot(sb, "login");
 $("out").addEventListener("click", async () => { await sb.auth.signOut(); start(); });
 document.querySelectorAll(".tabs [data-t]").forEach((b) => b.addEventListener("click", () => {
   document.querySelectorAll(".tabs [data-t]").forEach((x) => x.classList.toggle("on", x === b));
-  for (const t of ["over", "lect", "cls", "roll", "ana", "act", "sus", "rep"]) $("t-" + t).hidden = t !== b.dataset.t;
-  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") loadSus(); if (b.dataset.t === "rep") loadReports();
+  for (const t of ["over", "lect", "cls", "roll", "ana", "act", "sus", "rep", "set"]) $("t-" + t).hidden = t !== b.dataset.t;
+  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") loadSus(); if (b.dataset.t === "set") renderSettings(); if (b.dataset.t === "rep") loadReports();
 }));
 
 async function load() {
@@ -105,6 +105,8 @@ function fillProgSel(sel) {
   }
 }
 fillProgSel($("rlProg")); fillLevelSel($("rlLevel"));
+onCatalog(() => { refillSelect($("rlProg"), fillProgSel); refillSelect($("rlLevel"), (s) => fillLevels(s, false)); if ($("t-set") && !$("t-set").hidden) renderSettings(); });
+loadCatalog(sb);
 const staffName = (id) => { const x = people.find((p) => p.id === id); return x ? (x.full_name ? x.full_name + " (" + x.email + ")" : x.email) : "-"; };
 function drawRollForm() {
   const keep = $("rlLect").value, sel = $("rlLect"); sel.textContent = "";
@@ -537,4 +539,89 @@ $("bulkGo").addEventListener("click", async () => {
   $("bulkGo").disabled = false; $("bulkFile").value = "";
   out.textContent = ok + " invite(s) sent." + (failed.length ? " " + failed.length + " not sent: " + failed.join(" | ") : "");
   load();
+});
+
+
+// ---- Settings: programmes and levels ----
+const lcn = (x) => String(x).trim().toLowerCase();
+async function catChange(promise, okText) {
+  const { error } = await promise;
+  if (error) return say("setMsg", /catalog/.test(error.message) ? "Run upgrade21.sql in Supabase first." : "Could not save: " + error.message, "bad");
+  await loadCatalog(sb); say("setMsg", okText, "ok");
+}
+async function catRemove(kind, name) {
+  const base = catalogBase(), isBase = (kind === "programme" ? base.programmes : base.levels).some((n) => lcn(n) === lcn(name));
+  if (!confirm("Hide " + name + " from the lists? Old records keep it, and you can bring it back under Hidden items.")) return;
+  await catChange(isBase ? sb.from("catalog").upsert({ kind, name, removed: true }, { onConflict: "kind,name" }) : sb.from("catalog").delete().eq("kind", kind).eq("name", name), name + " hidden.");
+}
+async function catRestore(kind, name) { await catChange(sb.from("catalog").delete().eq("kind", kind).eq("name", name), name + " restored."); }
+async function catAdd(kind, raw, grp) {
+  const name = raw.trim().replace(/\s+/g, " ");
+  if (name.length < 2) return say("setMsg", "Type the name first.", "warn");
+  const base = catalogBase(), list = kind === "programme" ? base.programmes : base.levels, hit = list.find((n) => lcn(n) === lcn(name));
+  const hidden = catalogNow[kind === "programme" ? "programmes" : "levels"].find((x) => lcn(x.name) === lcn(name));
+  const active = (kind === "programme" ? PROGRAMMES.flatMap((g) => g.items || []) : ROLL_LEVELS).some((n) => lcn(n) === lcn(name));
+  if (active) return say("setMsg", name + " is already in the list.", "warn");
+  if (hit || (hidden && hidden.removed)) return catChange(sb.from("catalog").delete().eq("kind", kind).eq("name", hit || hidden.name), (hit || hidden.name) + " is back in the list.");
+  await catChange(sb.from("catalog").insert({ kind, name, grp: kind === "programme" ? grp || null : null, removed: false }), name + " added.");
+}
+function renderSettings() {
+  const lv = $("lvList"); lv.textContent = "";
+  for (const n of ROLL_LEVELS) { const r = el("div", "setrow"), s = el("span"); s.textContent = n; r.append(s, abtn("Hide", "bad", () => catRemove("level", n))); lv.appendChild(r); }
+  const q = lcn($("pgSearch").value), pg = $("pgList"); pg.textContent = "";
+  for (const g of PROGRAMMES) {
+    const items = (g.items || []).filter((n) => !q || lcn(n).includes(q)); if (!items.length) continue;
+    const t = el("div", "setgrp"); t.textContent = g.group; pg.appendChild(t);
+    for (const n of items) { const r = el("div", "setrow"), s = el("span"); s.textContent = n; r.append(s, abtn("Hide", "bad", () => catRemove("programme", n))); pg.appendChild(r); }
+  }
+  const gs = $("pgGrp"), keep = gs.value; gs.textContent = "";
+  for (const n of [...new Set(PROGRAMMES.map((g) => g.group).concat(["Added by the admin"]))]) { const o = el("option"); o.value = n; o.textContent = n; gs.appendChild(o); }
+  gs.value = Array.from(gs.options).some((o) => o.value === keep) ? keep : "Added by the admin";
+  const rm = $("rmList"); rm.textContent = "";
+  const hidden = catalogNow.programmes.filter((x) => x.removed).map((x) => ["programme", x.name]).concat(catalogNow.levels.filter((x) => x.removed).map((x) => ["level", x.name]));
+  for (const [k, n] of hidden) { const r = el("div", "setrow"), s = el("span"); s.textContent = n + " (" + k + ")"; r.append(s, abtn("Restore", "", () => catRestore(k, n))); rm.appendChild(r); }
+  if (!hidden.length) rm.textContent = "Nothing is hidden.";
+  const ys = $("roYear"), ky = ys.value; ys.textContent = "";
+  const o0 = el("option"); o0.value = ""; o0.textContent = "Choose the year"; ys.appendChild(o0);
+  for (const y of [...new Set(classes.map((s) => s.academic_year).filter(Boolean))].sort().reverse()) { const o = el("option"); o.value = y; o.textContent = y; ys.appendChild(o); }
+  ys.value = Array.from(ys.options).some((o) => o.value === ky) ? ky : "";
+}
+$("pgSearch").addEventListener("input", renderSettings);
+$("lvAdd").addEventListener("click", async () => { await catAdd("level", $("lvNew").value); $("lvNew").value = ""; });
+$("pgAdd").addEventListener("click", async () => { await catAdd("programme", $("pgNew").value, $("pgGrp").value); $("pgNew").value = ""; });
+
+// ---- Semester rollover ----
+$("roGo").addEventListener("click", async () => {
+  const y = $("roYear").value, sem = $("roSem").value;
+  if (!y) return say("roMsg", "Choose the academic year first.", "warn");
+  const ids = classes.filter((c) => !c.archived && c.academic_year === y && (!sem || c.semester === sem)).map((c) => c.id);
+  if (!ids.length) return say("roMsg", "No active classes found for that term.", "warn");
+  if (!confirm("Archive " + ids.length + " class(es) of " + y + (sem ? ", " + sem : "") + "? Nothing is deleted, and you can restore them later.")) return;
+  const { data, error } = await sb.rpc("archive_sessions", { p_ids: ids, p_archived: true });
+  if (error) return say("roMsg", "Could not archive: " + error.message, "bad");
+  say("roMsg", data + " class(es) archived.", "ok"); load();
+});
+
+// ---- Backup ----
+$("bkGo").addEventListener("click", async () => {
+  const out = (t, k) => say("bkMsg", t, k); $("bkGo").disabled = true; out("Collecting the data. This can take a minute for a large database…");
+  try {
+    const get = async (table, cols, order) => { const r = await fetchAllRows(sb, table, cols, order, true); if (r.error) throw new Error(table + ": " + r.error.message); return r.data || []; };
+    const [ses, att, rolls, courses, staff] = await Promise.all([
+      get("sessions", "id,created_at,course,programme,level,combined,class_groups,academic_year,semester,code,archived,notes,owner", "created_at"),
+      get("attendance", "session_id,index_number,student_name,programme,level,in_range,distance_m,late,manual,note,checked_in_at", "checked_in_at"),
+      get("rolls", "owner,course,index_number,student_name,programme,level", "created_at"),
+      get("courses", "owner,name", "created_at"),
+      get("profiles", "id,email,full_name,role,active,created_at", "created_at")]);
+    const who = (id) => staffName(id), cls = Object.fromEntries(ses.map((s) => [s.id, s]));
+    const day = new Date().toISOString().slice(0, 10);
+    downloadXlsx("KTU attendance backup " + day, [
+      { name: "Classes", rows: [["Date", "Course", "Lecturer", "Programme", "Level", "Combined groups", "Academic year", "Semester", "Code", "Archived", "Notes"]].concat(ses.map((s) => [fmt(s.created_at), s.course, who(s.owner), s.programme || "", s.level || "", s.combined ? (s.class_groups || []).map((g) => g.programme + " (" + g.level + ")").join("; ") : "", s.academic_year || "", s.semester || "", s.code, s.archived ? "Yes" : "", s.notes || ""])) },
+      { name: "Check-ins", rows: [["Date", "Course", "Lecturer", "Index number", "Name", "Programme", "Level", "In class area", "Distance (m)", "Late", "Added by hand", "Note"]].concat(att.map((a) => { const s = cls[a.session_id] || {}; return [fmt(a.checked_in_at), s.course || "", s.owner ? who(s.owner) : "", a.index_number, a.student_name || "", a.programme || "", a.level || "", a.in_range ? "Yes" : "No", Math.round(a.distance_m || 0), a.late ? "Yes" : "", a.manual ? "Yes" : "", a.note || ""]; })) },
+      { name: "Class rolls", rows: [["Lecturer", "Course", "Programme", "Level", "Index number", "Name"]].concat(rolls.map((r) => [who(r.owner), r.course, r.programme || "", r.level || "", r.index_number, r.student_name || ""])) },
+      { name: "Courses", rows: [["Lecturer", "Course"]].concat(courses.map((k) => [who(k.owner), k.name])) },
+      { name: "Staff", rows: [["Email", "Name", "Role", "Active", "Added"]].concat(staff.map((p) => [p.email || "", p.full_name || "", p.role, p.active ? "Yes" : "No", fmt(p.created_at)])) }]);
+    out("Backup downloaded: " + ses.length + " classes, " + att.length + " check-ins, " + rolls.length + " roll entries.", "ok");
+  } catch (e) { out("Could not make the backup: " + e.message, "bad"); }
+  $("bkGo").disabled = false;
 });

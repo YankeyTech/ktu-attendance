@@ -22,8 +22,8 @@ wireForgot(sb, "login");
 $("out").addEventListener("click", async () => { await sb.auth.signOut(); start(); });
 document.querySelectorAll(".tabs [data-t]").forEach((b) => b.addEventListener("click", () => {
   document.querySelectorAll(".tabs [data-t]").forEach((x) => x.classList.toggle("on", x === b));
-  for (const t of ["over", "lect", "cls", "roll", "ana", "act", "sus", "rep", "trash", "set"]) $("t-" + t).hidden = t !== b.dataset.t;
-  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") loadSus(); if (b.dataset.t === "set") renderSettings(); if (b.dataset.t === "trash") loadTrash(); if (b.dataset.t === "rep") loadReports();
+  for (const t of ["over", "lect", "cls", "roll", "stu", "ana", "act", "sus", "rep", "trash", "set"]) $("t-" + t).hidden = t !== b.dataset.t;
+  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") loadSus(); if (b.dataset.t === "set") renderSettings(); if (b.dataset.t === "trash") loadTrash(); if (b.dataset.t === "stu") $("stIdx").focus(); if (b.dataset.t === "rep") loadReports();
 }));
 
 async function load() {
@@ -40,7 +40,7 @@ async function load() {
   for (const [n, l] of [[people.length, "Staff accounts"], [people.filter((x) => x.role === "lecturer" && x.active).length, "Active lecturers"], [people.filter((x) => x.role === "assistant" && x.active).length, "Teaching assistants"], [nameReqs.length, "Name requests"], [classes.length, "Classes"], [(a.data || []).length, "Check-ins"]]) {
     const d = document.createElement("div"), b = document.createElement("b"); b.textContent = 0; countUp(b, n); d.append(b, l); $("stats").appendChild(d);
   }
-  fillFilters(); drawL(); drawC(); drawReq(); loadStatus(); loadReports(true); trashCount(); drawAttn();
+  fillFilters(); drawL(); drawC(); drawReq(); loadStatus(); loadReports(true); trashCount(); drawAttn(); loadAnnouncements();
 }
 
 function grid(head, body, cols, rows, key) {
@@ -82,6 +82,7 @@ function drawC() {
     for (const v of [fmt(s.created_at), s.course, s.academic_year || "-", s.semester || "-", s.combined ? "Combined: " + (s.class_groups || []).map((g) => g.programme + " (" + g.level + ")").join("; ") : s.programme || "-", s.combined ? "Various" : s.level || "-", s._owner, s._n]) { const td = document.createElement("td"); td.textContent = v; tr.appendChild(td); }
     const td = document.createElement("td");
     td.append(abtn("Copy link", "", () => copyClassLink(s)), abtn("Sheet", "", () => adminSheet(s)), abtn(s.archived ? "Restore" : "Archive", "", () => archiveSome([s], !s.archived)),
+      ...(new Date(s.closes_at) > new Date() ? [abtn("Close now", "ok", async () => { if (!confirm("Close check-in for " + s.course + " now?")) return; const x = await sb.from("sessions").update({ closes_at: new Date().toISOString() }).eq("id", s.id); if (x.error) say("msg", "Could not close: " + x.error.message, "bad"); else { say("msg", "Check-in closed for " + s.course + ".", "ok"); load(); } })] : []),
       abtn("Delete", "bad", async () => { if (confirm("Delete this class and all its attendance?\n\nIt goes to the Trash tab and is kept for 3 months, so you can restore it.")) { const x = await sb.from("sessions").delete().eq("id", s.id); if (x.error) say("msg", "Could not delete: " + x.error.message, "bad"); load(); } }));
     tr.appendChild(td); $("cb").appendChild(tr);
   }
@@ -707,3 +708,40 @@ $("trEmpty").addEventListener("click", async () => {
   say("trMsg", "Trash emptied.", "ok"); await load(); loadTrash();
 });
 $("trQ").addEventListener("input", drawTrash); $("trKind").addEventListener("change", drawTrash);
+
+
+// ---- Student lookup (all classes) ----
+$("stGo").addEventListener("click", async () => {
+  const idx = $("stIdx").value.trim().toUpperCase(); if (idx.length < 4) return $("stOut").textContent = "Enter the student's index number.";
+  $("stOut").textContent = "Looking…";
+  try { renderLookup($("stOut"), await lookupStudent(sb, idx, classes), (id) => staffName(id), idx); } catch (e) { $("stOut").textContent = "Could not look up: " + (e.message || e); }
+});
+$("stIdx").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("stGo").click(); } });
+
+// ---- Announcements ----
+async function loadAnnouncements() {
+  const box = $("anList"); if (!box) return; box.textContent = "";
+  const { data, error } = await sb.from("announcements").select("*").order("created_at", { ascending: false }).limit(10);
+  if (error) { box.textContent = /relation|exist|schema/i.test(error.message) ? "Run upgrade24.sql in Supabase to turn announcements on." : error.message; return; }
+  for (const a of data || []) {
+    const live = new Date(a.expires_at) > new Date(), row = document.createElement("div"); row.className = "reqrow";
+    const t = document.createElement("div"); t.className = "reqtxt"; const b = document.createElement("b"); b.textContent = (a.kind === "warn" ? "Important: " : "") + a.message;
+    const sp = document.createElement("span"); sp.textContent = live ? "Shown until " + fmt(a.expires_at) : "Expired " + fmt(a.expires_at); t.append(b, sp);
+    const acts = document.createElement("div"); acts.className = "acts";
+    acts.append(abtn("Remove", "bad", async () => { const r = await sb.from("announcements").delete().eq("id", a.id); if (r.error) say("anMsg", r.error.message, "bad"); else loadAnnouncements(); }));
+    row.append(t, acts); box.appendChild(row);
+  }
+}
+$("anPost").addEventListener("click", async () => {
+  const m = $("anText").value.trim(); if (m.length < 3) return say("anMsg", "Write the announcement first.", "warn");
+  const r = await sb.from("announcements").insert({ message: m, kind: $("anKind").value, expires_at: new Date(Date.now() + Number($("anDays").value) * 86400000).toISOString() });
+  if (r.error) return say("anMsg", /relation|exist|schema/i.test(r.error.message) ? "Run upgrade24.sql in Supabase first." : r.error.message, "bad");
+  $("anText").value = ""; say("anMsg", "Posted. Lecturers see it on their Home tab.", "ok"); loadAnnouncements();
+});
+
+// ---- Activity log to Excel ----
+$("actX").addEventListener("click", () => {
+  const f = $("actFilter").value, q = $("actQ").value.trim().toLowerCase();
+  const rows = actRows.filter((r) => (!f || r.action === f) && (!q || ((r.actor_email || "") + " " + (r.target || "") + " " + (r.detail || "")).toLowerCase().includes(q)));
+  downloadXlsx("Activity log", [{ name: "Activity", rows: [["When", "Who", "Action", "About", "Detail"]].concat(rows.map((r) => [fmt(r.at), r.actor_email || "", ACT[r.action] || r.action, r.target || "", r.detail || ""])) }]);
+});

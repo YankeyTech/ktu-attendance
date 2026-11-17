@@ -64,7 +64,7 @@ async function refreshAuth() {
     document.body.dataset.role = role;
     $("adminLink").hidden = !(role === "admin" && session.user.email.toLowerCase() === "ygpedri@gmail.com");
     await loadCourses();
-    loadSessions();
+    loadSessions(); showAnnouncements(sb, $("announceBox"));
   } else { stopPolling(); stopQr(); }
 }
 
@@ -121,6 +121,30 @@ $("start").addEventListener("submit", async (e) => {
 });
 
 // "Your week" strip on the Home tab: classes, check-ins and how many were inside the class area, since Monday.
+let mySessions = [];
+// "Courses at a glance": classes held and average check-ins per course.
+async function courseSummary(all) {
+  const box = $("courseSum"); if (!box) return;
+  const live = (all || []).filter((s) => !s.archived), by = new Map();
+  for (const s of live) { const e = by.get(s.course) || { course: s.course, ids: [] }; e.ids.push(s.id); by.set(s.course, e); }
+  if (!by.size) { box.textContent = "No classes yet."; return; }
+  let rows = []; try { rows = (await fetchAttendance(sb, live.map((s) => s.id))) || []; } catch (e) { return; }
+  const cnt = new Map(); for (const r of rows) cnt.set(r.session_id, (cnt.get(r.session_id) || 0) + 1);
+  box.textContent = "";
+  for (const e of Array.from(by.values()).sort((a, b) => b.ids.length - a.ids.length)) {
+    const total = e.ids.reduce((n, id) => n + (cnt.get(id) || 0), 0), avg = total / e.ids.length;
+    const best = Math.max(1, ...Array.from(by.values()).map((x) => x.ids.reduce((n, id) => n + (cnt.get(id) || 0), 0) / x.ids.length));
+    const d = document.createElement("div"); d.className = "cmini";
+    const a = document.createElement("b"), b = document.createElement("span"), bar = document.createElement("div"), i = document.createElement("i");
+    a.textContent = e.course; b.textContent = e.ids.length + " class" + (e.ids.length === 1 ? "" : "es") + ", avg " + avg.toFixed(1); bar.className = "bar2"; i.style.width = Math.round((avg / best) * 100) + "%"; bar.appendChild(i); d.append(a, b, bar); box.appendChild(d);
+  }
+}
+$("lkGo").addEventListener("click", async () => {
+  const idx = $("lkIdx").value.trim().toUpperCase(); if (idx.length < 4) return say("cmsg", "Enter the student's index number.", "warn");
+  $("lkOut").textContent = "Looking…";
+  try { renderLookup($("lkOut"), await lookupStudent(sb, idx, mySessions), null, idx); } catch (e) { $("lkOut").textContent = "Could not look up: " + (e.message || e); }
+});
+$("lkIdx").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("lkGo").click(); } });
 async function weekStats(all) {
   const mon = new Date(); mon.setHours(0, 0, 0, 0); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
   const wk = (all || []).filter((s) => new Date(s.created_at) >= mon);
@@ -137,7 +161,7 @@ async function loadSessions() {
   const { data, error } = await sb.from("sessions").select("*").order("created_at", { ascending: false }).limit(200);
   const box = $("sessions"); box.textContent = "";
   if (error) return;
-  weekStats(data);
+  weekStats(data); mySessions = data; courseSummary(data);
   if (!data.length) { box.textContent = "No classes yet."; return; }
   const cq = $("cq").value.trim().toLowerCase(), cf = $("cfilter").value;
   for (const s of data) {

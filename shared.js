@@ -198,6 +198,9 @@ function addDisplayOptions() {
   const set = (k, v) => { try { localStorage.setItem("ktu_" + k, v ? "1" : "0"); } catch (e) {} };
   const apply = () => { document.documentElement.classList.toggle("big", get("big")); document.documentElement.classList.toggle("hc", get("hc")); };
   apply();
+  const getTheme = () => { try { return localStorage.getItem("ktu_theme") || "auto"; } catch (e) { return "auto"; } };
+  const applyTheme = (t) => { if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t); else document.documentElement.removeAttribute("data-theme"); };
+  applyTheme(getTheme());
   const btn = document.createElement("button"); btn.type = "button"; btn.className = "a11y"; btn.textContent = "Aa";
   btn.setAttribute("aria-label", "Display options"); btn.setAttribute("aria-expanded", "false");
   const menu = document.createElement("div"); menu.className = "a11ymenu"; menu.hidden = true;
@@ -205,6 +208,10 @@ function addDisplayOptions() {
     const l = document.createElement("label"); const c = document.createElement("input"); c.type = "checkbox"; c.checked = get(key);
     c.addEventListener("change", () => { set(key, c.checked); apply(); }); l.append(c, " " + label); menu.appendChild(l);
   }
+  const tl = document.createElement("label"), ts = document.createElement("select"); ts.setAttribute("aria-label", "Theme");
+  for (const [v, t] of [["auto", "Match my phone"], ["light", "Light"], ["dark", "Dark"]]) { const o = document.createElement("option"); o.value = v; o.textContent = t; ts.appendChild(o); }
+  ts.value = getTheme(); ts.addEventListener("change", () => { try { localStorage.setItem("ktu_theme", ts.value); } catch (e) {} applyTheme(ts.value); });
+  tl.append("Theme ", ts); menu.appendChild(tl);
   const rb = document.createElement("button"); rb.type = "button"; rb.className = "rptbtn"; rb.textContent = "Report a problem";
   rb.addEventListener("click", () => { menu.hidden = true; openReport(); }); menu.appendChild(rb);
   btn.addEventListener("click", (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; btn.setAttribute("aria-expanded", String(!menu.hidden)); });
@@ -357,5 +364,64 @@ async function copyText(text) {
       const t = document.createElement("textarea"); t.value = text; t.setAttribute("readonly", ""); t.style.cssText = "position:fixed;opacity:0;top:0";
       document.body.appendChild(t); t.select(); const ok = document.execCommand("copy"); t.remove(); return ok;
     } catch (e2) { return false; }
+  }
+}
+
+
+// ---- Student lookup: one student's attendance across classes (lecturer: own classes, admin: all) ----
+// allClasses is the list of classes the viewer can see. Returns null when the student has no check-ins.
+async function lookupStudent(sb, idx, allClasses) {
+  idx = String(idx || "").trim().toUpperCase();
+  const { data, error } = await sb.from("attendance").select("*").eq("index_number", idx).order("checked_in_at", { ascending: false }).limit(1000);
+  if (error) throw error;
+  const byId = new Map(allClasses.map((c) => [c.id, c]));
+  const rows = (data || []).filter((a) => byId.has(a.session_id)).map((a) => Object.assign({ _c: byId.get(a.session_id) }, a));
+  if (!rows.length) return null;
+  const last = rows[0], per = new Map();
+  for (const a of rows) { const k = (a._c.owner || "") + "\u0001" + a._c.course; const e = per.get(k) || { course: a._c.course, owner: a._c.owner, attended: 0 }; e.attended++; per.set(k, e); }
+  for (const e of per.values()) {
+    e.held = allClasses.filter((c) => c.course === e.course && (c.owner || "") === (e.owner || "") && classMatchesGroup(c, last.programme, last.level)).length;
+    e.held = Math.max(e.held, e.attended); e.pct = Math.round((e.attended / e.held) * 100);
+  }
+  return { index: idx, name: (rows.find((a) => a.student_name) || {}).student_name || "", programme: last.programme, level: last.level, rows, courses: Array.from(per.values()).sort((a, b) => a.pct - b.pct) };
+}
+function renderLookup(box, res, ownerName, idx) {
+  box.textContent = "";
+  const mk = (t, c, txt) => { const e = document.createElement(t); if (c) e.className = c; if (txt != null) e.textContent = txt; return e; };
+  if (!res) { box.appendChild(mk("p", "note", "No check-ins found for " + idx + ". Check the number, or the student may not have come to any of these classes.")); return; }
+  const head = mk("div", "lkhead"); head.append(mk("b", "", res.name || res.index), mk("span", "", res.index + (res.programme ? "  |  " + res.programme : "") + (res.level ? "  |  " + res.level : ""))); box.appendChild(head);
+  const tbl = (cols, rows) => {
+    const w = mk("div", "table-wrap"), t = mk("table"), th = mk("thead"), tr = mk("tr"), tb = mk("tbody");
+    for (const c of cols) tr.appendChild(mk("th", "", c)); th.appendChild(tr);
+    for (const r of rows) { const x = mk("tr"); for (const v of r) { const td = mk("td"); if (v instanceof Node) td.appendChild(v); else td.textContent = v; x.appendChild(td); } tb.appendChild(x); }
+    t.append(th, tb); w.appendChild(t); return w;
+  };
+  box.appendChild(mk("h4", "ch3", "By course"));
+  box.appendChild(tbl(ownerName ? ["Course", "Lecturer", "Attended", "Rate"] : ["Course", "Attended", "Rate"], res.courses.map((e) => {
+    const pill = mk("span", "kindtag" + (e.pct < 75 ? " acct" : ""), e.pct + "%"); const att = e.attended + " of " + e.held;
+    return ownerName ? [e.course, ownerName(e.owner), att, pill] : [e.course, att, pill];
+  })));
+  box.appendChild(mk("h4", "ch3", "Every check-in"));
+  const day = (iso) => new Date(iso).toLocaleString([], { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  box.appendChild(tbl(["When", "Course", "Result", "Notes"], res.rows.map((a) => [day(a.checked_in_at), a._c.course, a.in_range ? "In class area" : "Outside area", [a.late ? "Late" : "", a.manual ? "Added by lecturer" : "", a.gps_flag || ""].filter(Boolean).join(", ")])));
+  const x = mk("button", "btn quiet", "Download (Excel)"); x.type = "button"; x.style.marginTop = "10px";
+  x.addEventListener("click", () => downloadXlsx("Attendance " + res.index, [
+    { name: "By course", rows: [["Course", "Lecturer", "Attended", "Classes held", "Rate %"]].concat(res.courses.map((e) => [e.course, ownerName ? ownerName(e.owner) : "", e.attended, e.held, e.pct])) },
+    { name: "Check-ins", rows: [["When", "Course", "Result", "Late", "Added by lecturer", "Warning"]].concat(res.rows.map((a) => [day(a.checked_in_at), a._c.course, a.in_range ? "In class area" : "Outside area", a.late ? "Yes" : "", a.manual ? "Yes" : "", a.gps_flag || ""])) }]));
+  box.appendChild(x);
+}
+
+// ---- Announcements from the admin (shown on the lecturer Home tab) ----
+async function showAnnouncements(sb, box) {
+  box.textContent = "";
+  let data = null; try { ({ data } = await sb.from("announcements").select("*").gt("expires_at", new Date().toISOString()).order("created_at", { ascending: false }).limit(5)); } catch (e) {}
+  let seen = []; try { seen = JSON.parse(localStorage.getItem("ktu_seen_ann") || "[]"); } catch (e) {}
+  for (const a of data || []) {
+    if (seen.includes(a.id)) continue;
+    const d = document.createElement("div"); d.className = "announce " + a.kind; d.setAttribute("role", "status");
+    const t = document.createElement("div"); const b = document.createElement("b"); b.textContent = a.kind === "warn" ? "Important notice" : "Notice from the admin"; const p = document.createElement("span"); p.textContent = a.message; t.append(b, p);
+    const x = document.createElement("button"); x.type = "button"; x.className = "abtn"; x.textContent = "Dismiss";
+    x.addEventListener("click", () => { seen.push(a.id); try { localStorage.setItem("ktu_seen_ann", JSON.stringify(seen.slice(-30))); } catch (e) {} d.remove(); });
+    d.append(t, x); box.appendChild(d);
   }
 }

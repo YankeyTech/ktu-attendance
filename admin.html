@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=17"><link rel="stylesheet" href="extra.css?v=23">
+<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=17"><link rel="stylesheet" href="extra.css?v=24">
 <style>main{max-width:1000px}th[data-k]{cursor:pointer;user-select:none}.tabs{display:flex;gap:6px;margin:10px 0;flex-wrap:wrap}.tabs button{flex:1}.tabs .on{background:#004c84;color:#fff}.cred{background:#fff8d6;color:#222;border:1px solid #e0c200;border-radius:10px;padding:12px;margin:10px 0}.cred code{font-size:18px;font-weight:700}</style></head>
 <body class="adm"><main>
   <header class="top"><h1>Admin</h1><p id="who">KTU class check-in</p></header>
@@ -14,9 +14,13 @@
     <button id="forgotGo" class="btn" type="submit">Send reset link</button>
     <button type="button" id="forgotBack" class="btn forgot">Back to sign in</button><p id="forgotMsg" class="msg" role="status"></p></form>
   <div id="app" hidden>
-    <div class="tabs"><button class="btn quiet on" data-t="over">Overview</button><button class="btn quiet" data-t="lect">Lecturers</button><button class="btn quiet" data-t="cls">All classes</button><button class="btn quiet" data-t="roll">Class rolls</button><button class="btn quiet" data-t="ana">Analytics</button><button class="btn quiet" data-t="act">Activity</button><button class="btn quiet" data-t="sus">Suspicious <span id="susN" class="badge on" hidden></span></button><button class="btn quiet" data-t="rep">Reports <span id="repN" class="badge on" hidden></span></button><button class="btn quiet" data-t="trash">Trash <span id="trN" class="badge on" hidden></span></button><button class="btn quiet" data-t="set">Settings</button><a class="btn quiet" href="teacher.html">Lecturer portal</a><button id="out" class="btn quiet">Sign out</button></div>
+    <div class="tabs"><button class="btn quiet on" data-t="over">Overview</button><button class="btn quiet" data-t="lect">Lecturers</button><button class="btn quiet" data-t="cls">All classes</button><button class="btn quiet" data-t="roll">Class rolls</button><button class="btn quiet" data-t="stu">Student lookup</button><button class="btn quiet" data-t="ana">Analytics</button><button class="btn quiet" data-t="act">Activity</button><button class="btn quiet" data-t="sus">Suspicious <span id="susN" class="badge on" hidden></span></button><button class="btn quiet" data-t="rep">Reports <span id="repN" class="badge on" hidden></span></button><button class="btn quiet" data-t="trash">Trash <span id="trN" class="badge on" hidden></span></button><button class="btn quiet" data-t="set">Settings</button><a class="btn quiet" href="teacher.html">Lecturer portal</a><button id="out" class="btn quiet">Sign out</button></div>
     <p id="msg" class="msg" role="status"></p>
     <section id="t-over" class="card"><h2>Overview</h2><div class="stats" id="stats"></div>
+      <div class="reqbox"><h3>Announcement to all lecturers</h3><p class="note">Appears at the top of every lecturer and teaching assistant Home tab until it expires. They can dismiss it.</p>
+        <textarea id="anText" maxlength="500" rows="3" placeholder="e.g. Semester 2 check-in starts Monday. Please upload your class rolls."></textarea>
+        <div class="bar"><select id="anKind"><option value="info">Normal notice</option><option value="warn">Important</option></select><select id="anDays"><option value="1">Show for 1 day</option><option value="3">3 days</option><option value="7" selected>7 days</option><option value="30">30 days</option></select><button id="anPost" class="btn quiet" type="button">Post announcement</button></div>
+        <p id="anMsg" class="msg" role="status"></p><div id="anList"></div></div>
       <div class="reqbox"><h3>Needs your attention</h3><div id="attn" class="attn"></div></div>
       <div class="reqbox"><h3>Privacy: delete old location data</h3><p class="note">Removes the saved GPS position, phone ID and phone type from old check-ins. Names, index numbers and attendance results are kept.</p>
       <div class="bar"><select id="purgeMonths"><option value="3">Older than 3 months</option><option value="6" selected>Older than 6 months</option><option value="12">Older than 12 months</option></select><button id="purge" class="abtn bad" type="button">Delete location data</button></div></div>
@@ -47,6 +51,10 @@
       <h3 class="ch3">Saved rolls</h3>
       <div class="bar"><input id="rlQ" placeholder="Search lecturer, course, programme or level"></div>
       <div class="table-wrap"><table><thead><tr><th>Lecturer</th><th>Course</th><th>Programme</th><th>Level</th><th>Students</th><th>Actions</th></tr></thead><tbody id="rlB"></tbody></table></div></section>
+    <section id="t-stu" class="card" hidden><h2>Student lookup</h2>
+      <p class="note">Type an index number to see every check-in that student has made, how many classes they attended in each course, and who the lecturer was. Useful when a student disputes their attendance.</p>
+      <div class="bar"><input id="stIdx" maxlength="30" placeholder="Index number" autocomplete="off"><button id="stGo" class="btn" type="button" style="margin-top:0;width:auto;padding:0 22px">Look up</button></div>
+      <div id="stOut"></div></section>
     <section id="t-ana" class="card" hidden><h2>Analytics</h2>
       <div class="bar"><select id="anYear"><option value="">All years</option></select><select id="anSem"><option value="">All semesters</option><option>Semester 1</option><option>Semester 2</option><option>Summer / Resit</option></select><label class="chk mini"><input id="anArch" type="checkbox"> Include archived</label><button id="anGo" class="btn quiet" type="button">Refresh</button></div>
       <div id="anTotals" class="stats"></div>
@@ -67,7 +75,7 @@
       <div class="table-wrap"><table><thead><tr><th>Lecturer</th><th>Role</th><th>Last sign-in</th><th>Last class</th><th>Classes (30 days)</th><th>Check-ins (30 days)</th><th>In area %</th><th>Total classes</th></tr></thead><tbody id="laB"></tbody></table></div>
       <button id="laX" class="btn quiet" type="button" style="margin-top:10px">Download (Excel)</button></section>
     <section id="t-act" class="card" hidden><h2>Activity log</h2><p class="note">Who changed or removed what, newest first. Shows the last 300 entries.</p>
-      <div class="bar"><select id="actFilter"><option value="">All actions</option></select><input id="actQ" placeholder="Search"></div>
+      <div class="bar"><select id="actFilter"><option value="">All actions</option></select><input id="actQ" placeholder="Search"><button id="actX" class="btn quiet" type="button">Download (Excel)</button></div>
       <div class="table-wrap"><table><thead><tr><th>When</th><th>Who</th><th>Action</th><th>About</th><th>Detail</th></tr></thead><tbody id="actB"></tbody></table></div></section>
     <section id="t-sus" class="card" hidden><h2>Suspicious activity</h2>
       <p class="note">When a phone inside the class area tries to check in a second student, the lecturer gets a popup and the attempt is saved here. Weak or repeated GPS readings are listed below it.</p>
@@ -100,5 +108,5 @@
   </div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="shared.js?v=21"></script>
-<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=25"></script></body></html>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="shared.js?v=24"></script>
+<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=26"></script></body></html>

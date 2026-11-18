@@ -353,3 +353,18 @@ h4.ch3{margin:16px 0 6px;font-size:1rem}
 .cmini{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;margin:8px 0}
 .cmini .bar2{grid-column:1/-1;height:8px;border-radius:6px;background:var(--line);overflow:hidden}.cmini .bar2 i{display:block;height:100%;background:linear-gradient(90deg,var(--ok),color-mix(in srgb,var(--ok) 60%,var(--blue)))}
 .cmini .bar2.low i{background:var(--bad)}
+
+/* ---- Update 26: sidebar layout, icons, trend bars ---- */
+.spark{grid-column:1/-1;display:flex;align-items:flex-end;gap:3px;height:34px;margin-top:2px}
+.spark i{flex:1;max-width:18px;border-radius:3px 3px 0 0;background:color-mix(in srgb,var(--blue) 55%,var(--card));min-height:4px}
+.spark i:last-child{background:var(--blue)}
+body.adm .tabs svg{flex:0 0 auto}
+@media (min-width:980px){
+  body.adm main{max-width:1240px}
+  body.adm #app{display:grid;grid-template-columns:230px minmax(0,1fr);gap:18px;align-items:start}
+  body.adm #app>*{grid-column:2}
+  body.adm #app>.tabs{grid-column:1;grid-row:1/span 40;position:sticky;top:12px;flex-direction:column;align-items:stretch;gap:4px;padding:10px}
+  body.adm .tabs .btn.quiet,body.adm .tabs a.btn{justify-content:flex-start;width:100%;min-height:42px;padding:0 14px;flex:0 0 auto}
+  body.adm .tabs .on{box-shadow:0 4px 12px color-mix(in srgb,var(--blue) 35%,transparent)}
+}
+@media (max-width:979px){body.adm .tabs{position:static}}

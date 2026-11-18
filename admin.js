@@ -1,7 +1,7 @@
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $ = (i) => document.getElementById(i);
 const say = (id, t, k) => { $(id).textContent = t; $(id).className = "msg " + (k || ""); };
-let trashedPeople = [], people = [], classes = [], courses = [], nameReqs = [], counts = {}, sort = { lect: ["email", 1], cls: ["created_at", -1] };
+let attRows = [], trashedPeople = [], people = [], classes = [], courses = [], nameReqs = [], counts = {}, sort = { lect: ["email", 1], cls: ["created_at", -1] };
 const fmt = (iso) => new Date(iso).toLocaleString([], { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
 async function start() {
@@ -23,14 +23,14 @@ $("out").addEventListener("click", async () => { await sb.auth.signOut(); start(
 document.querySelectorAll(".tabs [data-t]").forEach((b) => b.addEventListener("click", () => {
   document.querySelectorAll(".tabs [data-t]").forEach((x) => x.classList.toggle("on", x === b));
   for (const t of ["over", "lect", "cls", "roll", "stu", "ana", "act", "sus", "rep", "trash", "tools", "set"]) $("t-" + t).hidden = t !== b.dataset.t;
-  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") loadSus(); if (b.dataset.t === "set") renderSettings(); if (b.dataset.t === "trash") loadTrash(); if (b.dataset.t === "stu") $("stIdx").focus(); if (b.dataset.t === "tools") loadTools(); if (b.dataset.t === "rep") loadReports();
+  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") loadSus(); if (b.dataset.t === "set") { renderSettings(); loadVenuesAdmin(); } if (b.dataset.t === "trash") loadTrash(); if (b.dataset.t === "stu") $("stIdx").focus(); if (b.dataset.t === "tools") loadTools(); if (b.dataset.t === "rep") loadReports();
 }));
 
 async function load() {
-  const [p, c, a, cr, rq] = await Promise.all([sb.from("profiles").select("*"), fetchAllRows(sb, "sessions", "*", "created_at", false), fetchAllRows(sb, "attendance", "session_id", "id"), sb.from("courses").select("owner,name").order("name"), sb.from("name_requests").select("*").eq("status", "pending").order("created_at")]);
+  const [p, c, a, cr, rq] = await Promise.all([sb.from("profiles").select("*"), fetchAllRows(sb, "sessions", "*", "created_at", false), fetchAllRows(sb, "attendance", "session_id,checked_in_at,in_range", "id"), sb.from("courses").select("owner,name").order("name"), sb.from("name_requests").select("*").eq("status", "pending").order("created_at")]);
   nameReqs = rq.data || [];
   courses = cr.data || [];
-  const allPeople = p.data || []; people = allPeople.filter((x) => !x.deleted_at); trashedPeople = allPeople.filter((x) => x.deleted_at); classes = c.data || []; counts = {};
+  const allPeople = p.data || []; people = allPeople.filter((x) => !x.deleted_at); trashedPeople = allPeople.filter((x) => x.deleted_at); classes = c.data || []; attRows = a.data || []; counts = {};
   for (const r of a.data || []) counts[r.session_id] = (counts[r.session_id] || 0) + 1;
   const byId = Object.fromEntries(allPeople.map((x) => [x.id, x]));
   const nameCount = {}; for (const p of people) if (p.full_name) nameCount[p.full_name.toLowerCase()] = (nameCount[p.full_name.toLowerCase()] || 0) + 1;
@@ -40,7 +40,7 @@ async function load() {
   for (const [n, l] of [[people.length, "Staff accounts"], [people.filter((x) => x.role === "lecturer" && x.active).length, "Active lecturers"], [people.filter((x) => x.role === "assistant" && x.active).length, "Teaching assistants"], [nameReqs.length, "Name requests"], [classes.length, "Classes"], [(a.data || []).length, "Check-ins"]]) {
     const d = document.createElement("div"), b = document.createElement("b"); b.textContent = 0; countUp(b, n); d.append(b, l); $("stats").appendChild(d);
   }
-  fillFilters(); drawL(); drawC(); drawReq(); loadStatus(); loadReports(true); trashCount(); drawAttn(); loadAnnouncements();
+  fillFilters(); drawL(); drawC(); drawReq(); loadStatus(); loadReports(true); trashCount(); drawAttn(); loadAnnouncements(); drawOverviewExtras();
 }
 
 function grid(head, body, cols, rows, key) {
@@ -841,3 +841,67 @@ function lookupTools(idx, res) {
   }));
   $("stOut").appendChild(bar);
 }
+
+// ---- Overview: today, live classes, last 14 days ----
+function drawOverviewExtras() {
+  if (!$("liveBox")) return;
+  const now = new Date(), t0 = new Date(); t0.setHours(0, 0, 0, 0);
+  const live = classes.filter((s) => new Date(s.closes_at) > now && new Date(s.opens_at) <= now && !s.archived);
+  const todayCls = classes.filter((s) => new Date(s.created_at) >= t0).length, todayIn = attRows.filter((a) => new Date(a.checked_in_at) >= t0).length;
+  const st = $("todayStats"); st.textContent = "";
+  for (const [n, l] of [[live.length, "Live classes now"], [todayCls, "Classes today"], [todayIn, "Check-ins today"], [attRows.length, "Check-ins in total"]]) { const d = el("div"), b = el("b"); b.textContent = n; d.append(b, l); st.appendChild(d); }
+  const box = $("liveBox"); box.textContent = "";
+  if (!live.length) { const p = el("p", "note"); p.textContent = "No class is open right now."; box.appendChild(p); }
+  for (const s of live) {
+    const row = el("div", "reqrow"), t = el("div", "reqtxt"), b = el("b"), sp = el("span"), left = Math.max(0, Math.round((new Date(s.closes_at) - now) / 60000));
+    b.textContent = s.course; sp.textContent = (staffName(s.owner) || "") + " | " + (counts[s.id] || 0) + " checked in | " + left + " min left"; t.append(b, sp);
+    const a = el("div", "acts"); a.append(abtn("Sheet", "", () => adminSheet(s)), abtn("Manage", "", () => manageClass(s)), abtn("Close now", "bad", async () => { if (!confirm("Close check-in for " + s.course + " now?")) return; const x = await sb.from("sessions").update({ closes_at: new Date().toISOString() }).eq("id", s.id); if (x.error) alert(x.error.message); else load(); }));
+    row.append(t, a); box.appendChild(row);
+  }
+  const c = $("chDay"); c.textContent = "";
+  const days = []; for (let i = 13; i >= 0; i--) { const d = new Date(t0); d.setDate(d.getDate() - i); days.push({ d, n: 0, inr: 0 }); }
+  for (const a of attRows) { const k = Math.floor((new Date(a.checked_in_at) - days[0].d) / 86400000); if (k >= 0 && k < 14) { days[k].n++; if (a.in_range) days[k].inr++; } }
+  const max = Math.max(1, ...days.map((x) => x.n));
+  for (const r of days) {
+    const col = el("div", "vcol"), num = el("span", "vnum"), track = el("div", "vtrack"), bar = el("div", "vbar"), inn = el("div", "vin"), lab = el("span", "vlab");
+    num.textContent = r.n; bar.style.height = (r.n ? Math.max(4, (r.n / max) * 100) : 0) + "%"; inn.style.height = (r.n ? (r.inr / r.n) * 100 : 0) + "%";
+    lab.textContent = r.d.toLocaleDateString([], { day: "numeric", month: "short" }); col.title = r.n + " check-in(s), " + r.inr + " in the class area";
+    bar.appendChild(inn); track.appendChild(bar); col.append(num, track, lab); c.appendChild(col);
+  }
+}
+setInterval(() => { if ($("t-over") && !$("t-over").hidden) drawOverviewExtras(); }, 30000);
+
+// ---- Shared venues (visible to every lecturer) ----
+async function loadVenuesAdmin() {
+  const box = $("svList"); if (!box) return; box.textContent = "";
+  const { data, error } = await sb.from("shared_venues").select("*").order("name");
+  if (error) { box.textContent = /relation|exist|schema/i.test(error.message) ? "Run upgrade26.sql in Supabase to turn shared venues on." : error.message; return; }
+  if (!(data || []).length) { const p = el("p", "note"); p.textContent = "No shared venues yet."; box.appendChild(p); }
+  for (const v of data || []) {
+    const r = el("div", "setrow"), s = el("span"); s.textContent = v.name + "  (" + Number(v.lat).toFixed(5) + ", " + Number(v.lng).toFixed(5) + (v.radius_m ? ", " + v.radius_m + " m" : "") + ")";
+    r.append(s, abtn("Remove", "bad", async () => { if (!confirm("Remove the venue " + v.name + "? Lecturers will no longer see it. Classes already created are not affected.")) return; const x = await sb.from("shared_venues").delete().eq("id", v.id); if (x.error) say("svMsg", x.error.message, "bad"); else loadVenuesAdmin(); }));
+    box.appendChild(r);
+  }
+}
+$("svHere").addEventListener("click", () => {
+  if (!navigator.geolocation) return say("svMsg", "This browser cannot give a location.", "warn");
+  say("svMsg", "Getting your position… stand in the room and wait a few seconds.");
+  navigator.geolocation.getCurrentPosition((p) => { $("svLat").value = p.coords.latitude.toFixed(6); $("svLng").value = p.coords.longitude.toFixed(6); say("svMsg", "Position filled in (accurate to about " + Math.round(p.coords.accuracy) + " m).", "ok"); }, () => say("svMsg", "Could not get your position. Allow location, or type the numbers.", "bad"), { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+});
+$("svAdd").addEventListener("click", async () => {
+  const name = $("svName").value.trim(), lat = Number($("svLat").value), lng = Number($("svLng").value), rad = Number($("svRad").value) || null;
+  if (name.length < 2 || !$("svLat").value || !$("svLng").value || !isFinite(lat) || !isFinite(lng)) return say("svMsg", "Enter a name and the position (or use My position).", "warn");
+  const r = await sb.from("shared_venues").insert({ name, lat, lng, radius_m: rad });
+  if (r.error) return say("svMsg", /relation|exist|schema/i.test(r.error.message) ? "Run upgrade26.sql in Supabase first." : r.error.message, "bad");
+  for (const id of ["svName", "svLat", "svLng"]) $(id).value = ""; say("svMsg", "Venue added. Lecturers can pick it on their Home tab.", "ok"); loadVenuesAdmin();
+});
+
+// ---- Sidebar icons ----
+(function icons() {
+  const P = { over: "M3 13h8V3H3zM13 21h8V11h-8zM13 3v6h8V3zM3 21h8v-6H3z", lect: "M16 11a4 4 0 1 0-8 0M4 21a8 8 0 0 1 16 0", cls: "M4 5h16v14H4zM4 10h16", roll: "M7 3h10v18H7zM10 8h4M10 12h4", stu: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-5-5", ana: "M4 20V10M10 20V4M16 20v-8M22 20H2", act: "M3 12h4l3-8 4 16 3-8h4", sus: "M12 3l9 16H3zM12 10v4M12 17v.5", rep: "M5 21V4h11l-1 4h5v9H9l-1-3H5", trash: "M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14", tools: "M14 6l4 4-9 9H5v-4zM13 7l4 4", set: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v3M12 19v3M2 12h3M19 12h3" };
+  for (const b of document.querySelectorAll(".tabs [data-t]")) {
+    const d = P[b.dataset.t]; if (!d || b.querySelector("svg")) continue;
+    const s = document.createElementNS("http://www.w3.org/2000/svg", "svg"); s.setAttribute("viewBox", "0 0 24 24"); s.setAttribute("width", "18"); s.setAttribute("height", "18"); s.setAttribute("aria-hidden", "true");
+    const p = document.createElementNS("http://www.w3.org/2000/svg", "path"); p.setAttribute("d", d); p.setAttribute("fill", "none"); p.setAttribute("stroke", "currentColor"); p.setAttribute("stroke-width", "2"); p.setAttribute("stroke-linecap", "round"); p.setAttribute("stroke-linejoin", "round"); s.appendChild(p); b.prepend(s);
+  }
+})();

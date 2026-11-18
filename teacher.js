@@ -141,9 +141,45 @@ async function courseSummary(all) {
     const best = Math.max(1, ...Array.from(by.values()).map((x) => x.ids.reduce((n, id) => n + (cnt.get(id) || 0), 0) / x.ids.length));
     const d = document.createElement("div"); d.className = "cmini";
     const a = document.createElement("b"), b = document.createElement("span"), bar = document.createElement("div"), i = document.createElement("i");
-    a.textContent = e.course; b.textContent = e.ids.length + " class" + (e.ids.length === 1 ? "" : "es") + ", avg " + avg.toFixed(1); bar.className = "bar2"; i.style.width = Math.round((avg / best) * 100) + "%"; bar.appendChild(i); d.append(a, b, bar); box.appendChild(d);
+    a.textContent = e.course; b.textContent = e.ids.length + " class" + (e.ids.length === 1 ? "" : "es") + ", avg " + avg.toFixed(1); bar.className = "bar2"; i.style.width = Math.round((avg / best) * 100) + "%"; bar.appendChild(i); d.append(a, b, bar);
+    const last = e.ids.slice(0, 12).reverse(), top = Math.max(1, ...last.map((id) => cnt.get(id) || 0)), sp = document.createElement("div"); sp.className = "spark"; sp.title = "Check-ins in your last " + last.length + " classes, oldest on the left";
+    for (const id of last) { const u = document.createElement("i"); u.style.height = Math.max(8, ((cnt.get(id) || 0) / top) * 100) + "%"; sp.appendChild(u); }
+    d.appendChild(sp); box.appendChild(d);
   }
 }
+// "Students to follow up": roll students of one course whose attendance is below the chosen percentage.
+function fillRiskCourses(all) {
+  const sel = $("riskCourse"), keep = sel.value; sel.textContent = "";
+  const o0 = document.createElement("option"); o0.value = ""; o0.textContent = "Choose a course"; sel.appendChild(o0);
+  for (const c of [...new Set((all || []).map((s) => s.course))].sort()) { const o = document.createElement("option"); o.value = o.textContent = c; sel.appendChild(o); }
+  sel.value = Array.from(sel.options).some((o) => o.value === keep) ? keep : "";
+}
+let riskRows = [];
+$("riskGo").addEventListener("click", async () => {
+  const course = $("riskCourse").value, thr = Number($("riskThr").value) || 75, min = Number($("riskMin").value) || 3, out = $("riskOut");
+  if (!course) { out.textContent = "Choose a course."; return; }
+  out.textContent = "Working it out…";
+  const sess = mySessions.filter((s) => s.course === course && !s.archived);
+  const [roll, atts] = await Promise.all([fetchRolls(course), fetchAttendance(sb, sess.map((s) => s.id))]);
+  if (!roll.length) { out.textContent = "There is no class roll for this course yet. Upload one on the Rolls tab."; return; }
+  const seen = new Map(); for (const a of atts) seen.set(a.session_id + "|" + String(a.index_number).toUpperCase(), 1);
+  riskRows = [];
+  for (const r of roll) {
+    const held = sess.filter((c) => rollMatchesClass(r, c)); if (held.length < min) continue;
+    const idx = String(r.index_number).toUpperCase(), got = held.filter((c) => seen.has(c.id + "|" + idx)).length, pct = Math.round((got / held.length) * 100);
+    if (pct < thr) riskRows.push({ name: r.student_name || "", idx, prog: r.programme || "", lvl: r.level || "", got, held: held.length, pct });
+  }
+  riskRows.sort((a, b) => a.pct - b.pct || a.name.localeCompare(b.name));
+  out.textContent = "";
+  if (!riskRows.length) { out.textContent = "No student is below " + thr + "% (for courses with at least " + min + " classes)."; return; }
+  const w = document.createElement("div"); w.className = "table-wrap"; const tb = document.createElement("table");
+  tb.innerHTML = "<thead><tr><th>Name</th><th>Index number</th><th>Attended</th><th>Rate</th></tr></thead>"; const bd = document.createElement("tbody");
+  for (const r of riskRows) { const tr = document.createElement("tr"); for (const v of [r.name || "-", r.idx, r.got + " of " + r.held, r.pct + "%"]) { const td = document.createElement("td"); td.textContent = v; tr.appendChild(td); } bd.appendChild(tr); }
+  tb.appendChild(bd); w.appendChild(tb); out.appendChild(w);
+  const x = document.createElement("button"); x.type = "button"; x.className = "btn quiet"; x.style.marginTop = "10px"; x.textContent = "Download (Excel)";
+  x.addEventListener("click", () => downloadXlsx(course + " students to follow up", [{ name: "Follow up", rows: [["Name", "Index number", "Programme", "Level", "Attended", "Classes held", "Rate %"]].concat(riskRows.map((r) => [r.name, r.idx, r.prog, r.lvl, r.got, r.held, r.pct])) }]));
+  out.appendChild(x);
+});
 $("lkGo").addEventListener("click", async () => {
   const idx = $("lkIdx").value.trim().toUpperCase(); if (idx.length < 4) return say("cmsg", "Enter the student's index number.", "warn");
   $("lkOut").textContent = "Looking…";
@@ -166,7 +202,7 @@ async function loadSessions() {
   const { data, error } = await sb.from("sessions").select("*").order("created_at", { ascending: false }).limit(200);
   const box = $("sessions"); box.textContent = "";
   if (error) return;
-  weekStats(data); mySessions = data; courseSummary(data);
+  weekStats(data); mySessions = data; courseSummary(data); fillRiskCourses(data);
   if (!data.length) { box.textContent = "No classes yet."; return; }
   const cq = $("cq").value.trim().toLowerCase(), cf = $("cfilter").value;
   for (const s of data) {
@@ -1031,15 +1067,16 @@ document.addEventListener("fullscreenchange", () => { if (!document.fullscreenEl
 // ---- Venues ----
 async function loadVenues() {
   const { data } = await sb.from("venues").select("*").order("name");
-  venues = data || [];
+  let shared = []; try { const r = await sb.from("shared_venues").select("*").order("name"); shared = (r.data || []).map((v) => Object.assign({}, v, { shared: true })); } catch (e) {}
+  venues = shared.concat(data || []);
   const sel = $("venue"), keep = sel.value; sel.textContent = "";
   const add = (v, t) => { const o = document.createElement("option"); o.value = v; o.textContent = t; sel.appendChild(o); };
   add("", "My current location (stand in the room)");
-  for (const v of venues) add(v.id, v.name);
+  for (const v of venues) add(v.id, (v.shared ? "\u2605 " : "") + v.name + (v.shared ? " (KTU)" : ""));
   sel.value = venues.some((v) => v.id === keep) ? keep : ""; syncVenue();
 }
 function syncVenue() {
-  $("venueDel").hidden = !$("venue").value;
+  { const sv = venues.find((x) => x.id === $("venue").value); $("venueDel").hidden = !sv || !!sv.shared; }
   const v = venues.find((x) => x.id === $("venue").value); if (v && v.radius_m) $("radius").value = v.radius_m;
 }
 $("venue").addEventListener("change", syncVenue);

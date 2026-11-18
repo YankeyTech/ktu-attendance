@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=17"><link rel="stylesheet" href="extra.css?v=24">
+<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=17"><link rel="stylesheet" href="extra.css?v=26">
 <style>main{max-width:1000px}th[data-k]{cursor:pointer;user-select:none}.tabs{display:flex;gap:6px;margin:10px 0;flex-wrap:wrap}.tabs button{flex:1}.tabs .on{background:#004c84;color:#fff}.cred{background:#fff8d6;color:#222;border:1px solid #e0c200;border-radius:10px;padding:12px;margin:10px 0}.cred code{font-size:18px;font-weight:700}</style></head>
 <body class="adm"><main>
   <header class="top"><h1>Admin</h1><p id="who">KTU class check-in</p></header>
@@ -17,6 +17,9 @@
     <div class="tabs"><button class="btn quiet on" data-t="over">Overview</button><button class="btn quiet" data-t="lect">Lecturers</button><button class="btn quiet" data-t="cls">All classes</button><button class="btn quiet" data-t="roll">Class rolls</button><button class="btn quiet" data-t="stu">Student lookup</button><button class="btn quiet" data-t="ana">Analytics</button><button class="btn quiet" data-t="act">Activity</button><button class="btn quiet" data-t="sus">Suspicious <span id="susN" class="badge on" hidden></span></button><button class="btn quiet" data-t="rep">Reports <span id="repN" class="badge on" hidden></span></button><button class="btn quiet" data-t="trash">Trash <span id="trN" class="badge on" hidden></span></button><button class="btn quiet" data-t="tools">Tools</button><button class="btn quiet" data-t="set">Settings</button><a class="btn quiet" href="teacher.html">Lecturer portal</a><button id="out" class="btn quiet">Sign out</button></div>
     <p id="msg" class="msg" role="status"></p>
     <section id="t-over" class="card"><h2>Overview</h2><div class="stats" id="stats"></div>
+      <div class="reqbox"><h3>Today</h3><div class="stats" id="todayStats"></div></div>
+      <div class="reqbox"><h3>Live now</h3><div id="liveBox"></div></div>
+      <div class="reqbox"><h3>Check-ins, last 14 days</h3><div class="vchart" id="chDay"></div><p class="note">The darker part of each bar is the check-ins made inside the class area.</p></div>
       <div class="reqbox"><h3>Announcement to all lecturers</h3><p class="note">Appears at the top of every lecturer and teaching assistant Home tab until it expires. They can dismiss it.</p>
         <textarea id="anText" maxlength="500" rows="3" placeholder="e.g. Semester 2 check-in starts Monday. Please upload your class rolls."></textarea>
         <div class="bar"><select id="anKind"><option value="info">Normal notice</option><option value="warn">Important</option></select><select id="anDays"><option value="1">Show for 1 day</option><option value="3">3 days</option><option value="7" selected>7 days</option><option value="30">30 days</option></select><button id="anPost" class="btn quiet" type="button">Post announcement</button></div>
@@ -85,6 +88,11 @@
       <h3 class="ch3">GPS warnings (latest 300)</h3>
       <div class="table-wrap"><table><thead><tr><th>When</th><th>Lecturer</th><th>Course</th><th>Student</th><th>Warning</th><th>Distance</th></tr></thead><tbody id="gpsB"></tbody></table></div></section>
     <section id="t-set" class="card" hidden><h2>Settings</h2>
+      <h3 class="ch3">Shared venues</h3><p class="note">Save a lecture room once and every lecturer and teaching assistant can pick it on their Home tab, marked with a star. Stand in the room and press My position.</p>
+      <div id="svList"></div>
+      <div class="row"><div><label for="svName">Venue name</label><input id="svName" maxlength="80" placeholder="e.g. Block B Lecture Hall 2"></div><div><label for="svRad">Radius (metres)</label><input id="svRad" type="number" min="20" max="2000" value="100"></div></div>
+      <div class="row"><div><label for="svLat">Latitude</label><input id="svLat" inputmode="decimal"></div><div><label for="svLng">Longitude</label><input id="svLng" inputmode="decimal"></div></div>
+      <div class="bar"><button id="svHere" class="btn quiet" type="button">Use my position</button><button id="svAdd" class="btn quiet" type="button">Add venue</button></div><p id="svMsg" class="msg" role="status"></p>
       <h3 class="ch3">Levels</h3><p class="note">These appear on the student and lecturer pages. Removing one only hides it from the lists. Old records keep it.</p>
       <div id="lvList"></div>
       <div class="bar"><input id="lvNew" maxlength="40" placeholder="New level, e.g. Level 500"><button id="lvAdd" class="btn quiet" type="button">Add level</button></div>
@@ -117,4 +125,4 @@
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="shared.js?v=24"></script>
-<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=27"></script></body></html>
+<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=28"></script></body></html>

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Lecturer | KTU check-in</title>
 <link rel="stylesheet" href="style.css?v=17">
-<link rel="stylesheet" href="extra.css?v=24">
+<link rel="stylesheet" href="extra.css?v=26">
 </head>
 <body class="tch">
 <main>
@@ -186,6 +186,9 @@
     </div>
     <div id="p-classes" class="tpanel" hidden>
     <section class="card"><h2>Courses at a glance</h2><p class="note">Classes held and average check-ins for each of your courses.</p><div id="courseSum"></div></section>
+    <section class="card"><h2>Students to follow up</h2><p class="note">Students on your class roll whose attendance is low. Uses the roll for the course, so upload it first on the Rolls tab.</p>
+      <div class="bar"><select id="riskCourse"></select><label>Below <input id="riskThr" type="number" min="1" max="100" value="75" style="width:80px">%</label><label>After <input id="riskMin" type="number" min="1" max="60" value="3" style="width:70px"> classes</label><button id="riskGo" class="btn quiet" type="button">Show</button></div>
+      <div id="riskOut"></div></section>
     <section class="card"><h2>Look up a student</h2><p class="note">Type an index number to see that student's attendance in your classes.</p>
       <div class="bar"><input id="lkIdx" maxlength="30" placeholder="Index number" autocomplete="off"><button id="lkGo" class="btn quiet" type="button">Look up</button></div>
       <div id="lkOut"></div></section>
@@ -260,6 +263,6 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="shared.js?v=24"></script>
 <script src="programmes.js"></script>
-<script src="teacher.js?v=27"></script>
+<script src="teacher.js?v=28"></script>
 </body>
 </html>

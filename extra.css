@@ -368,3 +368,9 @@ body.adm .tabs svg{flex:0 0 auto}
   body.adm .tabs .on{box-shadow:0 4px 12px color-mix(in srgb,var(--blue) 35%,transparent)}
 }
 @media (max-width:979px){body.adm .tabs{position:static}}
+
+/* ---- Update 27: admin inbox ---- */
+.inbox{border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:0 0 14px;background:var(--card);box-shadow:0 4px 14px rgba(10,30,50,.05)}
+.inbox .inhead{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding-bottom:8px;margin-bottom:4px;border-bottom:2px solid color-mix(in srgb,var(--gold) 55%,var(--line))}
+.inbox .inhead b{font-family:var(--display);font-size:1.05rem}
+.calm{color:var(--ok);font-weight:700;margin:8px 0}

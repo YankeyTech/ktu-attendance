@@ -4,7 +4,7 @@ const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no 0/O/1/I to avoid mix-u
 let sortBy = ["checked_in_at", 1];
 let groups = [];
 let rowLimit = 50, openRows = new Set(), knownOut = new Set(), popQueue = [], popId = null, popReady = false, reviewAll = false;
-let myId = "", venues = [], seenDots = new Set(), projN = -1;
+let byAdmin = false, popupsOff = false, myId = "", venues = [], seenDots = new Set(), projN = -1;
 let current = null, timer = null, records = [], role = "lecturer", qrTimer = null, lastWin = -1, rollRows = [], clockOffset = 0, myName = "", myEmail = "";
 
 function say(id, text, kind) { $(id).textContent = text; $(id).className = "msg " + (kind || ""); }
@@ -55,10 +55,10 @@ async function refreshAuth() {
   $("app").hidden = !session;
   $("who").textContent = session ? "Loading..." : "KTU class check-in";
   if (session) {
-    const { data: pr } = await sb.from("profiles").select("role,must_change,active,full_name").eq("id", session.user.id).single();
+    const { data: pr } = await sb.from("profiles").select("role,must_change,active,full_name,alerts_by_admin").eq("id", session.user.id).single();
     if (pr && pr.must_change) return location.replace("change-password.html");
     if (pr && pr.active === false) { await sb.auth.signOut(); return say("loginMsg", "This account is disabled. Contact the admin.", "bad"); }
-    role = (pr && pr.role) || "lecturer";
+    role = (pr && pr.role) || "lecturer"; byAdmin = !!(pr && pr.alerts_by_admin);
     { const { data: pn } = await sb.from("name_requests").select("requested_name").eq("user_id", session.user.id).eq("status", "pending").maybeSingle(); pendingName = pn ? pn.requested_name : ""; }
     myName = (pr && pr.full_name) || ""; $("myName").value = myName; myEmail = session.user.email; myId = session.user.id; loadVenues(); applyName();
     document.body.dataset.role = role;
@@ -123,7 +123,7 @@ $("start").addEventListener("submit", async (e) => {
 // "Your week" strip on the Home tab: classes, check-ins and how many were inside the class area, since Monday.
 let mySessions = [];
 async function pausedBanner() {
-  try { const { data } = await sb.rpc("get_public_settings"); if (!data || !data.paused) return;
+  try { const { data } = await sb.rpc("get_public_settings"); popupsOff = data && data.popups === false; if (!data || !data.paused) return;
     const d = document.createElement("div"); d.className = "announce warn"; const t = document.createElement("div"), b = document.createElement("b"), s = document.createElement("span");
     b.textContent = "Check-in is paused by the admin"; s.textContent = data.message || "Students cannot check in right now."; t.append(b, s); d.appendChild(t); $("announceBox").prepend(d); } catch (e) {}
 }
@@ -277,15 +277,16 @@ async function loadBlocked() {
   const pend = data.filter((b) => b.status === "pending");
   for (const b of pend) if (!phoneSeen.has(b.id)) { phoneSeen.add(b.id); fresh = true; }
   phoneQ = pend;
-  if (fresh) { phoneHidden = false; if (isOpen()) beep(0.25); }
+  if (fresh) { phoneHidden = false; if (isOpen() && !adminHandles()) beep(0.25); }
   showPhonePop(); renderPhoneAlerts(); updateAlerts();
 }
 function phoneText(b) {
   return "on the same phone that " + (b.device_name || "another student") + (b.device_index ? " (" + b.device_index + ")" : "") + " already used. They are " + (b.in_range === false ? "OUTSIDE the class area" : "inside the class area") + (b.distance_m != null ? " (about " + Math.round(b.distance_m) + " m away)" : "") + ". " + (b.programme || "") + (b.level ? ", " + b.level : "") + ".";
 }
+const adminHandles = () => byAdmin || popupsOff;
 function showPhonePop() {
   const pop = $("phonePop");
-  if (!phoneQ.length || phoneHidden) { pop.hidden = true; return; }
+  if (!phoneQ.length || phoneHidden || adminHandles()) { pop.hidden = true; return; }
   const b = phoneQ[0];
   $("phWho").textContent = (b.student_name || b.index_number) + "  (" + b.index_number + ")";
   $("phInfo").textContent = "is trying to check in " + phoneText(b);
@@ -310,7 +311,8 @@ function renderPhoneAlerts() {
     const sp = document.createElement("span"); sp.textContent = "Tried " + phoneText(b);
     info.append(n, sp);
     const acts = document.createElement("div"); acts.className = "acts";
-    acts.append(rvBtn("Allow", "ok", () => decidePhone(true, b)), rvBtn("Reject", "bad", () => decidePhone(false, b)));
+    if (adminHandles()) { const w = document.createElement("span"); w.className = "note"; w.textContent = "The admin is handling this one."; acts.appendChild(w); }
+    else acts.append(rvBtn("Allow", "ok", () => decidePhone(true, b)), rvBtn("Reject", "bad", () => decidePhone(false, b)));
     row.append(info, acts); L.appendChild(row);
   }
   const D = $("phoneDone"); D.textContent = ""; $("phoneHist").hidden = !done.length;

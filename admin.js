@@ -22,8 +22,8 @@ wireForgot(sb, "login");
 $("out").addEventListener("click", async () => { await sb.auth.signOut(); start(); });
 document.querySelectorAll(".tabs [data-t]").forEach((b) => b.addEventListener("click", () => {
   document.querySelectorAll(".tabs [data-t]").forEach((x) => x.classList.toggle("on", x === b));
-  for (const t of ["over", "lect", "cls", "roll", "stu", "ana", "act", "sus", "rep", "trash", "tools", "set"]) $("t-" + t).hidden = t !== b.dataset.t;
-  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") loadSus(); if (b.dataset.t === "set") { renderSettings(); loadVenuesAdmin(); } if (b.dataset.t === "trash") loadTrash(); if (b.dataset.t === "stu") $("stIdx").focus(); if (b.dataset.t === "tools") loadTools(); if (b.dataset.t === "rep") loadReports();
+  for (const t of ["over", "inb", "lect", "cls", "roll", "stu", "ana", "act", "sus", "rep", "trash", "tools", "set"]) $("t-" + t).hidden = t !== b.dataset.t;
+  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") loadSus(); if (b.dataset.t === "set") { renderSettings(); loadVenuesAdmin(); } if (b.dataset.t === "trash") loadTrash(); if (b.dataset.t === "stu") $("stIdx").focus(); if (b.dataset.t === "tools") loadTools(); if (b.dataset.t === "inb") loadInbox(); if (b.dataset.t === "rep") loadReports();
 }));
 
 async function load() {
@@ -40,7 +40,7 @@ async function load() {
   for (const [n, l] of [[people.length, "Staff accounts"], [people.filter((x) => x.role === "lecturer" && x.active).length, "Active lecturers"], [people.filter((x) => x.role === "assistant" && x.active).length, "Teaching assistants"], [nameReqs.length, "Name requests"], [classes.length, "Classes"], [(a.data || []).length, "Check-ins"]]) {
     const d = document.createElement("div"), b = document.createElement("b"); b.textContent = 0; countUp(b, n); d.append(b, l); $("stats").appendChild(d);
   }
-  fillFilters(); drawL(); drawC(); drawReq(); loadStatus(); loadReports(true); trashCount(); drawAttn(); loadAnnouncements(); drawOverviewExtras();
+  fillFilters(); drawL(); drawC(); drawReq(); loadStatus(); loadReports(true); trashCount(); drawAttn(); loadAnnouncements(); drawOverviewExtras(); loadSus().then(updateInboxBadge).catch(() => {});
 }
 
 function grid(head, body, cols, rows, key) {
@@ -639,14 +639,14 @@ $("bkGo").addEventListener("click", async () => {
 // ---- "Needs your attention" chips on the Overview tab ----
 function drawAttn() {
   const box = $("attn"); if (!box) return; box.textContent = "";
-  const items = [["lect", "Name change requests", nameReqs.length], ["sus", "Phone alerts to review", +($("susN").textContent || 0) * (!$("susN").hidden)], ["rep", "Open problem reports", +($("repN").textContent || 0) * (!$("repN").hidden)], ["trash", "Items in the Trash", +($("trN").textContent || 0) * (!$("trN").hidden)]].filter((x) => x[2] > 0);
+  const items = [["lect", "Name change requests", nameReqs.length], ["sus", "Phone alerts to review", +($("susN").textContent || 0) * (!$("susN").hidden)], ["inb", "Alerts waiting for a decision", +($("inN").textContent || 0) * (!$("inN").hidden)], ["rep", "Open problem reports", +($("repN").textContent || 0) * (!$("repN").hidden)], ["trash", "Items in the Trash", +($("trN").textContent || 0) * (!$("trN").hidden)]].filter((x) => x[2] > 0);
   if (!items.length) { const c = document.createElement("span"); c.className = "calm"; c.textContent = "\u2713 All clear. Nothing is waiting for you."; box.appendChild(c); return; }
   for (const [tab, label, n] of items) {
     const b = document.createElement("button"), c = document.createElement("b"); b.type = "button"; c.textContent = n; b.append(c, label);
     b.addEventListener("click", () => document.querySelector('.tabs [data-t="' + tab + '"]').click()); box.appendChild(b);
   }
 }
-for (const id of ["susN", "repN", "trN"]) new MutationObserver(drawAttn).observe($(id), { attributes: true, childList: true, characterData: true, subtree: true });
+for (const id of ["susN", "repN", "trN", "inN"]) new MutationObserver(drawAttn).observe($(id), { attributes: true, childList: true, characterData: true, subtree: true });
 setTimeout(drawAttn, 1500);
 
 // ---- Trash: everything deleted is kept 3 months; restore it or delete it for good ----
@@ -898,10 +898,86 @@ $("svAdd").addEventListener("click", async () => {
 
 // ---- Sidebar icons ----
 (function icons() {
-  const P = { over: "M3 13h8V3H3zM13 21h8V11h-8zM13 3v6h8V3zM3 21h8v-6H3z", lect: "M16 11a4 4 0 1 0-8 0M4 21a8 8 0 0 1 16 0", cls: "M4 5h16v14H4zM4 10h16", roll: "M7 3h10v18H7zM10 8h4M10 12h4", stu: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-5-5", ana: "M4 20V10M10 20V4M16 20v-8M22 20H2", act: "M3 12h4l3-8 4 16 3-8h4", sus: "M12 3l9 16H3zM12 10v4M12 17v.5", rep: "M5 21V4h11l-1 4h5v9H9l-1-3H5", trash: "M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14", tools: "M14 6l4 4-9 9H5v-4zM13 7l4 4", set: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v3M12 19v3M2 12h3M19 12h3" };
+  const P = { inb: "M4 4h16v12h-5l-2 3h-2l-2-3H4z", over: "M3 13h8V3H3zM13 21h8V11h-8zM13 3v6h8V3zM3 21h8v-6H3z", lect: "M16 11a4 4 0 1 0-8 0M4 21a8 8 0 0 1 16 0", cls: "M4 5h16v14H4zM4 10h16", roll: "M7 3h10v18H7zM10 8h4M10 12h4", stu: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-5-5", ana: "M4 20V10M10 20V4M16 20v-8M22 20H2", act: "M3 12h4l3-8 4 16 3-8h4", sus: "M12 3l9 16H3zM12 10v4M12 17v.5", rep: "M5 21V4h11l-1 4h5v9H9l-1-3H5", trash: "M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14", tools: "M14 6l4 4-9 9H5v-4zM13 7l4 4", set: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v3M12 19v3M2 12h3M19 12h3" };
   for (const b of document.querySelectorAll(".tabs [data-t]")) {
     const d = P[b.dataset.t]; if (!d || b.querySelector("svg")) continue;
     const s = document.createElementNS("http://www.w3.org/2000/svg", "svg"); s.setAttribute("viewBox", "0 0 24 24"); s.setAttribute("width", "18"); s.setAttribute("height", "18"); s.setAttribute("aria-hidden", "true");
     const p = document.createElementNS("http://www.w3.org/2000/svg", "path"); p.setAttribute("d", d); p.setAttribute("fill", "none"); p.setAttribute("stroke", "currentColor"); p.setAttribute("stroke-width", "2"); p.setAttribute("stroke-linecap", "round"); p.setAttribute("stroke-linejoin", "round"); s.appendChild(p); b.prepend(s);
   }
 })();
+
+// ---- Inbox: decide lecturers' alerts for them ----
+let reviewRows = [];
+async function loadInbox() {
+  say("inMsg", "Loading…");
+  const st = await sb.rpc("get_public_settings");
+  if (!st.error && st.data) drawPopupState(st.data);
+  await loadSus();
+  const cls = Object.fromEntries(classes.map((c) => [c.id, c])), live = new Set(classes.filter((c) => !c.archived).map((c) => c.id));
+  const r = await sb.from("attendance").select("id,session_id,index_number,student_name,distance_m,gps_flag,checked_in_at,in_range,reviewed").eq("in_range", false).order("checked_in_at", { ascending: false }).limit(400);
+  reviewRows = (r.data || []).filter((a) => !a.reviewed && live.has(a.session_id)).map((a) => ({ a, c: cls[a.session_id] || {} }));
+  say("inMsg", ""); drawInbox(); updateInboxBadge();
+}
+function pendingPhone() { return susRows.filter((r) => r.x.status === "pending"); }
+function updateInboxBadge() { const n = pendingPhone().length + reviewRows.length; const b = $("inN"); b.hidden = !n; b.textContent = n; }
+function drawPopupState(s) {
+  const on = s.popups !== false; $("popState").textContent = on ? "Popups are ON: lecturers see phone-alert popups on their own page." : "Popups are OFF: lecturers do not see phone-alert popups. You decide them here.";
+  $("popState").className = "msg " + (on ? "ok" : "warn"); $("popBtn").textContent = on ? "Turn popups off for everyone" : "Turn popups back on"; $("popBtn").dataset.on = on ? "1" : "";
+}
+$("popBtn").addEventListener("click", async () => {
+  const to = !$("popBtn").dataset.on; if (!to && !confirm("Turn the phone-alert popups OFF on every lecturer page? You will have to decide the alerts here.")) return;
+  const r = await sb.rpc("admin_set_popups", { p_on: to }); if (r.error) return say("inMsg", /function|exist/i.test(r.error.message) ? "Run upgrade27.sql in Supabase first." : r.error.message, "bad"); drawPopupState(r.data);
+});
+function lookIdx(idx) { document.querySelector('.tabs [data-t="stu"]').click(); $("stIdx").value = idx; $("stGo").click(); }
+async function decideOne(x, allow) {
+  const r = await sb.rpc("resolve_blocked", { p_id: x.id, p_allow: allow });
+  if (r.error || (r.data && r.data.error)) return say("inMsg", r.error ? r.error.message : r.data.error, "bad");
+  say("inMsg", (allow ? "Allowed: " : "Rejected: ") + (x.student_name || x.index_number), "ok"); await load(); loadInbox();
+}
+function drawInbox() {
+  const box = $("inPhone"); box.textContent = "";
+  const byOwner = new Map(); for (const r of pendingPhone()) { const k = r.c.owner || "?"; if (!byOwner.has(k)) byOwner.set(k, []); byOwner.get(k).push(r); }
+  if (!byOwner.size) { const p = el("p", "calm"); p.textContent = "✓ No phone alerts are waiting."; box.appendChild(p); }
+  for (const [owner, list] of byOwner) {
+    const prof = people.find((p) => p.id === owner) || {}, g = el("div", "inbox");
+    const hd = el("div", "inhead"), nm = el("b"); nm.textContent = staffName(owner) + "  (" + list.length + ")"; hd.appendChild(nm);
+    const ac = el("div", "acts");
+    ac.append(abtn("Allow all", "ok", async () => { if (!confirm("Allow all " + list.length + " waiting alerts of " + staffName(owner) + "?")) return; const r = await sb.rpc("admin_decide_all", { p_owner: owner, p_allow: true }); if (r.error) say("inMsg", r.error.message, "bad"); else { say("inMsg", r.data + " alert(s) allowed.", "ok"); await load(); loadInbox(); } }),
+      abtn("Reject all", "bad", async () => { if (!confirm("Reject all " + list.length + " waiting alerts of " + staffName(owner) + "?")) return; const r = await sb.rpc("admin_decide_all", { p_owner: owner, p_allow: false }); if (r.error) say("inMsg", r.error.message, "bad"); else { say("inMsg", r.data + " alert(s) rejected.", "ok"); await load(); loadInbox(); } }),
+      abtn(prof.alerts_by_admin ? "Hand alerts back" : "Take over alerts", "", async () => { const to = !prof.alerts_by_admin; const r = await sb.rpc("admin_set_alerts_by_admin", { p_id: owner, p_on: to }); if (r.error) return say("inMsg", r.error.message, "bad"); prof.alerts_by_admin = to; say("inMsg", to ? staffName(owner) + " no longer gets alert popups. You decide them." : "Alerts handed back to " + staffName(owner) + ".", "ok"); load().then(drawInbox); }));
+    hd.appendChild(ac); g.appendChild(hd);
+    if (prof.alerts_by_admin) { const n = el("p", "note"); n.textContent = "You are handling this lecturer's alerts. Their popups are off."; g.appendChild(n); }
+    for (const { x, c } of list) {
+      const row = el("div", "reqrow"), t = el("div", "reqtxt"), b = el("b"), sp = el("span");
+      b.textContent = (x.student_name || "-") + "  (" + x.index_number + ")";
+      sp.textContent = (c.course || "-") + " | " + fmt(x.at) + " | phone already used by " + (x.device_name || "-") + (x.device_index ? " (" + x.device_index + ")" : "") + " | " + (x.in_range === false ? "OUTSIDE the class area" : "inside the class area") + (x.distance_m != null ? ", " + Math.round(x.distance_m) + " m" : "");
+      t.append(b, sp); const a = el("div", "acts");
+      a.append(abtn("Allow", "ok", () => decideOne(x, true)), abtn("Reject", "bad", () => decideOne(x, false)), abtn("Look up", "", () => lookIdx(x.index_number)));
+      row.append(t, a); g.appendChild(row);
+    }
+    box.appendChild(g);
+  }
+  const rv = $("inReview"); rv.textContent = "";
+  if (!reviewRows.length) { const p = el("p", "calm"); p.textContent = "✓ No outside-area check-ins are waiting for review."; rv.appendChild(p); }
+  const by2 = new Map(); for (const r of reviewRows) { const k = r.c.owner || "?"; if (!by2.has(k)) by2.set(k, []); by2.get(k).push(r); }
+  for (const [owner, list] of by2) {
+    const g = el("div", "inbox"), hd = el("div", "inhead"), nm = el("b"); nm.textContent = staffName(owner) + "  (" + list.length + ")"; hd.appendChild(nm); g.appendChild(hd);
+    for (const { a, c } of list) {
+      const row = el("div", "reqrow"), t = el("div", "reqtxt"), b = el("b"), sp = el("span");
+      b.textContent = (a.student_name || "-") + "  (" + a.index_number + ")"; sp.textContent = (c.course || "-") + " | " + fmt(a.checked_in_at) + " | " + (a.distance_m != null ? Math.round(a.distance_m) + " m away" : "outside the class area") + (a.gps_flag ? " | " + a.gps_flag : "");
+      t.append(b, sp); const ac = el("div", "acts");
+      const run = async (act, msg) => { const r = await sb.rpc("admin_review_checkin", { p_id: a.id, p_action: act }); if (r.error || !r.data.ok) say("inMsg", r.error ? r.error.message : r.data.error, "bad"); else { say("inMsg", msg + ": " + a.index_number, "ok"); await load(); loadInbox(); } };
+      ac.append(abtn("Accept as present", "ok", () => run("accept", "Accepted")), abtn("Keep outside", "", () => run("keep", "Kept outside")), abtn("Remove", "bad", () => { if (confirm("Remove " + a.index_number + " from this class? It goes to the Trash.")) run("remove", "Removed"); }), abtn("Look up", "", () => lookIdx(a.index_number)));
+      row.append(t, ac); g.appendChild(row);
+    }
+    rv.appendChild(g);
+  }
+  const dn = $("inDone"); dn.textContent = "";
+  for (const { x, c } of susRows.filter((r) => r.x.status !== "pending").slice(0, 15)) {
+    const row = el("div", "reqrow"), t = el("div", "reqtxt"), b = el("b"), sp = el("span");
+    b.textContent = (x.student_name || "-") + "  (" + x.index_number + ")"; sp.textContent = (c.course || "-") + " | " + (x.status === "allowed" ? "Allowed" : "Rejected") + (x.decided_at ? " " + fmt(x.decided_at) : ""); t.append(b, sp);
+    const a = el("div", "acts"); a.append(abtn("Reopen", "", async () => { const r = await sb.rpc("admin_reopen_blocked", { p_id: x.id }); if (r.error || !r.data.ok) say("inMsg", r.error ? r.error.message : r.data.error, "bad"); else { say("inMsg", "Reopened. It is waiting again.", "ok"); await load(); loadInbox(); } }));
+    row.append(t, a); dn.appendChild(row);
+  }
+  if (!dn.children.length) { const p = el("p", "note"); p.textContent = "No decisions yet."; dn.appendChild(p); }
+}

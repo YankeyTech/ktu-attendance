@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=17"><link rel="stylesheet" href="extra.css?v=27">
+<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=17"><link rel="stylesheet" href="extra.css?v=28">
 <style>main{max-width:1000px}th[data-k]{cursor:pointer;user-select:none}.tabs{display:flex;gap:6px;margin:10px 0;flex-wrap:wrap}.tabs button{flex:1}.tabs .on{background:#004c84;color:#fff}.cred{background:#fff8d6;color:#222;border:1px solid #e0c200;border-radius:10px;padding:12px;margin:10px 0}.cred code{font-size:18px;font-weight:700}</style></head>
 <body class="adm"><main>
   <header class="top"><h1>Admin</h1><p id="who">KTU class check-in</p></header>
@@ -123,6 +123,7 @@
         <p id="pauseState" class="msg" role="status"></p>
         <input id="pauseMsg" maxlength="300" placeholder="Message students will see (optional)">
         <div class="row"><button id="pauseBtn" class="btn" type="button">Pause all check-ins</button></div></div>
+      <div class="reqbox"><h3>System</h3><p class="note">The free Supabase plan includes 500 MB of database space. Download a backup from Settings and clear old terms with the semester rollover before it fills up.</p><div id="sysBox"></div></div>
       <div class="reqbox"><h3>Health check</h3><p class="note">Looks for common problems in the data and fixes them with one click. Anything removed goes to the Trash.</p>
         <div class="bar"><button id="hcRun" class="btn quiet" type="button">Run check again</button></div><div id="hcList"></div></div>
       <p id="tlMsg" class="msg" role="status"></p></section>
@@ -131,5 +132,5 @@
   </div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="shared.js?v=24"></script>
-<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=29"></script></body></html>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="shared.js?v=25"></script>
+<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=30"></script></body></html>

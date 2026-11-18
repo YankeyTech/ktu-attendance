@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Lecturer | KTU check-in</title>
 <link rel="stylesheet" href="style.css?v=17">
-<link rel="stylesheet" href="extra.css?v=27">
+<link rel="stylesheet" href="extra.css?v=28">
 </head>
 <body class="tch">
 <main>
@@ -44,6 +44,7 @@
     <form id="start" class="card">
       <h2>Start a class</h2>
       <button id="repeatLast" class="btn quiet" type="button">Repeat my last class</button>
+      <div class="presets"><span class="note">Saved setups:</span><span id="presetList"></span><button id="presetSave" class="btn quiet" type="button">Save this setup</button></div>
       <label for="coursePick">Course</label>
       <select id="coursePick" required><option value="">Select your course</option><option value="__new">+ Add a new course...</option></select>
       <input id="course" maxlength="120" placeholder="Type the new course name" hidden>
@@ -170,6 +171,7 @@
       <label for="rollLevel">Level</label>
       <select id="rollLevel"></select>
       <div id="savedRolls" class="note"></div>
+      <p id="permNote" class="note" hidden></p>
       <label for="rollFile">Roll file</label>
       <input id="rollFile" type="file" accept=".csv,.xlsx,.xls">
       <div class="row"><button id="rollUp" class="btn quiet" type="button">Upload roll</button><button id="rep" class="btn quiet" type="button">Show attendance report</button><button id="sheetBtn" class="btn quiet" type="button">Print course attendance sheet</button></div>
@@ -261,8 +263,8 @@
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-<script src="shared.js?v=24"></script>
+<script src="shared.js?v=25"></script>
 <script src="programmes.js"></script>
-<script src="teacher.js?v=29"></script>
+<script src="teacher.js?v=30"></script>
 </body>
 </html>

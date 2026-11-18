@@ -4,7 +4,7 @@ const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no 0/O/1/I to avoid mix-u
 let sortBy = ["checked_in_at", 1];
 let groups = [];
 let rowLimit = 50, openRows = new Set(), knownOut = new Set(), popQueue = [], popId = null, popReady = false, reviewAll = false;
-let byAdmin = false, popupsOff = false, myId = "", venues = [], seenDots = new Set(), projN = -1;
+let myPerms = {}, byAdmin = false, popupsOff = false, myId = "", venues = [], seenDots = new Set(), projN = -1;
 let current = null, timer = null, records = [], role = "lecturer", qrTimer = null, lastWin = -1, rollRows = [], clockOffset = 0, myName = "", myEmail = "";
 
 function say(id, text, kind) { $(id).textContent = text; $(id).className = "msg " + (kind || ""); }
@@ -55,12 +55,12 @@ async function refreshAuth() {
   $("app").hidden = !session;
   $("who").textContent = session ? "Loading..." : "KTU class check-in";
   if (session) {
-    const { data: pr } = await sb.from("profiles").select("role,must_change,active,full_name,alerts_by_admin").eq("id", session.user.id).single();
+    const { data: pr } = await sb.from("profiles").select("role,must_change,active,full_name,alerts_by_admin,perms").eq("id", session.user.id).single();
     if (pr && pr.must_change) return location.replace("change-password.html");
     if (pr && pr.active === false) { await sb.auth.signOut(); return say("loginMsg", "This account is disabled. Contact the admin.", "bad"); }
-    role = (pr && pr.role) || "lecturer"; byAdmin = !!(pr && pr.alerts_by_admin);
+    role = (pr && pr.role) || "lecturer"; byAdmin = !!(pr && pr.alerts_by_admin); myPerms = (pr && pr.perms) || {}; applyPerms(); 
     { const { data: pn } = await sb.from("name_requests").select("requested_name").eq("user_id", session.user.id).eq("status", "pending").maybeSingle(); pendingName = pn ? pn.requested_name : ""; }
-    myName = (pr && pr.full_name) || ""; $("myName").value = myName; myEmail = session.user.email; myId = session.user.id; loadVenues(); applyName();
+    myName = (pr && pr.full_name) || ""; $("myName").value = myName; myEmail = session.user.email; myId = session.user.id; drawPresets(); loadVenues(); applyName();
     document.body.dataset.role = role;
     $("adminLink").hidden = !(role === "admin" && session.user.email.toLowerCase() === "ygpedri@gmail.com");
     await loadCourses();
@@ -678,7 +678,7 @@ async function renderSavedRolls() {
     const n = g.ids.length, row = document.createElement("div"); row.className = "absrow";
     const s = document.createElement("span"); s.textContent = (g.prog || "No programme (older upload)") + " | " + (g.lvl || "Level not set") + ": " + n + " student" + (n === 1 ? "" : "s");
     row.appendChild(s);
-    if (role !== "assistant") {
+    if (role !== "assistant" && allowed("delete_rolls")) {
       const b = document.createElement("button"); b.type = "button"; b.className = "btn quiet danger"; b.textContent = "Delete roll";
       b.addEventListener("click", () => deleteRoll(course, g));
       row.appendChild(b);
@@ -1097,6 +1097,34 @@ $("venueDel").addEventListener("click", async () => {
   const { error } = await sb.from("venues").delete().eq("id", v.id); toast(error ? "Could not delete: " + error.message : "Venue deleted."); loadVenues();
 });
 
+// ---- What the admin allows this account to do (the database enforces it too) ----
+const allowed = (k) => !(myPerms[k] === false || myPerms[k] === "false");
+function applyPerms() {
+  if (role !== "assistant") { $("rollUp").disabled = !allowed("upload_rolls"); $("rollFile").disabled = !allowed("upload_rolls"); }
+  $("venueSave").hidden = !allowed("save_venues");
+  const n = []; if (!allowed("upload_rolls")) n.push("upload class rolls"); if (!allowed("delete_rolls")) n.push("delete class rolls"); if (!allowed("save_venues")) n.push("save venues"); if (myPerms.max_minutes) n.push("start classes longer than " + myPerms.max_minutes + " minutes");
+  const box = $("permNote"); if (box) { box.hidden = !n.length; box.textContent = n.length ? "The admin has turned off these for your account: " + n.join(", ") + ". Contact the admin if you need them." : ""; }
+}
+// ---- Saved setups (kept on this phone or computer) ----
+function getPresets() { try { return JSON.parse(localStorage.getItem("ktu_presets_" + myId) || "[]"); } catch (e) { return []; } }
+function putPresets(p) { try { localStorage.setItem("ktu_presets_" + myId, JSON.stringify(p.slice(0, 8))); } catch (e) {} drawPresets(); }
+function drawPresets() {
+  const box = $("presetList"); box.textContent = "";
+  for (const p of getPresets()) {
+    const b = document.createElement("button"); b.type = "button"; b.className = "abtn"; b.textContent = p.name; b.addEventListener("click", () => fillFrom(p.s));
+    const x = document.createElement("button"); x.type = "button"; x.className = "abtn bad"; x.textContent = "\u00d7"; x.title = "Remove " + p.name; x.setAttribute("aria-label", "Remove " + p.name);
+    x.addEventListener("click", () => { if (confirm("Remove the saved setup " + p.name + "?")) putPresets(getPresets().filter((q) => q.name !== p.name)); });
+    box.append(b, x);
+  }
+}
+$("presetSave").addEventListener("click", () => {
+  const pick = $("coursePick").value, course = (pick === "__new" ? $("course").value : pick).trim(); if (!course) return toast("Choose the course first, then save the setup.");
+  const comb = document.querySelector('input[name="ctype"]:checked').value === "combined";
+  const s = { course, combined: comb, class_groups: comb ? groups.map((g) => ({ programme: g.programme, level: g.level })) : null, programme: $("tprog").value, level: $("tlevel").value, academic_year: $("tyear").value, semester: $("tsem").value, rotating: $("rot").checked, block_shared: $("blk").checked, two_point: $("two").checked, late_after_min: Number($("late").value) || null, radius_m: Number($("radius").value) || null };
+  const name = (prompt("Name this setup:", course + (comb ? " (combined)" : s.level ? " " + s.level : "")) || "").trim().slice(0, 40); if (!name) return;
+  putPresets(getPresets().filter((q) => q.name !== name).concat({ name, s })); toast("Saved. Tap it any time to fill the form.");
+});
+drawPresets();
 // ---- Repeat a class ----
 function fillFrom(s) {
   const pick = $("coursePick");

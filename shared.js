@@ -419,7 +419,7 @@ async function showAnnouncements(sb, box) {
   for (const a of data || []) {
     if (seen.includes(a.id)) continue;
     const d = document.createElement("div"); d.className = "announce " + a.kind; d.setAttribute("role", "status");
-    const t = document.createElement("div"); const b = document.createElement("b"); b.textContent = a.kind === "warn" ? "Important notice" : "Notice from the admin"; const p = document.createElement("span"); p.textContent = a.message; t.append(b, p);
+    const t = document.createElement("div"); const b = document.createElement("b"); b.textContent = a.target ? "Private message from the admin" : a.kind === "warn" ? "Important notice" : "Notice from the admin"; const p = document.createElement("span"); p.textContent = a.message; t.append(b, p);
     const x = document.createElement("button"); x.type = "button"; x.className = "abtn"; x.textContent = "Dismiss";
     x.addEventListener("click", () => { seen.push(a.id); try { localStorage.setItem("ktu_seen_ann", JSON.stringify(seen.slice(-30))); } catch (e) {} d.remove(); });
     d.append(t, x); box.appendChild(d);

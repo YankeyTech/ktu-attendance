@@ -374,3 +374,9 @@ body.adm .tabs svg{flex:0 0 auto}
 .inbox .inhead{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding-bottom:8px;margin-bottom:4px;border-bottom:2px solid color-mix(in srgb,var(--gold) 55%,var(--line))}
 .inbox .inhead b{font-family:var(--display);font-size:1.05rem}
 .calm{color:var(--ok);font-weight:700;margin:8px 0}
+
+/* ---- Update 28 ---- */
+.presets{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}
+.presets #presetList{display:contents}
+.presets .abtn.bad{padding:4px 10px}
+body.adm textarea,body.tch textarea{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;font:inherit;background:var(--card);color:var(--ink);resize:vertical}

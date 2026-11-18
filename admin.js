@@ -23,7 +23,7 @@ $("out").addEventListener("click", async () => { await sb.auth.signOut(); start(
 document.querySelectorAll(".tabs [data-t]").forEach((b) => b.addEventListener("click", () => {
   document.querySelectorAll(".tabs [data-t]").forEach((x) => x.classList.toggle("on", x === b));
   for (const t of ["over", "inb", "lect", "cls", "roll", "stu", "ana", "act", "sus", "rep", "trash", "tools", "set"]) $("t-" + t).hidden = t !== b.dataset.t;
-  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") loadSus(); if (b.dataset.t === "set") { renderSettings(); loadVenuesAdmin(); } if (b.dataset.t === "trash") loadTrash(); if (b.dataset.t === "stu") $("stIdx").focus(); if (b.dataset.t === "tools") loadTools(); if (b.dataset.t === "inb") loadInbox(); if (b.dataset.t === "rep") loadReports();
+  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") loadSus(); if (b.dataset.t === "set") { renderSettings(); loadVenuesAdmin(); } if (b.dataset.t === "trash") loadTrash(); if (b.dataset.t === "stu") $("stIdx").focus(); if (b.dataset.t === "tools") { loadTools(); loadSystem(); } if (b.dataset.t === "inb") loadInbox(); if (b.dataset.t === "rep") loadReports();
 }));
 
 async function load() {
@@ -61,6 +61,7 @@ function drawL() {
     const td = document.createElement("td");
     if (x.role !== "admin") {
       const mk = (t, f) => { const b = document.createElement("button"); b.type = "button"; b.textContent = t; b.className = "abtn " + (/^(Disable|Delete)/.test(t) ? "bad" : /^Enable/.test(t) ? "ok" : ""); b.addEventListener("click", f); td.appendChild(b); };
+      mk("Profile", () => openProfile(x));
       mk("Send reset link", async () => { if (!confirm("Email a password reset link to " + x.email + "?")) return; if (await call({ action: "reset", id: x.id }, "Reset link sent to " + x.email + ".")) load(); });
       mk(x.active ? "Disable" : "Enable", async () => { const r = await sb.functions.invoke("staff-access", { body: { action: "active", id: x.id, active: !x.active } }); fail(r) || load(); });
       mk(x.role === "assistant" ? "Make lecturer" : "Make TA", async () => { const r = await sb.rpc("set_staff_role", { p_email: x.email, p_role: x.role === "assistant" ? "lecturer" : "assistant" }); if (r.error) say("msg", r.error.message, "bad"); else load(); });
@@ -631,6 +632,7 @@ $("bkGo").addEventListener("click", async () => {
       { name: "Class rolls", rows: [["Lecturer", "Course", "Programme", "Level", "Index number", "Name"]].concat(rolls.map((r) => [who(r.owner), r.course, r.programme || "", r.level || "", r.index_number, r.student_name || ""])) },
       { name: "Courses", rows: [["Lecturer", "Course"]].concat(courses.map((k) => [who(k.owner), k.name])) },
       { name: "Staff", rows: [["Email", "Name", "Role", "Active", "Added"]].concat(staff.map((p) => [p.email || "", p.full_name || "", p.role, p.active ? "Yes" : "No", fmt(p.created_at)])) }]);
+    try { localStorage.setItem("ktu_last_backup", String(Date.now())); } catch (e) {}
     out("Backup downloaded: " + ses.length + " classes, " + att.length + " check-ins, " + rolls.length + " roll entries.", "ok");
   } catch (e) { out("Could not make the backup: " + e.message, "bad"); }
   $("bkGo").disabled = false;
@@ -639,7 +641,8 @@ $("bkGo").addEventListener("click", async () => {
 // ---- "Needs your attention" chips on the Overview tab ----
 function drawAttn() {
   const box = $("attn"); if (!box) return; box.textContent = "";
-  const items = [["lect", "Name change requests", nameReqs.length], ["sus", "Phone alerts to review", +($("susN").textContent || 0) * (!$("susN").hidden)], ["inb", "Alerts waiting for a decision", +($("inN").textContent || 0) * (!$("inN").hidden)], ["rep", "Open problem reports", +($("repN").textContent || 0) * (!$("repN").hidden)], ["trash", "Items in the Trash", +($("trN").textContent || 0) * (!$("trN").hidden)]].filter((x) => x[2] > 0);
+  let lastBk = 0; try { lastBk = Number(localStorage.getItem("ktu_last_backup") || 0); } catch (e) {}
+  const items = [["set", "Time to download a backup (none in the last 14 days)", Date.now() - lastBk > 14 * 86400000 ? 1 : 0], ["lect", "Name change requests", nameReqs.length], ["sus", "Phone alerts to review", +($("susN").textContent || 0) * (!$("susN").hidden)], ["inb", "Alerts waiting for a decision", +($("inN").textContent || 0) * (!$("inN").hidden)], ["rep", "Open problem reports", +($("repN").textContent || 0) * (!$("repN").hidden)], ["trash", "Items in the Trash", +($("trN").textContent || 0) * (!$("trN").hidden)]].filter((x) => x[2] > 0);
   if (!items.length) { const c = document.createElement("span"); c.className = "calm"; c.textContent = "\u2713 All clear. Nothing is waiting for you."; box.appendChild(c); return; }
   for (const [tab, label, n] of items) {
     const b = document.createElement("button"), c = document.createElement("b"); b.type = "button"; c.textContent = n; b.append(c, label);
@@ -980,4 +983,47 @@ function drawInbox() {
     row.append(t, a); dn.appendChild(row);
   }
   if (!dn.children.length) { const p = el("p", "note"); p.textContent = "No decisions yet."; dn.appendChild(p); }
+}
+
+// ---- Lecturer profile: 360 view, permissions, private message ----
+async function openProfile(x) {
+  const ov = el("div", "rpt"), box = el("div", "rptc"); box.style.width = "min(780px,100%)"; ov.appendChild(box); document.body.appendChild(ov);
+  const close = () => { ov.remove(); load(); }; ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  const mine = classes.filter((c) => c.owner === x.id), nIn = mine.reduce((n, c) => n + (counts[c.id] || 0), 0), myCourses = courses.filter((c) => c.owner === x.id);
+  const perms = x.perms || {}, off = (k) => perms[k] === false || perms[k] === "false";
+  const h = el("h3"); h.textContent = (x.full_name || x.email) + (x.role === "assistant" ? "  (Teaching assistant)" : "  (Lecturer)"); box.appendChild(h);
+  const sub = el("p", "note"); sub.textContent = x.email + (x.active ? "" : "  |  DISABLED") + (x.alerts_by_admin ? "  |  alerts handled by admin" : ""); box.appendChild(sub);
+  const st = el("div", "stats");
+  for (const [n, l] of [[mine.length, "Classes"], [nIn, "Check-ins"], [myCourses.length, "Courses"], [mine.length ? fmt(mine[0].created_at).split(",")[0] : "-", "Last class"]]) { const d = el("div"), b = el("b"); b.textContent = n; d.append(b, l); st.appendChild(d); }
+  box.appendChild(st);
+  const h2 = el("h4", "ch3"); h2.textContent = "What this person is allowed to do"; box.appendChild(h2);
+  const pf = el("div"); pf.innerHTML = '<label class="chk"><input type="checkbox" id="pmUp"> Upload class rolls</label><label class="chk"><input type="checkbox" id="pmDel"> Delete class rolls</label><label class="chk"><input type="checkbox" id="pmVen"> Save their own venues</label><label for="pmMax">Longest class they may start (minutes, empty = no limit)</label><input id="pmMax" type="number" min="5" max="1440" placeholder="e.g. 120">';
+  box.appendChild(pf); pf.querySelector("#pmUp").checked = !off("upload_rolls"); pf.querySelector("#pmDel").checked = !off("delete_rolls"); pf.querySelector("#pmVen").checked = !off("save_venues"); pf.querySelector("#pmMax").value = perms.max_minutes || "";
+  const msg = el("p", "msg"); msg.setAttribute("role", "status");
+  const sv = el("button", "btn quiet"); sv.type = "button"; sv.textContent = "Save permissions";
+  sv.addEventListener("click", async () => {
+    const p = { upload_rolls: pf.querySelector("#pmUp").checked, delete_rolls: pf.querySelector("#pmDel").checked, save_venues: pf.querySelector("#pmVen").checked }; const m = pf.querySelector("#pmMax").value.trim(); if (m) p.max_minutes = Number(m);
+    const r = await sb.rpc("admin_set_perms", { p_id: x.id, p_perms: p }); if (r.error) { msg.className = "msg bad"; msg.textContent = /function|exist/i.test(r.error.message) ? "Run upgrade28.sql in Supabase first." : r.error.message; return; }
+    x.perms = r.data.perms; msg.className = "msg ok"; msg.textContent = "Saved. It applies the next time they use the page.";
+  }); box.append(sv, msg);
+  const h3 = el("h4", "ch3"); h3.textContent = "Send a private message"; box.appendChild(h3);
+  const ta = el("textarea"); ta.maxLength = 500; ta.rows = 2; ta.placeholder = "Only " + (x.full_name || x.email) + " will see this on their Home tab."; box.appendChild(ta);
+  const mb = el("button", "btn quiet"); mb.type = "button"; mb.textContent = "Send message";
+  mb.addEventListener("click", async () => { const m = ta.value.trim(); if (m.length < 3) return; const r = await sb.from("announcements").insert({ message: m, kind: "info", target: x.id, expires_at: new Date(Date.now() + 7 * 86400000).toISOString() }); msg.className = r.error ? "msg bad" : "msg ok"; msg.textContent = r.error ? (/target|column/i.test(r.error.message) ? "Run upgrade28.sql in Supabase first." : r.error.message) : "Message sent. It shows for 7 days."; if (!r.error) ta.value = ""; });
+  box.append(mb);
+  const h4 = el("h4", "ch3"); h4.textContent = "Recent classes"; box.appendChild(h4);
+  const list = el("div", "scrollbox"); list.style.maxHeight = "220px";
+  for (const s of mine.slice(0, 12)) { const row = el("div", "reqrow"), t = el("div", "reqtxt"), b = el("b"), sp = el("span"); b.textContent = s.course; sp.textContent = fmt(s.created_at) + " | " + (counts[s.id] || 0) + " check-ins" + (s.archived ? " | archived" : ""); t.append(b, sp); const a = el("div", "acts"); a.append(abtn("Sheet", "", () => adminSheet(s)), abtn("Manage", "", () => { ov.remove(); manageClass(s); })); row.append(t, a); list.appendChild(row); }
+  if (!mine.length) list.textContent = "No classes yet."; box.appendChild(list);
+  const cl = el("button", "btn quiet"); cl.type = "button"; cl.textContent = "Close"; cl.style.marginTop = "14px"; cl.addEventListener("click", close); box.appendChild(cl);
+}
+
+// ---- Tools: database size and counts ----
+async function loadSystem() {
+  const r = await sb.rpc("admin_system_stats"), box = $("sysBox"); if (!box) return; box.textContent = "";
+  if (r.error) { box.textContent = /function|exist/i.test(r.error.message) ? "Run upgrade28.sql in Supabase to see this." : r.error.message; return; }
+  const s = r.data, mb = s.db_bytes / 1048576, pct = Math.min(100, (mb / 500) * 100);
+  const p = el("p"); p.innerHTML = ""; p.textContent = "Database size: " + mb.toFixed(1) + " MB of the 500 MB free allowance (" + pct.toFixed(1) + "%)."; box.appendChild(p);
+  const bar = el("div", "bar2" + (pct > 80 ? " low" : "")), i = el("i"); i.style.width = Math.max(1, pct) + "%"; bar.appendChild(i); box.appendChild(bar);
+  const q = el("p", "note"); q.textContent = s.staff + " accounts, " + s.sessions + " classes, " + s.attendance + " check-ins, " + s.rolls + " roll entries, " + s.trash + " items in the Trash, " + s.audit + " activity records."; box.appendChild(q);
 }

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Lecturer | KTU check-in</title>
 <link rel="stylesheet" href="style.css?v=17">
-<link rel="stylesheet" href="extra.css?v=28">
+<link rel="stylesheet" href="extra.css?v=29">
 </head>
 <body class="tch">
 <main>
@@ -36,7 +36,7 @@
   </form>
 
   <div id="app" hidden>
-    <nav id="tabs" class="ttabs" aria-label="Sections"><button type="button" data-p="home" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 12 3l9 8"/><path d="M5 10v10h14V10"/></svg>Home</button><button type="button" data-p="alerts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Alerts <span id="alertN" class="tbadge" hidden></span></button><button type="button" data-p="rolls"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>Rolls</button><button type="button" data-p="classes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Classes</button><button type="button" data-p="account"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>Account</button></nav>
+    <nav id="tabs" class="ttabs" aria-label="Sections"><button type="button" data-p="home" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 12 3l9 8"/><path d="M5 10v10h14V10"/></svg>Home</button><button type="button" data-p="alerts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Alerts <span id="alertN" class="tbadge" hidden></span></button><button type="button" data-p="rolls"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>Rolls</button><button type="button" data-p="classes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Classes</button><button type="button" data-p="account"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>Account <span id="msgN" class="tbadge" hidden></span></button></nav>
     <div id="p-home" class="tpanel">
     <div id="announceBox"></div>
     <div id="hello" class="hello"><div><b id="helloT"></b><span id="helloS"></span></div><button id="helloGo" class="btn" type="button" hidden>Open live class</button></div>
@@ -187,6 +187,7 @@
 
     </div>
     <div id="p-classes" class="tpanel" hidden>
+    <section class="card"><h2>Teaching calendar</h2><div id="calBox"></div></section>
     <section class="card"><h2>Courses at a glance</h2><p class="note">Classes held and average check-ins for each of your courses.</p><div id="courseSum"></div></section>
     <section class="card"><h2>Students to follow up</h2><p class="note">Students on your class roll whose attendance is low. Uses the roll for the course, so upload it first on the Rolls tab.</p>
       <div class="bar"><select id="riskCourse"></select><label>Below <input id="riskThr" type="number" min="1" max="100" value="75" style="width:80px">%</label><label>After <input id="riskMin" type="number" min="1" max="60" value="3" style="width:70px"> classes</label><button id="riskGo" class="btn quiet" type="button">Show</button></div>
@@ -203,6 +204,10 @@
     </section>
     </div>
     <div id="p-account" class="tpanel" hidden>
+    <section class="card" id="msgCard"><h2>Contact the admin</h2>
+      <div id="msgList" class="msgs"></div>
+      <label for="msgText">Your message</label><textarea id="msgText" maxlength="1000" rows="3" placeholder="e.g. Please restore my Math 101 roll for Level 200. I deleted it by mistake."></textarea>
+      <button id="msgSend" class="btn" type="button">Send to the admin</button></section>
     <section class="card" id="nameCard">
       <h2>Your name</h2>
       <p id="nameNote" class="note">This name appears on your Excel files and on the student page.</p>
@@ -265,6 +270,6 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="shared.js?v=25"></script>
 <script src="programmes.js"></script>
-<script src="teacher.js?v=30"></script>
+<script src="teacher.js?v=31"></script>
 </body>
 </html>

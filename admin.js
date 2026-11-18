@@ -40,7 +40,7 @@ async function load() {
   for (const [n, l] of [[people.length, "Staff accounts"], [people.filter((x) => x.role === "lecturer" && x.active).length, "Active lecturers"], [people.filter((x) => x.role === "assistant" && x.active).length, "Teaching assistants"], [nameReqs.length, "Name requests"], [classes.length, "Classes"], [(a.data || []).length, "Check-ins"]]) {
     const d = document.createElement("div"), b = document.createElement("b"); b.textContent = 0; countUp(b, n); d.append(b, l); $("stats").appendChild(d);
   }
-  fillFilters(); drawL(); drawC(); drawReq(); loadStatus(); loadReports(true); trashCount(); drawAttn(); loadAnnouncements(); drawOverviewExtras(); loadSus().then(updateInboxBadge).catch(() => {});
+  fillFilters(); drawL(); drawC(); drawReq(); loadStatus(); loadReports(true); trashCount(); drawAttn(); loadAnnouncements(); drawOverviewExtras(); drawHours(); loadSus().then(loadMsgsAdmin).then(updateInboxBadge).catch(() => {});
 }
 
 function grid(head, body, cols, rows, key) {
@@ -642,7 +642,7 @@ $("bkGo").addEventListener("click", async () => {
 function drawAttn() {
   const box = $("attn"); if (!box) return; box.textContent = "";
   let lastBk = 0; try { lastBk = Number(localStorage.getItem("ktu_last_backup") || 0); } catch (e) {}
-  const items = [["set", "Time to download a backup (none in the last 14 days)", Date.now() - lastBk > 14 * 86400000 ? 1 : 0], ["lect", "Name change requests", nameReqs.length], ["sus", "Phone alerts to review", +($("susN").textContent || 0) * (!$("susN").hidden)], ["inb", "Alerts waiting for a decision", +($("inN").textContent || 0) * (!$("inN").hidden)], ["rep", "Open problem reports", +($("repN").textContent || 0) * (!$("repN").hidden)], ["trash", "Items in the Trash", +($("trN").textContent || 0) * (!$("trN").hidden)]].filter((x) => x[2] > 0);
+  const items = [["set", "Time to download a backup (none in the last 14 days)", Date.now() - lastBk > 14 * 86400000 ? 1 : 0], ["lect", "Name change requests", nameReqs.length], ["sus", "Phone alerts to review", +($("susN").textContent || 0) * (!$("susN").hidden)], ["inb", "Alerts and messages waiting for you", +($("inN").textContent || 0) * (!$("inN").hidden)], ["rep", "Open problem reports", +($("repN").textContent || 0) * (!$("repN").hidden)], ["trash", "Items in the Trash", +($("trN").textContent || 0) * (!$("trN").hidden)]].filter((x) => x[2] > 0);
   if (!items.length) { const c = document.createElement("span"); c.className = "calm"; c.textContent = "\u2713 All clear. Nothing is waiting for you."; box.appendChild(c); return; }
   for (const [tab, label, n] of items) {
     const b = document.createElement("button"), c = document.createElement("b"); b.type = "button"; c.textContent = n; b.append(c, label);
@@ -919,10 +919,10 @@ async function loadInbox() {
   const cls = Object.fromEntries(classes.map((c) => [c.id, c])), live = new Set(classes.filter((c) => !c.archived).map((c) => c.id));
   const r = await sb.from("attendance").select("id,session_id,index_number,student_name,distance_m,gps_flag,checked_in_at,in_range,reviewed").eq("in_range", false).order("checked_in_at", { ascending: false }).limit(400);
   reviewRows = (r.data || []).filter((a) => !a.reviewed && live.has(a.session_id)).map((a) => ({ a, c: cls[a.session_id] || {} }));
-  say("inMsg", ""); drawInbox(); updateInboxBadge();
+  await loadMsgsAdmin(); say("inMsg", ""); drawInbox(); drawMsgThreads(); updateInboxBadge();
 }
 function pendingPhone() { return susRows.filter((r) => r.x.status === "pending"); }
-function updateInboxBadge() { const n = pendingPhone().length + reviewRows.length; const b = $("inN"); b.hidden = !n; b.textContent = n; }
+function updateInboxBadge() { const n = pendingPhone().length + reviewRows.length + unreadMsgs(); const b = $("inN"); b.hidden = !n; b.textContent = n; }
 function drawPopupState(s) {
   const on = s.popups !== false; $("popState").textContent = on ? "Popups are ON: lecturers see phone-alert popups on their own page." : "Popups are OFF: lecturers do not see phone-alert popups. You decide them here.";
   $("popState").className = "msg " + (on ? "ok" : "warn"); $("popBtn").textContent = on ? "Turn popups off for everyone" : "Turn popups back on"; $("popBtn").dataset.on = on ? "1" : "";
@@ -1026,4 +1026,55 @@ async function loadSystem() {
   const p = el("p"); p.innerHTML = ""; p.textContent = "Database size: " + mb.toFixed(1) + " MB of the 500 MB free allowance (" + pct.toFixed(1) + "%)."; box.appendChild(p);
   const bar = el("div", "bar2" + (pct > 80 ? " low" : "")), i = el("i"); i.style.width = Math.max(1, pct) + "%"; bar.appendChild(i); box.appendChild(bar);
   const q = el("p", "note"); q.textContent = s.staff + " accounts, " + s.sessions + " classes, " + s.attendance + " check-ins, " + s.rolls + " roll entries, " + s.trash + " items in the Trash, " + s.audit + " activity records."; box.appendChild(q);
+}
+
+// ---- Messages from lecturers ----
+let msgAll = [];
+async function loadMsgsAdmin() {
+  const { data, error } = await sb.from("staff_messages").select("*").order("created_at", { ascending: false }).limit(600);
+  if (error) { msgAll = []; return error; }
+  msgAll = data || []; return null;
+}
+const unreadMsgs = () => msgAll.filter((m) => m.sender === "staff" && !m.read_by_admin).length;
+function drawMsgThreads() {
+  const box = $("inMsgs"); box.textContent = "";
+  const by = new Map(); for (const m of msgAll) { if (!by.has(m.thread_owner)) by.set(m.thread_owner, []); by.get(m.thread_owner).push(m); }
+  if (!by.size) { const p = el("p", "note"); p.textContent = "No messages from lecturers yet."; box.appendChild(p); return; }
+  for (const [owner, list] of by) {
+    const un = list.filter((m) => m.sender === "staff" && !m.read_by_admin).length, last = list[0];
+    const row = el("div", "reqrow"), t = el("div", "reqtxt"), b = el("b"), sp = el("span");
+    b.textContent = staffName(owner) + (un ? "  (" + un + " new)" : ""); sp.textContent = (last.sender === "admin" ? "You: " : "") + last.body.slice(0, 120) + " | " + fmt(last.created_at); t.append(b, sp);
+    const a = el("div", "acts"); a.append(abtn(un ? "Read and reply" : "Open", un ? "ok" : "", () => openThread(owner))); row.append(t, a); box.appendChild(row);
+  }
+}
+async function openThread(owner) {
+  const ov = el("div", "rpt"), box = el("div", "rptc"); ov.appendChild(box); document.body.appendChild(ov);
+  const close = async () => { ov.remove(); await loadMsgsAdmin(); drawMsgThreads(); updateInboxBadge(); }; ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  await sb.from("staff_messages").update({ read_by_admin: true }).eq("thread_owner", owner).eq("sender", "staff");
+  async function draw() {
+    await loadMsgsAdmin(); box.textContent = "";
+    const h = el("h3"); h.textContent = "Messages: " + staffName(owner); box.appendChild(h);
+    const list = el("div", "msgs"); const mine = msgAll.filter((m) => m.thread_owner === owner).slice().reverse();
+    for (const m of mine) { const d = el("div", "bubble " + (m.sender === "admin" ? "me" : "adm")), t = el("div"), s = el("small"); t.textContent = m.body; s.textContent = (m.sender === "admin" ? "You" : staffName(owner)) + "  " + fmt(m.created_at); d.append(t, s); list.appendChild(d); }
+    box.appendChild(list); list.scrollTop = list.scrollHeight;
+    const ta = el("textarea"); ta.rows = 3; ta.maxLength = 1000; ta.placeholder = "Your reply to " + staffName(owner); box.appendChild(ta);
+    const msg = el("p", "msg"); const send = el("button", "btn"); send.type = "button"; send.textContent = "Send reply";
+    send.addEventListener("click", async () => { const body = ta.value.trim(); if (body.length < 2) return; const r = await sb.from("staff_messages").insert({ thread_owner: owner, sender: "admin", body, read_by_admin: true }); if (r.error) { msg.className = "msg bad"; msg.textContent = r.error.message; } else draw(); });
+    const cl = el("button", "btn quiet"); cl.type = "button"; cl.textContent = "Close"; cl.style.marginTop = "10px"; cl.addEventListener("click", close);
+    box.append(send, msg, cl);
+  }
+  draw();
+}
+
+// ---- Overview: when students check in ----
+function drawHours() {
+  const box = $("chHour"); if (!box) return; box.textContent = "";
+  const hrs = new Array(24).fill(0), dow = new Array(7).fill(0);
+  for (const a of attRows) { const d = new Date(a.checked_in_at); hrs[d.getHours()]++; dow[(d.getDay() + 6) % 7]++; }
+  const mk = (arr, labels, target) => {
+    const max = Math.max(1, ...arr);
+    arr.forEach((n, i) => { const col = el("div", "vcol"), num = el("span", "vnum"), track = el("div", "vtrack"), bar = el("div", "vbar"), lab = el("span", "vlab"); num.textContent = n || ""; bar.style.height = n ? Math.max(4, (n / max) * 100) + "%" : "0"; bar.style.background = "var(--blue)"; lab.textContent = labels[i]; col.title = n + " check-in(s)"; track.appendChild(bar); col.append(num, track, lab); target.appendChild(col); });
+  };
+  mk(dow, ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], box);
+  const b2 = $("chHour2"); b2.textContent = ""; mk(hrs.slice(6, 21), Array.from({ length: 15 }, (_, i) => String(i + 6)), b2);
 }

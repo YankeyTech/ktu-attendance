@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=17"><link rel="stylesheet" href="extra.css?v=28">
+<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=17"><link rel="stylesheet" href="extra.css?v=29">
 <style>main{max-width:1000px}th[data-k]{cursor:pointer;user-select:none}.tabs{display:flex;gap:6px;margin:10px 0;flex-wrap:wrap}.tabs button{flex:1}.tabs .on{background:#004c84;color:#fff}.cred{background:#fff8d6;color:#222;border:1px solid #e0c200;border-radius:10px;padding:12px;margin:10px 0}.cred code{font-size:18px;font-weight:700}</style></head>
 <body class="adm"><main>
   <header class="top"><h1>Admin</h1><p id="who">KTU class check-in</p></header>
@@ -19,6 +19,7 @@
     <section id="t-over" class="card"><h2>Overview</h2><div class="stats" id="stats"></div>
       <div class="reqbox"><h3>Today</h3><div class="stats" id="todayStats"></div></div>
       <div class="reqbox"><h3>Live now</h3><div id="liveBox"></div></div>
+      <div class="reqbox"><h3>When students check in</h3><p class="note">By day of the week, then by hour of the day (6 am to 8 pm). It shows your busiest times.</p><div class="vchart" id="chHour"></div><div class="vchart" id="chHour2" style="margin-top:14px"></div></div>
       <div class="reqbox"><h3>Check-ins, last 14 days</h3><div class="vchart" id="chDay"></div><p class="note">The darker part of each bar is the check-ins made inside the class area.</p></div>
       <div class="reqbox"><h3>Announcement to all lecturers</h3><p class="note">Appears at the top of every lecturer and teaching assistant Home tab until it expires. They can dismiss it.</p>
         <textarea id="anText" maxlength="500" rows="3" placeholder="e.g. Semester 2 check-in starts Monday. Please upload your class rolls."></textarea>
@@ -84,6 +85,7 @@
       <p class="note">Everything that pops up on a lecturer's page also arrives here, so you can decide for a lecturer who cannot, or who contacted you. Allow or Reject for a single student, or decide all of one lecturer's alerts at once. A wrong decision can be reopened.</p>
       <div class="reqbox"><h3>Popups on lecturer pages</h3><p id="popState" class="msg" role="status"></p><div class="row"><button id="popBtn" class="btn quiet" type="button">Turn popups off for everyone</button></div><p class="note">You can also take over the alerts of just one lecturer with Take over alerts below.</p></div>
       <p id="inMsg" class="msg" role="status"></p>
+      <h3 class="ch3">Messages from lecturers</h3><div id="inMsgs"></div>
       <h3 class="ch3">Same-phone alerts waiting</h3><div id="inPhone"></div>
       <h3 class="ch3">Outside-area check-ins waiting for review</h3><div id="inReview"></div>
       <h3 class="ch3">Recent decisions</h3><div id="inDone"></div></section>
@@ -133,4 +135,4 @@
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="shared.js?v=25"></script>
-<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=30"></script></body></html>
+<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=31"></script></body></html>

@@ -1045,12 +1045,12 @@ async function openProfile(x) {
   for (const [n, l] of [[mine.length, "Classes"], [nIn, "Check-ins"], [myCourses.length, "Courses"], [mine.length ? fmt(mine[0].created_at).split(",")[0] : "-", "Last class"]]) { const d = el("div"), b = el("b"); b.textContent = n; d.append(b, l); st.appendChild(d); }
   box.appendChild(st);
   const h2 = el("h4", "ch3"); h2.textContent = "What this person is allowed to do"; box.appendChild(h2);
-  const pf = el("div"); pf.innerHTML = '<label class="chk"><input type="checkbox" id="pmUp"> Upload class rolls</label><label class="chk"><input type="checkbox" id="pmDel"> Delete class rolls</label><label class="chk"><input type="checkbox" id="pmVen"> Save their own venues</label><label for="pmMax">Longest class they may start (minutes, empty = no limit)</label><input id="pmMax" type="number" min="5" max="1440" placeholder="e.g. 120">';
-  box.appendChild(pf); pf.querySelector("#pmUp").checked = !off("upload_rolls"); pf.querySelector("#pmDel").checked = !off("delete_rolls"); pf.querySelector("#pmVen").checked = !off("save_venues"); pf.querySelector("#pmMax").value = perms.max_minutes || "";
+  const pf = el("div"); pf.innerHTML = '<label class="chk"><input type="checkbox" id="pmUp"> Upload class rolls</label><label class="chk"><input type="checkbox" id="pmDel"> Delete class rolls</label><label class="chk"><input type="checkbox" id="pmVen"> Save their own venues</label><label class="chk"><input type="checkbox" id="pmStart"> Start new classes</label><label class="chk"><input type="checkbox" id="pmMan"> Add students by hand</label><label class="chk"><input type="checkbox" id="pmEdit"> Edit names and index numbers of check-ins</label><label for="pmMax">Longest class they may start (minutes, empty = no limit)</label><input id="pmMax" type="number" min="5" max="1440" placeholder="e.g. 120">';
+  box.appendChild(pf); pf.querySelector("#pmUp").checked = !off("upload_rolls"); pf.querySelector("#pmDel").checked = !off("delete_rolls"); pf.querySelector("#pmVen").checked = !off("save_venues"); pf.querySelector("#pmStart").checked = !off("start_classes"); pf.querySelector("#pmMan").checked = !off("manual_add"); pf.querySelector("#pmEdit").checked = !off("edit_checkins"); pf.querySelector("#pmMax").value = perms.max_minutes || "";
   const msg = el("p", "msg"); msg.setAttribute("role", "status");
   const sv = el("button", "btn quiet"); sv.type = "button"; sv.textContent = "Save permissions";
   sv.addEventListener("click", async () => {
-    const p = { upload_rolls: pf.querySelector("#pmUp").checked, delete_rolls: pf.querySelector("#pmDel").checked, save_venues: pf.querySelector("#pmVen").checked }; const m = pf.querySelector("#pmMax").value.trim(); if (m) p.max_minutes = Number(m);
+    const p = { upload_rolls: pf.querySelector("#pmUp").checked, delete_rolls: pf.querySelector("#pmDel").checked, save_venues: pf.querySelector("#pmVen").checked, start_classes: pf.querySelector("#pmStart").checked, manual_add: pf.querySelector("#pmMan").checked, edit_checkins: pf.querySelector("#pmEdit").checked }; const m = pf.querySelector("#pmMax").value.trim(); if (m) p.max_minutes = Number(m);
     const r = await sb.rpc("admin_set_perms", { p_id: x.id, p_perms: p }); if (r.error) { msg.className = "msg bad"; msg.textContent = /function|exist/i.test(r.error.message) ? "Run upgrade28.sql in Supabase first." : r.error.message; return; }
     x.perms = r.data.perms; msg.className = "msg ok"; msg.textContent = "Saved. It applies the next time they use the page.";
   }); box.append(sv, msg);
@@ -1276,4 +1276,33 @@ $("quickBox").addEventListener("click", (e) => {
   const tab = document.querySelector('.tabs [data-t="' + b.dataset.go + '"]'); if (tab) tab.click();
   if (b.dataset.focus) setTimeout(() => { const f = $(b.dataset.focus); if (f) { f.scrollIntoView({ behavior: "smooth", block: "center" }); f.focus(); } }, 400);
   else window.scrollTo({ top: 0, behavior: "smooth" });
+});
+
+// ---- Bulk actions on the classes shown in All classes ----
+async function bulkRun(list, action, extra, doneText) {
+  const r = await sb.rpc("admin_bulk_classes", Object.assign({ p_ids: list.map((s) => s.id), p_action: action }, extra || {}));
+  if (r.error) return say("msg", /function|exist/i.test(r.error.message) ? "Run upgrade36.sql in Supabase first." : r.error.message, "bad");
+  if (!r.data.ok) return say("msg", r.data.error, "bad");
+  say("msg", r.data.count + " class(es) " + doneText + ".", "ok"); load();
+}
+$("mvBulk").addEventListener("click", () => {
+  const list = filteredClasses(); if (!list.length) return say("msg", "No matching classes.", "warn");
+  const ov = el("div", "rpt"), box = el("div", "rptc"); box.style.width = "min(460px,100%)"; ov.appendChild(box); document.body.appendChild(ov);
+  const h = el("h3"); h.textContent = "Move " + list.length + " class(es)"; const p = el("p", "note"); p.textContent = "They will belong to the lecturer you choose. Their class rolls stay with the old lecturer.";
+  const sel = el("select"); for (const x of people.filter((q) => q.role !== "admin").sort((a, b) => staffName(a.id).localeCompare(staffName(b.id)))) { const o = el("option"); o.value = x.id; o.textContent = staffName(x.id); sel.appendChild(o); }
+  const go = el("button", "btn"); go.type = "button"; go.textContent = "Move them"; const no = el("button", "btn quiet"); no.type = "button"; no.textContent = "Cancel";
+  box.append(h, p, sel, go, no); const close = () => ov.remove(); no.addEventListener("click", close); ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  go.addEventListener("click", async () => { close(); await bulkRun(list, "move", { p_owner: sel.value }, "moved to " + staffName(sel.value)); });
+});
+$("trmBulk").addEventListener("click", async () => {
+  const list = filteredClasses(); if (!list.length) return say("msg", "No matching classes.", "warn");
+  const y = prompt("Academic year for these " + list.length + " class(es), for example 2026/2027 (empty = clear it):", ""); if (y === null) return;
+  const s = prompt("Semester: Semester 1, Semester 2 or Summer / Resit (empty = clear it):", "Semester 1"); if (s === null) return;
+  await bulkRun(list, "term", { p_year: y.trim(), p_sem: s.trim() }, "updated");
+});
+$("delBulk").addEventListener("click", async () => {
+  const list = filteredClasses(); if (!list.length) return say("msg", "No matching classes.", "warn");
+  if (!confirm("Delete " + list.length + " class(es) with all their check-ins? They go to the Trash for 3 months and you can restore them.")) return;
+  if (list.length > 5 && prompt("Type DELETE to confirm moving " + list.length + " classes to the Trash:") !== "DELETE") return;
+  await bulkRun(list, "delete", {}, "moved to the Trash");
 });

@@ -474,3 +474,16 @@ async function showAnnouncements(sb, box) {
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
   if (ios) { txt.textContent = "To install: tap the Share button, then Add to Home Screen."; go.hidden = true; bar.hidden = false; }
 })();
+
+
+// ---- Back to top button ----
+(function toTop() {
+  const b = document.createElement("button"); b.type = "button"; b.className = "totop"; b.setAttribute("aria-label", "Back to top"); b.title = "Back to top"; b.hidden = true;
+  b.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+  document.body.appendChild(b);
+  const calm = () => document.documentElement.classList.contains("calm") || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  let on = false;
+  const upd = () => { const y = window.scrollY || document.documentElement.scrollTop; const want = y > 320; if (want === on) return; on = want; if (want) { b.hidden = false; requestAnimationFrame(() => b.classList.add("show")); } else { b.classList.remove("show"); setTimeout(() => { if (!on) b.hidden = true; }, 200); } };
+  window.addEventListener("scroll", upd, { passive: true }); upd();
+  b.addEventListener("click", () => { window.scrollTo({ top: 0, behavior: calm() ? "auto" : "smooth" }); const h = document.querySelector("h1,h2"); if (h) { h.setAttribute("tabindex", "-1"); h.focus({ preventScroll: true }); } });
+})();

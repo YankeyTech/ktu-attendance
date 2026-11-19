@@ -417,7 +417,7 @@ function renderRows() {
     }
     const act = document.createElement("td");
     const mk = (label, fn) => { const b = document.createElement("button"); b.type = "button"; b.textContent = label; b.addEventListener("click", fn); act.appendChild(b); };
-    mk("Edit", () => editCheckin(r));
+    if (allowed("edit_checkins")) mk("Edit", () => editCheckin(r));
     mk(r.in_range ? "Mark outside" : "Accept", () => (r.in_range ? updateRec(r, { in_range: false, manual: true }) : acceptRec(r)));
     if (role !== "assistant") mk("Remove", () => removeRecord(r));
     tr.appendChild(act); Array.from(tr.children).forEach((td, i) => { td.dataset.label = ROW_LABELS[i] || ""; }); body.appendChild(tr);
@@ -1160,7 +1160,8 @@ const allowed = (k) => !(myPerms[k] === false || myPerms[k] === "false");
 function applyPerms() {
   if (role !== "assistant") { $("rollUp").disabled = !allowed("upload_rolls"); $("rollFile").disabled = !allowed("upload_rolls"); }
   $("venueSave").hidden = !allowed("save_venues");
-  const n = []; if (!allowed("upload_rolls")) n.push("upload class rolls"); if (!allowed("delete_rolls")) n.push("delete class rolls"); if (!allowed("save_venues")) n.push("save venues"); if (myPerms.max_minutes) n.push("start classes longer than " + myPerms.max_minutes + " minutes");
+  if (!allowed("start_classes")) $("startBtn").disabled = true; if (!allowed("manual_add")) $("addm").disabled = true;
+  const n = []; if (!allowed("upload_rolls")) n.push("upload class rolls"); if (!allowed("delete_rolls")) n.push("delete class rolls"); if (!allowed("save_venues")) n.push("save venues"); if (!allowed("start_classes")) n.push("start classes"); if (!allowed("manual_add")) n.push("add students by hand"); if (!allowed("edit_checkins")) n.push("edit check-ins"); if (myPerms.max_minutes) n.push("start classes longer than " + myPerms.max_minutes + " minutes");
   const box = $("permNote"); if (box) { box.hidden = !n.length; box.textContent = n.length ? "The admin has turned off these for your account: " + n.join(", ") + ". Contact the admin if you need them." : ""; }
 }
 // ---- Saved setups (kept on this phone or computer) ----

@@ -417,6 +417,7 @@ function renderRows() {
     }
     const act = document.createElement("td");
     const mk = (label, fn) => { const b = document.createElement("button"); b.type = "button"; b.textContent = label; b.addEventListener("click", fn); act.appendChild(b); };
+    mk("Edit", () => editCheckin(r));
     mk(r.in_range ? "Mark outside" : "Accept", () => (r.in_range ? updateRec(r, { in_range: false, manual: true }) : acceptRec(r)));
     if (role !== "assistant") mk("Remove", () => removeRecord(r));
     tr.appendChild(act); Array.from(tr.children).forEach((td, i) => { td.dataset.label = ROW_LABELS[i] || ""; }); body.appendChild(tr);
@@ -1340,4 +1341,30 @@ function applyFeatures(f) {
   if (f.exports === false) off.push("download Excel files");
   if (f.lookup === false) { const c = $("lkIdx") && $("lkIdx").closest("section,.card"); if (c) c.hidden = true; off.push("student lookup"); }
   const box = $("permNote"); if (box && off.length) { box.hidden = false; box.textContent = "The admin has switched off for everyone: " + off.join(", ") + "." + (box.textContent ? " " + box.textContent : ""); }
+}
+
+// ---- Correct a checked-in student's name or index number ----
+function editCheckin(r) {
+  const back = document.createElement("div");
+  back.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:70;display:flex;align-items:center;justify-content:center;padding:16px";
+  const form = document.createElement("form"); form.className = "card"; form.style.cssText = "max-width:420px;width:100%;margin:0"; form.setAttribute("role", "dialog"); form.setAttribute("aria-modal", "true");
+  const h = document.createElement("h2"); h.textContent = "Edit student"; form.appendChild(h);
+  const add = (label, input) => { const l = document.createElement("label"); l.textContent = label; form.append(l, input); return input; };
+  const nm = add("Full name", Object.assign(document.createElement("input"), { value: r.student_name || "", maxLength: 100, required: true, autocomplete: "off" }));
+  const ix = add("Index number", Object.assign(document.createElement("input"), { value: r.index_number, maxLength: 30, required: true, autocomplete: "off", autocapitalize: "characters" }));
+  const err = document.createElement("p"); err.className = "msg bad"; err.setAttribute("role", "status");
+  const row = document.createElement("div"); row.className = "row"; row.style.marginTop = "14px";
+  const ok = Object.assign(document.createElement("button"), { type: "submit", className: "btn", textContent: "Save changes" });
+  const no = Object.assign(document.createElement("button"), { type: "button", className: "btn quiet", textContent: "Cancel" });
+  row.append(ok, no); form.append(row, err); back.appendChild(form); document.body.appendChild(back); nm.focus();
+  no.addEventListener("click", () => back.remove());
+  back.addEventListener("keydown", (e) => { if (e.key === "Escape") back.remove(); });
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault(); ok.disabled = true; err.textContent = "";
+    const { data, error } = await sb.rpc("edit_checkin", { p_id: r.id, p_index: ix.value, p_name: nm.value });
+    ok.disabled = false;
+    if (error) return (err.textContent = /function|exist/i.test(error.message) ? "Run upgrade34.sql in Supabase first." : "Could not save: " + error.message);
+    if (!data.ok) return (err.textContent = data.error);
+    back.remove(); toast("Student details updated."); loadAttendance();
+  });
 }

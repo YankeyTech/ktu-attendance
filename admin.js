@@ -753,7 +753,7 @@ $("actX").addEventListener("click", () => {
 async function loadTools() {
   const r = await sb.rpc("get_public_settings");
   if (r.error) { say("tlMsg", "Run upgrade25.sql in Supabase first.", "bad"); return; }
-  drawPause(r.data); drawTerm(r.data); drawFeatures(r.data.features); loadBlocked(); loadActivityBoard();
+  drawPause(r.data); drawTerm(r.data); drawFeatures(r.data.features); loadNotify(); loadBlocked(); loadActivityBoard();
   const d = await sb.rpc("admin_diagnostics");
   const box = $("hcList"); box.textContent = "";
   if (d.error) { box.textContent = d.error.message; return; }
@@ -1241,3 +1241,22 @@ function drawFeatures(f) {
     })); row.append(t, a); box.appendChild(row);
   }
 }
+
+// ---- Email alerts for problem reports ----
+async function loadNotify() {
+  if (!$("ntUrl")) return;
+  const r = await sb.rpc("admin_get_notify");
+  if (r.error) return say("ntMsg", "Run upgrade34.sql in Supabase first.", "bad");
+  if (document.activeElement !== $("ntUrl")) $("ntUrl").value = r.data.url || "";
+  $("ntOn").checked = !!r.data.on;
+  say("ntMsg", (r.data.on ? "Email alerts are ON." : "Email alerts are off.") + (r.data.has_secret ? " A secret is saved." : " No secret saved yet.") + (r.data.net === false ? " The pg_net extension is missing: in Supabase open Database > Extensions and switch on pg_net." : ""), r.data.on && r.data.net !== false ? "ok" : "");
+}
+$("ntSave").addEventListener("click", async () => {
+  const r = await sb.rpc("admin_set_notify", { p_url: $("ntUrl").value, p_secret: $("ntSecret").value, p_on: $("ntOn").checked });
+  if (r.error) return say("ntMsg", r.error.message, "bad");
+  $("ntSecret").value = ""; loadNotify();
+});
+$("ntTest").addEventListener("click", async () => {
+  const r = await sb.rpc("admin_test_notify");
+  say("ntMsg", r.error ? r.error.message : r.data.ok ? "Test sent. Check your inbox (and spam) in a minute. If nothing arrives, check the function's Logs in Supabase." : r.data.error, r.error || !r.data.ok ? "bad" : "ok");
+});

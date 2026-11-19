@@ -468,3 +468,18 @@ html.hc .kmsg.them,html.hc .kmsg.me{border:2px solid #000}
 .palette .hint{padding:8px 16px;font-size:.78rem;color:var(--mut);border-top:1px solid var(--line)}
 
 input[readonly].fixed{background:var(--soft,#eef2f7);color:inherit;cursor:not-allowed;font-weight:700;letter-spacing:.08em}
+
+/* Install bar and phone-app comfort */
+.pwa-install{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:80;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 14px;border-radius:14px;background:var(--card,#fff);color:inherit;box-shadow:0 8px 28px rgba(0,0,0,.28);border:1px solid rgba(128,128,128,.3)}
+.pwa-install span{flex:1 1 200px;font-weight:600}
+.pwa-install[hidden]{display:none}
+@media (display-mode: standalone){
+  body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);-webkit-tap-highlight-color:transparent}
+  html{overscroll-behavior-y:contain}
+}
+@media (max-width:700px){
+  .btn,.abtn,.tabs .btn,button,select,input:not([type=checkbox]):not([type=radio]){min-height:44px}
+  input,select,textarea{font-size:16px}  /* stops iPhones zooming into fields */
+  .table-wrap{-webkit-overflow-scrolling:touch}
+  .kfab{bottom:calc(16px + env(safe-area-inset-bottom))}
+}

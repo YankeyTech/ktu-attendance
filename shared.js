@@ -452,3 +452,25 @@ async function showAnnouncements(sb, box) {
     e.preventDefault(); items[next].focus();
   });
 })();
+
+
+// ---- Install as an app (lecturer and admin pages) ----
+(function pwa() {
+  if ("serviceWorker" in navigator && location.protocol.startsWith("http")) window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+  const staff = document.body.classList.contains("tch") || document.body.classList.contains("adm");
+  const standalone = () => (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+  if (!staff || standalone()) return;
+  let ev = null, dismissed = false; try { dismissed = localStorage.getItem("ktu_install_no") === "1"; } catch (e) {}
+  if (dismissed) return;
+  const bar = document.createElement("div"); bar.className = "pwa-install"; bar.hidden = true; bar.setAttribute("role", "region"); bar.setAttribute("aria-label", "Install the app");
+  const txt = document.createElement("span"), go = document.createElement("button"), no = document.createElement("button");
+  go.type = no.type = "button"; go.className = "btn"; no.className = "btn quiet"; no.textContent = "Not now";
+  bar.append(txt, go, no); document.body.appendChild(bar);
+  no.addEventListener("click", () => { bar.hidden = true; try { localStorage.setItem("ktu_install_no", "1"); } catch (e) {} });
+  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); ev = e; txt.textContent = "Install KTU check-in on your phone for quick access."; go.textContent = "Install app"; go.hidden = false; bar.hidden = false; });
+  go.addEventListener("click", async () => { if (!ev) return; ev.prompt(); try { await ev.userChoice; } catch (e) {} ev = null; bar.hidden = true; });
+  window.addEventListener("appinstalled", () => { bar.hidden = true; });
+  // iPhone and iPad have no install button: show the steps instead.
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+  if (ios) { txt.textContent = "To install: tap the Share button, then Add to Home Screen."; go.hidden = true; bar.hidden = false; }
+})();

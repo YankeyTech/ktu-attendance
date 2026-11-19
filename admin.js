@@ -1194,16 +1194,16 @@ function initTerm() {
   fillProgSel($("trProg")); fillLevelSel($("trLevel"));
 }
 $("trRun").addEventListener("click", async () => {
-  if (!$("trCourse").value) return say("trMsg", "Choose a course first.", "bad");
-  say("trMsg", "Working...", "");
+  if (!$("trCourse").value) return say("rpMsg", "Choose a course first.", "bad");
+  say("rpMsg", "Working...", "");
   const r = await sb.rpc("admin_term_report", { p_course: $("trCourse").value, p_year: $("trYear").value, p_sem: $("trSem").value, p_programme: $("trProg").value, p_level: $("trLevel").value });
-  if (r.error) return say("trMsg", /function|exist/i.test(r.error.message) ? "Run upgrade32.sql in Supabase first." : r.error.message, "bad");
-  trRows = r.data || []; say("trMsg", "", ""); drawTerm2();
+  if (r.error) return say("rpMsg", /function|exist/i.test(r.error.message) ? "Run upgrade32.sql in Supabase first." : r.error.message, "bad");
+  trRows = r.data || []; say("rpMsg", "", ""); drawTerm2();
 });
 function drawTerm2() {
   const lim = Number($("trMin").value) || 75, low = $("trLow").checked;
   const rows = trRows.filter((x) => !low || (x.pct !== null && Number(x.pct) < lim));
-  const b = $("trB"); b.textContent = "";
+  const b = $("rpB"); b.textContent = "";
   const known = trRows.filter((x) => x.pct !== null), avg = known.length ? known.reduce((s, x) => s + Number(x.pct), 0) / known.length : 0;
   const s = $("trSum"); s.textContent = "";
   for (const [n, l] of [[trRows.length, "Students"], [trRows.length ? trRows[0].held : 0, "Classes held"], [Math.round(avg) + "%", "Average attendance"], [known.filter((x) => Number(x.pct) < lim).length, "Below " + lim + "%"]]) { const d = el("div"), bb = el("b"); bb.textContent = n; d.append(bb, l); s.appendChild(d); }
@@ -1221,9 +1221,9 @@ $("trX").addEventListener("click", () => downloadXlsx("Term report " + $("trCour
 
 $("trCopy").addEventListener("click", async () => {
   const lim = Number($("trMin").value) || 75, list = trRows.filter((x) => x.pct !== null && Number(x.pct) < lim);
-  if (!list.length) return say("trMsg", "Nobody is below " + lim + "%.", "ok");
+  if (!list.length) return say("rpMsg", "Nobody is below " + lim + "%.", "ok");
   const txt = $("trCourse").value + ": students below " + lim + "% attendance\n" + list.map((x) => (x.student_name || "-") + " (" + x.index_number + ") " + x.pct + "%").join("\n");
-  try { await navigator.clipboard.writeText(txt); say("trMsg", "Copied " + list.length + " student(s).", "ok"); } catch (e) { prompt("Copy this list:", txt); }
+  try { await navigator.clipboard.writeText(txt); say("rpMsg", "Copied " + list.length + " student(s).", "ok"); } catch (e) { prompt("Copy this list:", txt); }
 });
 
 // ---- Feature switches ----

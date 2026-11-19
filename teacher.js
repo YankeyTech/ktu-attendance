@@ -653,6 +653,8 @@ async function loadRoll() {
   const all = await fetchRolls(current.course);
   // Only students of this class's programme(s) and level(s). Older rolls saved without a programme or level still count.
   rollRows = all.filter((r) => rollMatchesClass(r, current));
+  excuses = [];
+  { const x = await sb.from("excuses").select("*").eq("session_id", current.id); if (!x.error) excuses = x.data || []; }
   renderAbsent();
 }
 // Rolls can hold more than 1000 rows, and the database returns 1000 at a time.
@@ -695,14 +697,16 @@ async function deleteRoll(course, g) {
 }
 $("rollCourse").addEventListener("change", renderSavedRolls);
 fillProgrammes($("rollProg")); fillLevelSel($("rollLevel"));
+let excuses = [];
 function absentees() {
   const here = new Set(records.map((r) => String(r.index_number).toUpperCase()));
-  return rollRows.filter((r) => !here.has(r.index_number));
+  const exc = new Set(excuses.map((e) => String(e.index_number).toUpperCase()));
+  return rollRows.filter((r) => !here.has(r.index_number) && !exc.has(String(r.index_number).toUpperCase()));
 }
 function renderAbsent() {
   const box = $("absent");
   if (!rollRows.length) { box.hidden = true; return; }
-  const list = absentees(); box.hidden = false; $("absN").textContent = list.length;
+  renderExcused(); const list = absentees(); box.hidden = false; $("absN").textContent = list.length;
   const L = $("absList"); L.textContent = "";
   if (!list.length) { L.textContent = "Everyone on the roll has checked in."; return; }
   for (const r of list) {
@@ -715,6 +719,23 @@ function renderAbsent() {
         accuracy_m: 0, distance_m: 0, in_range: true, manual: true, note: "Marked present by lecturer" });
       say("count", error ? "Could not mark present: " + error.message : "Marked present.", error ? "bad" : "ok"); loadAttendance();
     });
+    const ex = document.createElement("button"); ex.type = "button"; ex.className = "btn quiet"; ex.textContent = "Excuse";
+    ex.addEventListener("click", async () => {
+      const why = prompt("Why is " + (r.student_name || r.index_number) + " excused? (for example: sick, permission, school event)", ""); if (why === null) return;
+      const { error } = await sb.from("excuses").insert({ session_id: current.id, index_number: r.index_number, student_name: r.student_name || null, reason: why.trim().slice(0, 200) || null });
+      say("count", error ? (/excuses/.test(error.message) ? "Run upgrade31.sql in Supabase first." : "Could not excuse: " + error.message) : "Excused.", error ? "bad" : "ok"); if (!error) loadRoll();
+    });
+    row.append(s, b, ex); L.appendChild(row);
+  }
+}
+function renderExcused() {
+  const box = $("excBox"); if (!box) return;
+  box.hidden = !excuses.length; $("excN").textContent = excuses.length; const L = $("excList"); L.textContent = "";
+  for (const e of excuses) {
+    const row = document.createElement("div"); row.className = "absrow";
+    const s = document.createElement("span"); s.textContent = (e.student_name || "-") + " (" + e.index_number + ")" + (e.reason ? ": " + e.reason : "");
+    const b = document.createElement("button"); b.type = "button"; b.className = "btn quiet"; b.textContent = "Undo";
+    b.addEventListener("click", async () => { await sb.from("excuses").delete().eq("id", e.id); loadRoll(); });
     row.append(s, b); L.appendChild(row);
   }
 }

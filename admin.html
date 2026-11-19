@@ -95,6 +95,9 @@
       <h3 class="ch3">Same-phone attempts</h3>
       <div class="bar"><select id="susFilter"><option value="">All</option><option value="pending">Waiting for the lecturer</option><option value="allowed">Allowed</option><option value="rejected">Rejected</option></select><input id="susQ" placeholder="Search student, index number, course or lecturer"><button id="susX" class="btn quiet" type="button">Download (Excel)</button></div>
       <div class="table-wrap"><table><thead><tr><th>When</th><th>Lecturer</th><th>Course</th><th>Tried to check in</th><th>Phone already used by</th><th>Distance</th><th>Decision</th></tr></thead><tbody id="susB"></tbody></table></div>
+      <h3 class="ch3">Phones used by more than one student (all classes)</h3>
+      <div class="bar"><select id="shDays"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="120">Last 4 months</option></select></div>
+      <div id="shList"></div>
       <h3 class="ch3">GPS warnings (latest 300)</h3>
       <div class="table-wrap"><table><thead><tr><th>When</th><th>Lecturer</th><th>Course</th><th>Student</th><th>Warning</th><th>Distance</th></tr></thead><tbody id="gpsB"></tbody></table></div></section>
     <section id="t-set" class="card" hidden><h2>Settings</h2>
@@ -126,6 +129,8 @@
         <p id="pauseState" class="msg" role="status"></p>
         <input id="pauseMsg" maxlength="300" placeholder="Message students will see (optional)">
         <div class="row"><button id="pauseBtn" class="btn" type="button">Pause all check-ins</button></div></div>
+      <div class="reqbox"><h3>Lecturer activity</h3><p class="note">Classes and check-ins per lecturer, and when each was last seen on the site.</p>
+        <div class="bar"><select id="laDays"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="120">Last 4 months</option></select></div><div id="laList"></div></div>
       <div class="reqbox"><h3>Current term</h3><p class="note">Lecturers see this academic year and semester already filled in when they start a class.</p>
         <div class="row"><div><label for="termYear">Academic year</label><input id="termYear" maxlength="20" placeholder="2026/2027"></div><div><label for="termSem">Semester</label><select id="termSem"><option value="">-</option><option>Semester 1</option><option>Semester 2</option><option>Summer / Resit</option></select></div></div>
         <div class="bar"><button id="termSave" class="btn" type="button">Save current term</button></div></div>
@@ -143,4 +148,4 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="chat.js?v=1"></script>
 <script src="shared.js?v=26"></script>
-<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=34"></script></body></html>
+<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=35"></script></body></html>

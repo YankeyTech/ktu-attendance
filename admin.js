@@ -23,7 +23,7 @@ $("out").addEventListener("click", async () => { await sb.auth.signOut(); start(
 document.querySelectorAll(".tabs [data-t]").forEach((b) => b.addEventListener("click", () => {
   document.querySelectorAll(".tabs [data-t]").forEach((x) => x.classList.toggle("on", x === b));
   for (const t of ["over", "inb", "lect", "cls", "roll", "stu", "ana", "act", "sus", "rep", "trash", "tools", "set"]) $("t-" + t).hidden = t !== b.dataset.t;
-  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") loadSus(); if (b.dataset.t === "set") { renderSettings(); loadVenuesAdmin(); } if (b.dataset.t === "trash") loadTrash(); if (b.dataset.t === "stu") $("stIdx").focus(); if (b.dataset.t === "tools") { loadTools(); loadSystem(); } if (b.dataset.t === "inb") loadInbox(); if (b.dataset.t === "rep") loadReports();
+  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") { loadSus(); loadShared(); } if (b.dataset.t === "set") { renderSettings(); loadVenuesAdmin(); } if (b.dataset.t === "trash") loadTrash(); if (b.dataset.t === "stu") $("stIdx").focus(); if (b.dataset.t === "tools") { loadTools(); loadSystem(); } if (b.dataset.t === "inb") loadInbox(); if (b.dataset.t === "rep") loadReports();
 }));
 
 async function load() {
@@ -753,7 +753,7 @@ $("actX").addEventListener("click", () => {
 async function loadTools() {
   const r = await sb.rpc("get_public_settings");
   if (r.error) { say("tlMsg", "Run upgrade25.sql in Supabase first.", "bad"); return; }
-  drawPause(r.data); drawTerm(r.data); loadBlocked();
+  drawPause(r.data); drawTerm(r.data); loadBlocked(); loadActivityBoard();
   const d = await sb.rpc("admin_diagnostics");
   const box = $("hcList"); box.textContent = "";
   if (d.error) { box.textContent = d.error.message; return; }
@@ -1129,3 +1129,39 @@ document.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); }
   else if (e.key === "/" && !typing) { e.preventDefault(); openPalette(); }
 });
+
+
+// ---- Phones used by several students, and lecturer activity ----
+async function loadShared() {
+  const box = $("shList"); box.textContent = "Loading...";
+  const r = await sb.rpc("admin_shared_devices", { p_days: Number($("shDays").value) });
+  box.textContent = "";
+  if (r.error) { box.textContent = /function|exist/i.test(r.error.message) ? "Run upgrade31.sql in Supabase first." : r.error.message; return; }
+  if (!(r.data || []).length) { box.textContent = "No phone was used by more than one student in this period."; return; }
+  for (const x of r.data) {
+    const row = el("div", "reqrow"), t = el("div", "reqtxt"), b = el("b"), sp = el("span");
+    b.textContent = x.students + " students on one phone, in " + x.classes + " class" + (x.classes === 1 ? "" : "es");
+    sp.textContent = (x.names || []).slice(0, 6).join(", ") + (x.names.length > 6 ? "..." : "") + " | last " + new Date(x.last_at).toLocaleString(); t.append(b, sp);
+    const a = el("div", "acts");
+    a.append(abtn("Look up first student", "", () => { const i = (x.indexes || [])[0]; if (!i) return; document.querySelector('[data-t="stu"]').click(); $("stIdx").value = i; $("stGo").click(); }),
+      abtn("Block this phone", "bad", async () => { if (!confirm("Block this phone from checking in to any class?")) return; const why = "Used by " + x.students + " students"; if (await blockStudent("device", x.device, why)) loadShared(); }));
+    row.append(t, a); box.appendChild(row);
+  }
+}
+$("shDays").addEventListener("change", loadShared);
+async function loadActivityBoard() {
+  const box = $("laList"); if (!box) return; box.textContent = "";
+  const r = await sb.rpc("admin_lecturer_activity", { p_days: Number($("laDays").value) });
+  if (r.error) { box.textContent = /function|exist/i.test(r.error.message) ? "Run upgrade31.sql in Supabase first." : r.error.message; return; }
+  const rows = (r.data || []).sort((a, b) => b.checkins - a.checkins);
+  const tb = el("table"), th = el("thead"), hr = el("tr");
+  for (const h of ["Lecturer", "Classes", "Check-ins", "Last class", "Last seen"]) { const c = el("th"); c.textContent = h; hr.appendChild(c); }
+  th.appendChild(hr); tb.appendChild(th); const body = el("tbody");
+  for (const x of rows) {
+    const tr = el("tr"); const f = (d) => (d ? new Date(d).toLocaleDateString() : "never");
+    for (const v of [staffName(x.id), x.classes, x.checkins, f(x.last_class), f(x.last_seen)]) { const c = el("td"); c.textContent = v; tr.appendChild(c); }
+    body.appendChild(tr);
+  }
+  tb.appendChild(body); const w = el("div", "table-wrap"); w.appendChild(tb); box.appendChild(w);
+}
+$("laDays").addEventListener("change", loadActivityBoard);

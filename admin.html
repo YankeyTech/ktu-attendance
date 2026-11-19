@@ -14,7 +14,7 @@
     <button id="forgotGo" class="btn" type="submit">Send reset link</button>
     <button type="button" id="forgotBack" class="btn forgot">Back to sign in</button><p id="forgotMsg" class="msg" role="status"></p></form>
   <div id="app" hidden>
-    <div class="tabs"><button class="btn quiet on" data-t="over">Overview</button><button class="btn quiet" data-t="inb">Inbox <span id="inN" class="badge on" hidden></span></button><button class="btn quiet" data-t="lect">Lecturers</button><button class="btn quiet" data-t="cls">All classes</button><button class="btn quiet" data-t="roll">Class rolls</button><button class="btn quiet" data-t="stu">Student lookup</button><button class="btn quiet" data-t="ana">Analytics</button><button class="btn quiet" data-t="act">Activity</button><button class="btn quiet" data-t="sus">Suspicious <span id="susN" class="badge on" hidden></span></button><button class="btn quiet" data-t="rep">Reports <span id="repN" class="badge on" hidden></span></button><button class="btn quiet" data-t="trash">Trash <span id="trN" class="badge on" hidden></span></button><button class="btn quiet" data-t="tools">Tools</button><button class="btn quiet" data-t="set">Settings</button><a class="btn quiet" href="teacher.html">Lecturer portal</a><button id="out" class="btn quiet">Sign out</button></div>
+    <div class="tabs"><button class="btn quiet on" data-t="over">Overview</button><button class="btn quiet" data-t="inb">Inbox <span id="inN" class="badge on" hidden></span></button><button class="btn quiet" data-t="lect">Lecturers</button><button class="btn quiet" data-t="cls">All classes</button><button class="btn quiet" data-t="roll">Class rolls</button><button class="btn quiet" data-t="stu">Student lookup</button><button class="btn quiet" data-t="ana">Analytics</button><button class="btn quiet" data-t="term">Term report</button><button class="btn quiet" data-t="act">Activity</button><button class="btn quiet" data-t="sus">Suspicious <span id="susN" class="badge on" hidden></span></button><button class="btn quiet" data-t="rep">Reports <span id="repN" class="badge on" hidden></span></button><button class="btn quiet" data-t="trash">Trash <span id="trN" class="badge on" hidden></span></button><button class="btn quiet" data-t="tools">Tools</button><button class="btn quiet" data-t="set">Settings</button><a class="btn quiet" href="teacher.html">Lecturer portal</a><button id="out" class="btn quiet">Sign out</button></div>
     <p id="msg" class="msg" role="status"></p>
     <section id="t-over" class="card"><h2>Overview</h2><div class="stats" id="stats"></div>
       <p class="note">Tip: press <b>Ctrl+K</b> (or <b>/</b>) to search the whole admin page: sections, lecturers, courses and student index numbers.</p>
@@ -79,6 +79,14 @@
       <h3 class="ch3">Lecturer activity</h3><p class="note">Last sign-in, and classes and check-ins in the last 30 days.</p>
       <div class="table-wrap"><table><thead><tr><th>Lecturer</th><th>Role</th><th>Last sign-in</th><th>Last class</th><th>Classes (30 days)</th><th>Check-ins (30 days)</th><th>In area %</th><th>Total classes</th></tr></thead><tbody id="laB"></tbody></table></div>
       <button id="laX" class="btn quiet" type="button" style="margin-top:10px">Download (Excel)</button></section>
+    <section id="t-term" class="card" hidden><h2>Term report</h2>
+      <p class="note">Attendance percentage for every student in one course. Excused absences are taken out. Students on the class roll who never checked in show 0%.</p>
+      <div class="row"><div><label for="trCourse">Course</label><select id="trCourse"></select></div><div><label for="trYear">Academic year</label><select id="trYear"></select></div><div><label for="trSem">Semester</label><select id="trSem"><option value="">All</option><option>Semester 1</option><option>Semester 2</option><option>Summer / Resit</option></select></div></div>
+      <div class="row"><div><label for="trProg">Programme</label><select id="trProg"><option value="">All</option></select></div><div><label for="trLevel">Level</label><select id="trLevel"></select></div><div><label for="trMin">Flag below (%)</label><input id="trMin" type="number" min="1" max="100" value="75"></div></div>
+      <div class="bar"><button id="trRun" class="btn" type="button">Show report</button><button id="trX" class="btn quiet" type="button" disabled>Download (Excel)</button><label class="note" style="display:flex;align-items:center;gap:6px"><input id="trLow" type="checkbox"> Only students below the limit</label></div>
+      <p id="trMsg" class="msg" role="status"></p><div id="trSum" class="stats"></div>
+      <div class="table-wrap"><table><thead><tr><th>Index number</th><th>Name</th><th>Programme</th><th>Level</th><th>Classes held</th><th>Attended</th><th>Excused</th><th>Attendance</th></tr></thead><tbody id="trB"></tbody></table></div></section>
+
     <section id="t-act" class="card" hidden><h2>Activity log</h2><p class="note">Who changed or removed what, newest first. Shows the last 300 entries.</p>
       <div class="bar"><select id="actFilter"><option value="">All actions</option></select><input id="actQ" placeholder="Search"><button id="actX" class="btn quiet" type="button">Download (Excel)</button></div>
       <div class="table-wrap"><table><thead><tr><th>When</th><th>Who</th><th>Action</th><th>About</th><th>Detail</th></tr></thead><tbody id="actB"></tbody></table></div></section>
@@ -133,7 +141,8 @@
         <div class="bar"><select id="laDays"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="120">Last 4 months</option></select></div><div id="laList"></div></div>
       <div class="reqbox"><h3>Current term</h3><p class="note">Lecturers see this academic year and semester already filled in when they start a class.</p>
         <div class="row"><div><label for="termYear">Academic year</label><input id="termYear" maxlength="20" placeholder="2026/2027"></div><div><label for="termSem">Semester</label><select id="termSem"><option value="">-</option><option>Semester 1</option><option>Semester 2</option><option>Summer / Resit</option></select></div></div>
-        <div class="bar"><button id="termSave" class="btn" type="button">Save current term</button></div></div>
+        <div class="bar"><button id="termSave" class="btn" type="button">Save current term</button><button id="termClear" class="btn quiet" type="button">Clear term</button></div>
+        <p id="termMsg" class="msg" role="status"></p></div>
       <div class="reqbox"><h3>Blocked students and phones</h3><p class="note">A blocked index number or phone cannot check in to any class. Block someone from Student lookup, or add one here.</p>
         <div class="bar"><select id="blkKind"><option value="index">Index number</option><option value="device">Phone code</option></select><input id="blkVal" maxlength="40" placeholder="Index number"><input id="blkWhy" maxlength="120" placeholder="Reason (optional)"><button id="blkAdd" class="btn quiet" type="button">Block</button></div>
         <div id="blkList"></div></div>
@@ -148,4 +157,4 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="chat.js?v=1"></script>
 <script src="shared.js?v=26"></script>
-<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=35"></script></body></html>
+<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=36"></script></body></html>

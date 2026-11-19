@@ -22,8 +22,8 @@ wireForgot(sb, "login");
 $("out").addEventListener("click", async () => { await sb.auth.signOut(); start(); });
 document.querySelectorAll(".tabs [data-t]").forEach((b) => b.addEventListener("click", () => {
   document.querySelectorAll(".tabs [data-t]").forEach((x) => x.classList.toggle("on", x === b));
-  for (const t of ["over", "inb", "lect", "cls", "roll", "stu", "ana", "act", "sus", "rep", "trash", "tools", "set"]) $("t-" + t).hidden = t !== b.dataset.t;
-  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") { loadSus(); loadShared(); } if (b.dataset.t === "set") { renderSettings(); loadVenuesAdmin(); } if (b.dataset.t === "trash") loadTrash(); if (b.dataset.t === "stu") $("stIdx").focus(); if (b.dataset.t === "tools") { loadTools(); loadSystem(); } if (b.dataset.t === "inb") loadInbox(); if (b.dataset.t === "rep") loadReports();
+  for (const t of ["over", "inb", "lect", "cls", "roll", "stu", "ana", "term", "act", "sus", "rep", "trash", "tools", "set"]) $("t-" + t).hidden = t !== b.dataset.t;
+  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "term") initTerm(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") { loadSus(); loadShared(); } if (b.dataset.t === "set") { renderSettings(); loadVenuesAdmin(); } if (b.dataset.t === "trash") loadTrash(); if (b.dataset.t === "stu") $("stIdx").focus(); if (b.dataset.t === "tools") { loadTools(); loadSystem(); } if (b.dataset.t === "inb") loadInbox(); if (b.dataset.t === "rep") loadReports();
 }));
 
 async function load() {
@@ -780,11 +780,15 @@ $("pauseBtn").addEventListener("click", async () => {
 $("hcRun").addEventListener("click", loadTools);
 
 // ---- Current term and blocked students ----
-function drawTerm(s) { if ($("termYear") && document.activeElement !== $("termYear")) { $("termYear").value = s.year || ""; $("termSem").value = s.semester || ""; } }
-$("termSave").addEventListener("click", async () => {
-  const r = await sb.rpc("admin_set_term", { p_year: $("termYear").value.trim(), p_sem: $("termSem").value });
-  say("tlMsg", r.error ? (/function|exist/i.test(r.error.message) ? "Run upgrade30.sql in Supabase first." : r.error.message) : "Current term saved. Lecturers will see it when they start a class.", r.error ? "bad" : "ok");
-});
+function drawTerm(s) { if ($("termYear") && document.activeElement !== $("termYear")) { $("termYear").value = s.year || ""; $("termSem").value = s.semester || ""; } if ($("termMsg") && !$("termMsg").textContent) say("termMsg", termLine(s), s.year || s.semester ? "ok" : "");}
+function termLine(s) { return s.year || s.semester ? "Saved: " + [s.year, s.semester].filter(Boolean).join(", ") + ". Lecturers see this when they start a class." : "No current term is set. Lecturers choose their own."; }
+async function saveTerm(y, m) {
+  const r = await sb.rpc("admin_set_term", { p_year: y, p_sem: m });
+  if (r.error) return say("termMsg", /function|exist/i.test(r.error.message) ? "Run upgrade30.sql in Supabase first." : r.error.message, "bad");
+  $("termYear").value = r.data.year || ""; $("termSem").value = r.data.semester || ""; say("termMsg", termLine(r.data), "ok");
+}
+$("termSave").addEventListener("click", () => saveTerm($("termYear").value.trim(), $("termSem").value));
+$("termClear").addEventListener("click", () => { if (confirm("Clear the current term? Lecturers will no longer see it filled in.")) saveTerm("", ""); });
 async function loadBlocked() {
   const box = $("blkList"); if (!box) return; box.textContent = "";
   const r = await sb.rpc("admin_list_blocked");
@@ -931,7 +935,7 @@ $("svAdd").addEventListener("click", async () => {
 
 // ---- Sidebar icons ----
 (function icons() {
-  const P = { inb: "M4 4h16v12h-5l-2 3h-2l-2-3H4z", over: "M3 13h8V3H3zM13 21h8V11h-8zM13 3v6h8V3zM3 21h8v-6H3z", lect: "M16 11a4 4 0 1 0-8 0M4 21a8 8 0 0 1 16 0", cls: "M4 5h16v14H4zM4 10h16", roll: "M7 3h10v18H7zM10 8h4M10 12h4", stu: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-5-5", ana: "M4 20V10M10 20V4M16 20v-8M22 20H2", act: "M3 12h4l3-8 4 16 3-8h4", sus: "M12 3l9 16H3zM12 10v4M12 17v.5", rep: "M5 21V4h11l-1 4h5v9H9l-1-3H5", trash: "M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14", tools: "M14 6l4 4-9 9H5v-4zM13 7l4 4", set: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v3M12 19v3M2 12h3M19 12h3" };
+  const P = { inb: "M4 4h16v12h-5l-2 3h-2l-2-3H4z", over: "M3 13h8V3H3zM13 21h8V11h-8zM13 3v6h8V3zM3 21h8v-6H3z", lect: "M16 11a4 4 0 1 0-8 0M4 21a8 8 0 0 1 16 0", cls: "M4 5h16v14H4zM4 10h16", roll: "M7 3h10v18H7zM10 8h4M10 12h4", stu: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-5-5", term: "M5 3h14v18H5zM8 8h8M8 12h8M8 16h5", ana: "M4 20V10M10 20V4M16 20v-8M22 20H2", act: "M3 12h4l3-8 4 16 3-8h4", sus: "M12 3l9 16H3zM12 10v4M12 17v.5", rep: "M5 21V4h11l-1 4h5v9H9l-1-3H5", trash: "M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14", tools: "M14 6l4 4-9 9H5v-4zM13 7l4 4", set: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v3M12 19v3M2 12h3M19 12h3" };
   for (const b of document.querySelectorAll(".tabs [data-t]")) {
     const d = P[b.dataset.t]; if (!d || b.querySelector("svg")) continue;
     const s = document.createElementNS("http://www.w3.org/2000/svg", "svg"); s.setAttribute("viewBox", "0 0 24 24"); s.setAttribute("width", "18"); s.setAttribute("height", "18"); s.setAttribute("aria-hidden", "true");
@@ -1165,3 +1169,38 @@ async function loadActivityBoard() {
   tb.appendChild(body); const w = el("div", "table-wrap"); w.appendChild(tb); box.appendChild(w);
 }
 $("laDays").addEventListener("change", loadActivityBoard);
+
+
+// ---- Term report ----
+let trRows = [];
+function initTerm() {
+  const fill = (sel, vals, all) => { const keep = sel.value; sel.textContent = ""; if (all) { const o = el("option"); o.value = ""; o.textContent = "All"; sel.appendChild(o); } for (const v of vals) { const o = el("option"); o.value = o.textContent = v; sel.appendChild(o); } if ([...sel.options].some((o) => o.value === keep)) sel.value = keep; };
+  const uniq = (k) => [...new Set(classes.map((c) => c[k]).filter(Boolean))].sort();
+  fill($("trCourse"), uniq("course"), false); fill($("trYear"), uniq("academic_year").reverse(), true);
+  fillProgSel($("trProg")); fillLevelSel($("trLevel"));
+}
+$("trRun").addEventListener("click", async () => {
+  if (!$("trCourse").value) return say("trMsg", "Choose a course first.", "bad");
+  say("trMsg", "Working...", "");
+  const r = await sb.rpc("admin_term_report", { p_course: $("trCourse").value, p_year: $("trYear").value, p_sem: $("trSem").value, p_programme: $("trProg").value, p_level: $("trLevel").value });
+  if (r.error) return say("trMsg", /function|exist/i.test(r.error.message) ? "Run upgrade32.sql in Supabase first." : r.error.message, "bad");
+  trRows = r.data || []; say("trMsg", "", ""); drawTerm2();
+});
+function drawTerm2() {
+  const lim = Number($("trMin").value) || 75, low = $("trLow").checked;
+  const rows = trRows.filter((x) => !low || (x.pct !== null && Number(x.pct) < lim));
+  const b = $("trB"); b.textContent = "";
+  const known = trRows.filter((x) => x.pct !== null), avg = known.length ? known.reduce((s, x) => s + Number(x.pct), 0) / known.length : 0;
+  const s = $("trSum"); s.textContent = "";
+  for (const [n, l] of [[trRows.length, "Students"], [trRows.length ? trRows[0].held : 0, "Classes held"], [Math.round(avg) + "%", "Average attendance"], [known.filter((x) => Number(x.pct) < lim).length, "Below " + lim + "%"]]) { const d = el("div"), bb = el("b"); bb.textContent = n; d.append(bb, l); s.appendChild(d); }
+  for (const x of rows) {
+    const tr = el("tr"), p = x.pct === null ? "-" : x.pct + "%";
+    for (const v of [x.index_number, x.student_name || "-", x.programme || "-", x.level || "-", x.held, x.attended, x.excused, p]) { const c = el("td"); c.textContent = v; tr.appendChild(c); }
+    if (x.pct !== null && Number(x.pct) < lim) tr.lastChild.style.cssText = "color:#b3261e;font-weight:700";
+    b.appendChild(tr);
+  }
+  if (!rows.length) { const tr = el("tr"), c = el("td"); c.colSpan = 8; c.textContent = trRows.length ? "Nobody is below the limit." : "No students found for these choices."; tr.appendChild(c); b.appendChild(tr); }
+  $("trX").disabled = !trRows.length;
+}
+$("trMin").addEventListener("input", drawTerm2); $("trLow").addEventListener("change", drawTerm2);
+$("trX").addEventListener("click", () => downloadXlsx("Term report " + $("trCourse").value, [{ name: "Term report", rows: [["Index number", "Name", "Programme", "Level", "Classes held", "Attended", "Excused", "Attendance %"], ...trRows.map((x) => [x.index_number, x.student_name || "", x.programme || "", x.level || "", x.held, x.attended, x.excused, x.pct === null ? "" : Number(x.pct)])] }]));

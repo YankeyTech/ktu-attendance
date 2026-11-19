@@ -888,7 +888,14 @@ for (const id of ["tyear", "yfilter", "repYear"]) {
   try { y = localStorage.getItem("ktu_tyear") || y; sm = localStorage.getItem("ktu_tsem") || sm; } catch (e) {}
   $("tyear").value = academicYears().includes(y) ? y : academicYears()[1]; $("tsem").value = sm;
   // The admin's current term is the default when this browser has no earlier choice.
-  sb.rpc("get_public_settings").then(({ data }) => { try { if (!data || localStorage.getItem("ktu_tyear")) return; if (data.year && academicYears().includes(data.year)) $("tyear").value = data.year; if (data.semester) $("tsem").value = data.semester; } catch (e) {} });
+  sb.rpc("get_public_settings").then(({ data }) => { try {
+    if (!data || !(data.year || data.semester)) return;
+    const mark = (data.year || "") + "|" + (data.semester || ""), seen = localStorage.getItem("ktu_admin_term");
+    // Use the admin's term when it is new to this browser, or when no choice was made here before.
+    if (seen === mark || (seen === null && localStorage.getItem("ktu_tyear"))) { if (seen === null) localStorage.setItem("ktu_admin_term", mark); return; }
+    if (data.year && academicYears().includes(data.year)) $("tyear").value = data.year; if (data.semester) $("tsem").value = data.semester;
+    localStorage.setItem("ktu_admin_term", mark);
+  } catch (e) {} });
 }
 $("yfilter").addEventListener("change", loadSessions); $("sfilter").addEventListener("change", loadSessions);
 

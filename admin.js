@@ -753,7 +753,7 @@ $("actX").addEventListener("click", () => {
 async function loadTools() {
   const r = await sb.rpc("get_public_settings");
   if (r.error) { say("tlMsg", "Run upgrade25.sql in Supabase first.", "bad"); return; }
-  drawPause(r.data);
+  drawPause(r.data); drawTerm(r.data); loadBlocked();
   const d = await sb.rpc("admin_diagnostics");
   const box = $("hcList"); box.textContent = "";
   if (d.error) { box.textContent = d.error.message; return; }
@@ -778,6 +778,30 @@ $("pauseBtn").addEventListener("click", async () => {
   drawPause(r.data); say("tlMsg", turnOn ? "Check-in paused." : "Check-in resumed.", "ok");
 });
 $("hcRun").addEventListener("click", loadTools);
+
+// ---- Current term and blocked students ----
+function drawTerm(s) { if ($("termYear") && document.activeElement !== $("termYear")) { $("termYear").value = s.year || ""; $("termSem").value = s.semester || ""; } }
+$("termSave").addEventListener("click", async () => {
+  const r = await sb.rpc("admin_set_term", { p_year: $("termYear").value.trim(), p_sem: $("termSem").value });
+  say("tlMsg", r.error ? (/function|exist/i.test(r.error.message) ? "Run upgrade30.sql in Supabase first." : r.error.message) : "Current term saved. Lecturers will see it when they start a class.", r.error ? "bad" : "ok");
+});
+async function loadBlocked() {
+  const box = $("blkList"); if (!box) return; box.textContent = "";
+  const r = await sb.rpc("admin_list_blocked");
+  if (r.error) { box.textContent = "Run upgrade30.sql in Supabase first."; return; }
+  if (!(r.data || []).length) { box.textContent = "Nobody is blocked."; return; }
+  for (const x of r.data) {
+    const row = el("div", "reqrow"), t = el("div", "reqtxt"), b = el("b"), sp = el("span");
+    b.textContent = (x.kind === "index" ? "Index " : "Phone ") + x.value; sp.textContent = (x.reason ? x.reason + " | " : "") + "blocked " + new Date(x.created_at).toLocaleDateString(); t.append(b, sp);
+    const a = el("div", "acts"); a.appendChild(abtn("Unblock", "ok", async () => { const u = await sb.rpc("admin_unblock", { p_id: x.id }); if (u.error) say("tlMsg", u.error.message, "bad"); else loadBlocked(); })); row.append(t, a); box.appendChild(row);
+  }
+}
+async function blockStudent(kind, value, why) {
+  const r = await sb.rpc("admin_block", { p_kind: kind, p_value: value, p_reason: why || "" });
+  if (r.error || !r.data.ok) return alert(r.error ? (/function|exist/i.test(r.error.message) ? "Run upgrade30.sql in Supabase first." : r.error.message) : r.data.error);
+  loadBlocked(); return true;
+}
+$("blkAdd").addEventListener("click", async () => { if (await blockStudent($("blkKind").value, $("blkVal").value, $("blkWhy").value)) { $("blkVal").value = ""; $("blkWhy").value = ""; say("tlMsg", "Blocked.", "ok"); } });
 
 // ---- Manage a class: edit details, move to another lecturer, fix check-ins ----
 async function manageClass(s) {
@@ -821,6 +845,9 @@ async function manageClass(s) {
     const ab = el("button", "btn quiet"); ab.type = "button"; ab.textContent = "Add student"; add.appendChild(ab);
     ab.addEventListener("click", async () => { const r = await sb.rpc("admin_add_checkin", { p_session: s.id, p_index: add.querySelector("#mcIdx").value, p_name: add.querySelector("#mcNm").value, p_programme: s.programme || "", p_level: s.level || "" }); if (r.error || !r.data.ok) { msg.className = "msg bad"; msg.textContent = r.error ? r.error.message : r.data.error; } else draw(); });
     box.appendChild(add);
+    const nc = el("button", "btn quiet"); nc.type = "button"; nc.textContent = "Give this class a new code"; nc.style.marginTop = "14px"; nc.style.marginRight = "8px";
+    nc.addEventListener("click", async () => { if (!confirm("Make a new code for this class? The old code and old QR stop working. People who already checked in are not affected.")) return; const r = await sb.rpc("admin_regen_code", { p_id: s.id }); if (r.error || !r.data.ok) { msg.className = "msg bad"; msg.textContent = r.error ? r.error.message : r.data.error; } else { s.code = r.data.code; msg.className = "msg ok"; msg.textContent = "New code: " + r.data.code; } });
+    box.appendChild(nc);
     const cl = el("button", "btn quiet"); cl.type = "button"; cl.textContent = "Close"; cl.style.marginTop = "14px"; cl.addEventListener("click", close); box.appendChild(cl);
   }
   draw();
@@ -841,6 +868,9 @@ function lookupTools(idx, res) {
     const r = await sb.rpc("admin_rename_student", { p_index: idx, p_name: n });
     if (r.error || !r.data.ok) return alert(r.error ? r.error.message : r.data.error);
     alert("Name changed on " + r.data.checkins + " check-in(s) and " + r.data.rolls + " roll entr" + (r.data.rolls === 1 ? "y." : "ies.")); $("stGo").click();
+  }), abtn("Block from checking in", "bad", async () => {
+    const why = prompt("Block " + idx + " from checking in to any class.\nReason (optional):"); if (why === null) return;
+    if (await blockStudent("index", idx, why)) alert(idx + " is blocked. You can unblock in the Tools tab.");
   }));
   $("stOut").appendChild(bar);
 }

@@ -866,6 +866,8 @@ for (const id of ["tyear", "yfilter", "repYear"]) {
   let y = startYear() + "/" + (startYear() + 1), sm = new Date().getMonth() >= 7 ? "Semester 1" : "Semester 2";
   try { y = localStorage.getItem("ktu_tyear") || y; sm = localStorage.getItem("ktu_tsem") || sm; } catch (e) {}
   $("tyear").value = academicYears().includes(y) ? y : academicYears()[1]; $("tsem").value = sm;
+  // The admin's current term is the default when this browser has no earlier choice.
+  sb.rpc("get_public_settings").then(({ data }) => { try { if (!data || localStorage.getItem("ktu_tyear")) return; if (data.year && academicYears().includes(data.year)) $("tyear").value = data.year; if (data.semester) $("tsem").value = data.semester; } catch (e) {} });
 }
 $("yfilter").addEventListener("change", loadSessions); $("sfilter").addEventListener("change", loadSessions);
 

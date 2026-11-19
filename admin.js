@@ -753,7 +753,7 @@ $("actX").addEventListener("click", () => {
 async function loadTools() {
   const r = await sb.rpc("get_public_settings");
   if (r.error) { say("tlMsg", "Run upgrade25.sql in Supabase first.", "bad"); return; }
-  drawPause(r.data); drawTerm(r.data); drawFeatures(r.data.features); loadNotify(); loadBlocked(); loadActivityBoard();
+  drawPause(r.data); drawTerm(r.data); drawFeatures(r.data.features); drawPolicy(r.data.policy); loadNotify(); loadBlocked(); loadActivityBoard();
   const d = await sb.rpc("admin_diagnostics");
   const box = $("hcList"); box.textContent = "";
   if (d.error) { box.textContent = d.error.message; return; }
@@ -1259,4 +1259,21 @@ $("ntSave").addEventListener("click", async () => {
 $("ntTest").addEventListener("click", async () => {
   const r = await sb.rpc("admin_test_notify");
   say("ntMsg", r.error ? r.error.message : r.data.ok ? "Test sent. Check your inbox (and spam) in a minute. If nothing arrives, check the function's Logs in Supabase." : r.data.error, r.error || !r.data.ok ? "bad" : "ok");
+});
+
+// ---- Class limits ----
+function drawPolicy(p) { p = p || {}; if (!$("polMin") || $("polMin").contains(document.activeElement)) return; $("polMin").value = p.max_minutes || 0; $("polLo").value = p.min_radius || 0; $("polHi").value = p.max_radius || 0; }
+$("polSave").addEventListener("click", async () => {
+  const r = await sb.rpc("admin_set_policy", { p_max_minutes: Number($("polMin").value) || 0, p_min_radius: Number($("polLo").value) || 0, p_max_radius: Number($("polHi").value) || 0 });
+  if (r.error) return say("polMsg", /function|exist/i.test(r.error.message) ? "Run upgrade35.sql in Supabase first." : r.error.message, "bad");
+  if (r.data && r.data.ok === false) return say("polMsg", r.data.error, "bad");
+  drawPolicy(r.data.policy); const p = r.data.policy;
+  say("polMsg", "Saved. Longest class: " + (p.max_minutes ? p.max_minutes + " minutes" : "no limit") + ". Distance: " + (p.min_radius || "any") + " to " + (p.max_radius || "any") + " m.", "ok");
+});
+// ---- Quick actions on the Overview ----
+$("quickBox").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-go]"); if (!b) return;
+  const tab = document.querySelector('.tabs [data-t="' + b.dataset.go + '"]'); if (tab) tab.click();
+  if (b.dataset.focus) setTimeout(() => { const f = $(b.dataset.focus); if (f) { f.scrollIntoView({ behavior: "smooth", block: "center" }); f.focus(); } }, 400);
+  else window.scrollTo({ top: 0, behavior: "smooth" });
 });

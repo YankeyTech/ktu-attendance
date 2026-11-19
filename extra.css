@@ -483,3 +483,26 @@ input[readonly].fixed{background:var(--soft,#eef2f7);color:inherit;cursor:not-al
   .table-wrap{-webkit-overflow-scrolling:touch}
   .kfab{bottom:calc(16px + env(safe-area-inset-bottom))}
 }
+
+/* ---- Update 38: polish ---- */
+.quick{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.qa{min-height:48px;border:1px solid var(--line);border-radius:12px;background:linear-gradient(180deg,var(--card),color-mix(in srgb,var(--blue) 6%,var(--card)));color:inherit;font:700 .92rem inherit;font-family:inherit;cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s}
+.qa:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(0,0,0,.12);border-color:var(--blue)}
+.qa:active{transform:translateY(0)}
+.stats>div{transition:transform .12s,box-shadow .12s}
+.stats>div:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(0,0,0,.1)}
+.card{transition:box-shadow .2s}
+:focus-visible{outline:3px solid color-mix(in srgb,var(--blue) 70%,#fff);outline-offset:2px}
+.reqrow{transition:background .15s}
+.reqrow:hover{background:color-mix(in srgb,var(--blue) 5%,transparent)}
+@media (prefers-reduced-motion:reduce){.qa,.stats>div,.card,.reqrow{transition:none}.qa:hover,.stats>div:hover{transform:none}}
+/* Phone: lecturer sections become a bottom bar like a normal app */
+@media (max-width:700px){
+  body.tch .ttabs{position:fixed;left:0;right:0;bottom:0;top:auto;margin:0;z-index:60;border-radius:18px 18px 0 0;border-width:1px 0 0;padding:6px 6px calc(6px + env(safe-area-inset-bottom));box-shadow:0 -6px 22px rgba(0,0,0,.16)}
+  body.tch{padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+  body.tch .kfab{bottom:calc(92px + env(safe-area-inset-bottom))}
+  body.tch .a11y{bottom:calc(92px + env(safe-area-inset-bottom));left:12px;right:auto}
+  body.tch .a11ymenu{bottom:calc(144px + env(safe-area-inset-bottom));left:12px;right:auto}
+  body.tch .pwa-install{bottom:calc(92px + env(safe-area-inset-bottom))}
+  body.adm .pwa-install{bottom:calc(12px + env(safe-area-inset-bottom))}
+}

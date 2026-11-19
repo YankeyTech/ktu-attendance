@@ -123,7 +123,7 @@ $("start").addEventListener("submit", async (e) => {
 // "Your week" strip on the Home tab: classes, check-ins and how many were inside the class area, since Monday.
 let mySessions = [];
 async function pausedBanner() {
-  try { const { data } = await sb.rpc("get_public_settings"); popupsOff = data && data.popups === false; applyFeatures(data && data.features);
+  try { const { data } = await sb.rpc("get_public_settings"); popupsOff = data && data.popups === false; applyFeatures(data && data.features); applyPolicy(data && data.policy);
     if (!(data && data.features && data.features.announce === false)) showAnnouncements(sb, $("announceBox"));
     if (!data || !data.paused) return;
     const d = document.createElement("div"); d.className = "announce warn"; const t = document.createElement("div"), b = document.createElement("b"), s = document.createElement("span");
@@ -1368,3 +1368,25 @@ function editCheckin(r) {
     back.remove(); toast("Student details updated."); loadAttendance();
   });
 }
+
+// ---- Limits set by the admin ----
+function applyPolicy(p) {
+  if (!p || role === "admin") return;
+  const note = [];
+  if (p.max_minutes > 0) { $("mins").max = p.max_minutes; if (Number($("mins").value) > p.max_minutes) $("mins").value = p.max_minutes; note.push("classes up to " + p.max_minutes + " minutes"); }
+  if (p.min_radius > 0) { $("radius").min = p.min_radius; if (Number($("radius").value) < p.min_radius) $("radius").value = p.min_radius; }
+  if (p.max_radius > 0) { $("radius").max = p.max_radius; if (Number($("radius").value) > p.max_radius) $("radius").value = p.max_radius; }
+  if (p.min_radius > 0 || p.max_radius > 0) note.push("distance " + (p.min_radius || 20) + " to " + (p.max_radius || 2000) + " m");
+  let n = $("policyNote"); if (!note.length) { if (n) n.remove(); return; }
+  if (!n) { n = document.createElement("p"); n.id = "policyNote"; n.className = "note"; $("startBtn").before(n); }
+  n.textContent = "Set by the admin: " + note.join(", ") + ".";
+}
+// ---- Copy a short summary of this class (for WhatsApp or a report) ----
+$("sumCopy").addEventListener("click", async () => {
+  if (!current) return;
+  const inside = records.filter((r) => r.in_range).length, late = records.filter((r) => r.late).length, abs = rollRows.length ? absentees() : null;
+  const txt = current.course + " (" + fmtDay(current.created_at) + ")\nChecked in: " + records.length + " (" + inside + " in the class area, " + (records.length - inside) + " outside" + (late ? ", " + late + " late" : "") + ")"
+    + (abs ? "\nOn the roll: " + rollRows.length + ". Absent: " + abs.length + (abs.length && abs.length <= 15 ? "\n" + abs.map((r) => "- " + (r.student_name || "-") + " (" + r.index_number + ")").join("\n") : "") : "")
+    + "\nLecturer: " + (myName || "");
+  toast((await copyText(txt)) ? "Summary copied." : "Could not copy. Try again.");
+});

@@ -753,7 +753,7 @@ $("actX").addEventListener("click", () => {
 async function loadTools() {
   const r = await sb.rpc("get_public_settings");
   if (r.error) { say("tlMsg", "Run upgrade25.sql in Supabase first.", "bad"); return; }
-  drawPause(r.data); drawTerm(r.data); drawFeatures(r.data.features); drawPolicy(r.data.policy); loadNotify(); loadBlocked(); loadActivityBoard();
+  drawPause(r.data); loadSchedule(); drawTerm(r.data); drawFeatures(r.data.features); drawPolicy(r.data.policy); loadNotify(); loadBlocked(); loadActivityBoard();
   const d = await sb.rpc("admin_diagnostics");
   const box = $("hcList"); box.textContent = "";
   if (d.error) { box.textContent = d.error.message; return; }
@@ -773,6 +773,7 @@ function drawPause(s) {
 $("pauseBtn").addEventListener("click", async () => {
   const turnOn = !$("pauseBtn").dataset.on;
   if (turnOn && !confirm("Pause check-in for EVERY class? Students will not be able to check in until you resume.")) return;
+  await sb.rpc("admin_clear_schedule");
   const r = await sb.rpc("admin_set_pause", { p_on: turnOn, p_message: $("pauseMsg").value.trim() });
   if (r.error) return say("tlMsg", r.error.message, "bad");
   drawPause(r.data); say("tlMsg", turnOn ? "Check-in paused." : "Check-in resumed.", "ok");
@@ -1305,4 +1306,49 @@ $("delBulk").addEventListener("click", async () => {
   if (!confirm("Delete " + list.length + " class(es) with all their check-ins? They go to the Trash for 3 months and you can restore them.")) return;
   if (list.length > 5 && prompt("Type DELETE to confirm moving " + list.length + " classes to the Trash:") !== "DELETE") return;
   await bulkRun(list, "delete", {}, "moved to the Trash");
+});
+
+// ---- Scheduled pause ----
+async function loadSchedule() {
+  const r = await sb.rpc("admin_pause_schedule"); if (r.error || !$("schMsg")) return;
+  const s = r.data, f = (d) => new Date(d).toLocaleString();
+  say("schMsg", s.armed ? (s.active ? "A pause is running now until " + f(s.until) + "." : "A pause is scheduled from " + f(s.from) + " until " + f(s.until) + ".") : "No pause is scheduled.", s.armed ? "warn" : "");
+}
+$("schGo").addEventListener("click", async () => {
+  const u = $("schUntil").value, f = $("schFrom").value; if (!u) return say("schMsg", "Choose an end time.", "bad");
+  if (!confirm("Pause check-in for every class" + (f ? " from " + new Date(f).toLocaleString() : " now") + " until " + new Date(u).toLocaleString() + "?")) return;
+  const r = await sb.rpc("admin_schedule_pause", { p_from: f ? new Date(f).toISOString() : null, p_until: new Date(u).toISOString(), p_message: $("pauseMsg").value.trim() });
+  if (r.error) return say("schMsg", /function|exist/i.test(r.error.message) ? "Run upgrade37.sql in Supabase first." : r.error.message, "bad");
+  if (r.data && r.data.ok === false) return say("schMsg", r.data.error, "bad");
+  loadSchedule(); loadTools();
+});
+$("schNo").addEventListener("click", async () => {
+  await sb.rpc("admin_clear_schedule"); await sb.rpc("admin_set_pause", { p_on: false, p_message: $("pauseMsg").value.trim() }); loadSchedule(); loadTools();
+});
+// ---- Index numbers with several names ----
+$("ncRun").addEventListener("click", async () => {
+  const box = $("ncList"); box.textContent = "Checking...";
+  const r = await sb.rpc("admin_name_conflicts"); box.textContent = "";
+  if (r.error) { box.textContent = /function|exist/i.test(r.error.message) ? "Run upgrade37.sql in Supabase first." : r.error.message; return; }
+  if (!(r.data || []).length) { box.textContent = "No index number has more than one name."; return; }
+  for (const x of r.data) {
+    const row = el("div", "reqrow"), t = el("div", "reqtxt"), b = el("b"), sp = el("span"); b.textContent = x.index_number; sp.textContent = x.uses + " check-ins with " + x.names.length + " different names"; t.append(b, sp);
+    const a = el("div", "acts");
+    for (const n of x.names) a.appendChild(abtn("Use: " + n, "ok", async () => {
+      if (!confirm("Change the name for " + x.index_number + " to \"" + n + "\" on every check-in and class roll?")) return;
+      const u = await sb.rpc("admin_rename_student", { p_index: x.index_number, p_name: n });
+      if (u.error || !u.data.ok) return say("tlMsg", u.error ? u.error.message : u.data.error, "bad");
+      $("ncRun").click();
+    }));
+    row.append(t, a); box.appendChild(row);
+  }
+});
+// ---- Archive old classes ----
+$("hkGo").addEventListener("click", async () => {
+  const m = Math.max(1, Number($("hkMonths").value) || 12), cut = new Date(); cut.setMonth(cut.getMonth() - m);
+  const list = classes.filter((s) => !s.archived && new Date(s.created_at) < cut);
+  if (!list.length) return say("hkMsg", "No active classes are older than " + m + " months.", "ok");
+  if (!confirm("Archive " + list.length + " class(es) older than " + m + " months?")) return;
+  const r = await sb.rpc("archive_sessions", { p_ids: list.map((s) => s.id), p_archived: true });
+  say("hkMsg", r.error ? r.error.message : "Archived " + r.data + " class(es).", r.error ? "bad" : "ok"); if (!r.error) load();
 });

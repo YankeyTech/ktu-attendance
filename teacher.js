@@ -1391,3 +1391,33 @@ $("sumCopy").addEventListener("click", async () => {
     + "\nLecturer: " + (myName || "");
   toast((await copyText(txt)) ? "Summary copied." : "Could not copy. Try again.");
 });
+
+// ---- Attendance grid: one row per student, one column per class (P present, E excused, O outside, A absent) ----
+$("repGrid").addEventListener("click", async () => {
+  const course = $("rollCourse").value, prog = $("rollProg").value, lvl = $("rollLevel").value;
+  if (!course) return say("rollMsg", "Choose the course first.", "warn");
+  say("rollMsg", "Building the grid...");
+  let [{ data: cls }, roll] = await Promise.all([sessQ(course, true), fetchRolls(course)]);
+  if (prog) {
+    const eq = (a) => sameText(a, prog), lk = (x) => !lvl || levelKey(x) === levelKey(lvl);
+    cls = (cls || []).filter((c) => c.combined ? (c.class_groups || []).some((g) => eq(g.programme) && (!lvl || g.level === "All levels" || lk(g.level))) : eq(c.programme) && lk(c.level));
+    roll = roll.filter((r) => eq(r.programme) && lk(r.level));
+  } else if (new Set(roll.map((r) => (r.programme || "").trim())).size > 1) {
+    return say("rollMsg", "This course has rolls for several programmes. Choose a programme (and level) above first.", "warn");
+  }
+  if (!cls || !cls.length) return say("rollMsg", "No classes found for that course yet.", "warn");
+  cls = cls.slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  let atts = await fetchAttendance(sb, cls.map((c) => c.id));
+  if (prog) atts = atts.filter((a) => sameText(a.programme, prog) && (!lvl || levelKey(a.level) === levelKey(lvl)));
+  let exc = []; { const x = await sb.from("excuses").select("session_id,index_number").in("session_id", cls.map((c) => c.id)); if (!x.error) exc = x.data || []; }
+  const st = new Map(); for (const r of roll) st.set(String(r.index_number).toUpperCase(), { name: r.student_name || "", cell: new Map() });
+  for (const a of atts) { const k = String(a.index_number).toUpperCase(); if (!st.has(k)) st.set(k, { name: a.student_name || "", cell: new Map() }); st.get(k).cell.set(a.session_id, a.in_range ? "P" : "O"); }
+  for (const e of exc) { const k = String(e.index_number).toUpperCase(); if (!st.has(k)) st.set(k, { name: "", cell: new Map() }); if (!st.get(k).cell.has(e.session_id)) st.get(k).cell.set(e.session_id, "E"); }
+  const head = ["Name", "Index number"].concat(cls.map((c) => fmtDay(c.created_at))).concat(["Present", "Excused", "Classes", "Attendance %"]);
+  const rows = Array.from(st, ([k, v]) => {
+    const marks = cls.map((c) => v.cell.get(c.id) || "A"), p = marks.filter((m) => m === "P").length, e = marks.filter((m) => m === "E").length, base = cls.length - e;
+    return [v.name, k].concat(marks).concat([p, e, cls.length, base > 0 ? Math.round((p * 100) / base) : ""]);
+  }).sort((a, b) => String(a[0] || a[1]).localeCompare(String(b[0] || b[1])));
+  downloadXlsx(course + " attendance grid", [{ name: "Grid", rows: [head].concat(rows) }, { name: "Key", rows: [["Mark", "Meaning"], ["P", "Present, inside the class area"], ["O", "Checked in outside the class area"], ["E", "Excused"], ["A", "Absent"]] }]);
+  say("rollMsg", "Grid downloaded: " + rows.length + " students, " + cls.length + " classes.", "ok");
+});

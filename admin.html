@@ -157,6 +157,13 @@
       <div class="reqbox"><h3>Blocked students and phones</h3><p class="note">A blocked index number or phone cannot check in to any class. Block someone from Student lookup, or add one here.</p>
         <div class="bar"><select id="blkKind"><option value="index">Index number</option><option value="device">Phone code</option></select><input id="blkVal" maxlength="40" placeholder="Index number"><input id="blkWhy" maxlength="120" placeholder="Reason (optional)"><button id="blkAdd" class="btn quiet" type="button">Block</button></div>
         <div id="blkList"></div></div>
+      <div class="reqbox"><h3>Schedule a pause (maintenance window)</h3><p class="note">Check-in stops by itself at the start time and comes back at the end time. Leave the start empty to begin now. The message above is shown to students.</p>
+        <div class="row"><div><label for="schFrom">Start (optional)</label><input id="schFrom" type="datetime-local"></div><div><label for="schUntil">End</label><input id="schUntil" type="datetime-local"></div></div>
+        <div class="bar"><button id="schGo" class="btn" type="button">Schedule the pause</button><button id="schNo" class="btn quiet" type="button">Cancel the schedule</button></div><p id="schMsg" class="msg" role="status"></p></div>
+      <div class="reqbox"><h3>Index numbers with more than one name</h3><p class="note">The same index number was saved with different names in different classes. Pick the right name to correct every record.</p>
+        <div class="bar"><button id="ncRun" class="btn quiet" type="button">Check now</button></div><div id="ncList"></div></div>
+      <div class="reqbox"><h3>Housekeeping</h3><p class="note">Archive classes older than a number of months. They are hidden from the default lists but kept, and you can restore them.</p>
+        <div class="bar"><label>Older than <input id="hkMonths" type="number" min="1" max="60" value="12" style="width:80px"> months</label><button id="hkGo" class="btn quiet" type="button">Archive old classes</button></div><p id="hkMsg" class="msg" role="status"></p></div>
       <div class="reqbox"><h3>System</h3><p class="note">The free Supabase plan includes 500 MB of database space. Download a backup from Settings and clear old terms with the semester rollover before it fills up.</p><div id="sysBox"></div></div>
       <div class="reqbox"><h3>Health check</h3><p class="note">Looks for common problems in the data and fixes them with one click. Anything removed goes to the Trash.</p>
         <div class="bar"><button id="hcRun" class="btn quiet" type="button">Run check again</button></div><div id="hcList"></div></div>
@@ -168,4 +175,4 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="chat.js?v=1"></script>
 <script src="shared.js?v=29"></script>
-<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=42"></script></body></html>
+<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=43"></script></body></html>

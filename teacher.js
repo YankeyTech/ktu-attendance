@@ -484,13 +484,37 @@ function manualDialog() {
     });
   });
 }
-$("addm").addEventListener("click", async () => {
+// A notice with the student's details after the lecturer adds someone by hand. "Add another" reopens the form.
+function addedNotice(v) {
+  return new Promise((resolve) => {
+    const back = document.createElement("div");
+    back.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:70;display:flex;align-items:center;justify-content:center;padding:16px";
+    const box = document.createElement("div"); box.className = "card"; box.style.cssText = "max-width:420px;width:100%;margin:0"; box.setAttribute("role", "dialog"); box.setAttribute("aria-modal", "true");
+    const h = document.createElement("h2"); h.textContent = "Student added"; box.appendChild(h);
+    const dl = document.createElement("div"); dl.className = "reqbox"; dl.style.margin = "10px 0";
+    for (const [k, val] of [["Name", v.name], ["Index number", v.idx], ["Programme", v.programme], ["Level", v.level], ["Class", current.course], ["Marked", "Present, added by you at " + fmtTime(new Date().toISOString())]]) {
+      if (!val || val === "-") continue;
+      const p = document.createElement("p"); p.style.margin = "4px 0"; const b = document.createElement("b"); b.textContent = k + ": "; p.append(b, document.createTextNode(val)); dl.appendChild(p);
+    }
+    box.appendChild(dl);
+    const row = document.createElement("div"); row.className = "row";
+    const ok = Object.assign(document.createElement("button"), { type: "button", className: "btn", textContent: "OK" });
+    const more = Object.assign(document.createElement("button"), { type: "button", className: "btn quiet", textContent: "Add another student" });
+    row.append(ok, more); box.appendChild(row); back.appendChild(box); document.body.appendChild(back); ok.focus();
+    const done = (again) => { back.remove(); resolve(again); };
+    ok.addEventListener("click", () => done(false)); more.addEventListener("click", () => done(true));
+    back.addEventListener("keydown", (e) => { if (e.key === "Escape") done(false); });
+  });
+}
+async function addManual() {
   const v = await manualDialog(); if (!v) return;
   const { error } = await sb.from("attendance").insert({ session_id: current.id, index_number: v.idx, student_name: v.name,
     programme: v.programme, level: v.level, lat: current.lat, lng: current.lng, accuracy_m: 0, distance_m: 0, in_range: true, manual: true, note: "Added by lecturer" });
   say("count", error ? (error.code === "23505" ? "That index number is already in this class." : "Could not add: " + error.message) : "Student added.", error ? "bad" : "ok");
   loadAttendance();
-});
+  if (!error && await addedNotice(v)) addManual();
+}
+$("addm").addEventListener("click", addManual);
 
 function classMessage() {
   const term = [current.academic_year, current.semester].filter(Boolean).join(", ");
@@ -718,6 +742,7 @@ function renderAbsent() {
         programme: r.programme || current.programme || "-", level: r.level || current.level || "-", lat: current.lat, lng: current.lng,
         accuracy_m: 0, distance_m: 0, in_range: true, manual: true, note: "Marked present by lecturer" });
       say("count", error ? "Could not mark present: " + error.message : "Marked present.", error ? "bad" : "ok"); loadAttendance();
+      if (!error) addedNotice({ name: r.student_name || r.index_number, idx: r.index_number, programme: r.programme || current.programme, level: r.level || current.level });
     });
     const ex = document.createElement("button"); ex.type = "button"; ex.className = "btn quiet"; ex.textContent = "Excuse";
     ex.addEventListener("click", async () => {

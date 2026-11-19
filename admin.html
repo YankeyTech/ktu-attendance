@@ -83,7 +83,7 @@
       <p class="note">Attendance percentage for every student in one course. Excused absences are taken out. Students on the class roll who never checked in show 0%.</p>
       <div class="row"><div><label for="trCourse">Course</label><select id="trCourse"></select></div><div><label for="trYear">Academic year</label><select id="trYear"></select></div><div><label for="trSem">Semester</label><select id="trSem"><option value="">All</option><option>Semester 1</option><option>Semester 2</option><option>Summer / Resit</option></select></div></div>
       <div class="row"><div><label for="trProg">Programme</label><select id="trProg"><option value="">All</option></select></div><div><label for="trLevel">Level</label><select id="trLevel"></select></div><div><label for="trMin">Flag below (%)</label><input id="trMin" type="number" min="1" max="100" value="75"></div></div>
-      <div class="bar"><button id="trRun" class="btn" type="button">Show report</button><button id="trX" class="btn quiet" type="button" disabled>Download (Excel)</button><label class="note" style="display:flex;align-items:center;gap:6px"><input id="trLow" type="checkbox"> Only students below the limit</label></div>
+      <div class="bar"><button id="trRun" class="btn" type="button">Show report</button><button id="trX" class="btn quiet" type="button" disabled>Download (Excel)</button><button id="trCopy" class="btn quiet" type="button">Copy students below limit</button><label class="note" style="display:flex;align-items:center;gap:6px"><input id="trLow" type="checkbox"> Only students below the limit</label></div>
       <p id="trMsg" class="msg" role="status"></p><div id="trSum" class="stats"></div>
       <div class="table-wrap"><table><thead><tr><th>Index number</th><th>Name</th><th>Programme</th><th>Level</th><th>Classes held</th><th>Attended</th><th>Excused</th><th>Attendance</th></tr></thead><tbody id="trB"></tbody></table></div></section>
 
@@ -157,4 +157,4 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="chat.js?v=1"></script>
 <script src="shared.js?v=26"></script>
-<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=36"></script></body></html>
+<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=37"></script></body></html>

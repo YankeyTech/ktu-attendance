@@ -847,8 +847,22 @@ async function manageClass(s) {
     if (!(data || []).length) list.textContent = "No check-ins yet."; box.appendChild(list);
     const add = el("div", "bar"); add.innerHTML = '<input id="mcIdx" placeholder="Index number" maxlength="30"><input id="mcNm" placeholder="Student name" maxlength="100">';
     const ab = el("button", "btn quiet"); ab.type = "button"; ab.textContent = "Add student"; add.appendChild(ab);
-    ab.addEventListener("click", async () => { const r = await sb.rpc("admin_add_checkin", { p_session: s.id, p_index: add.querySelector("#mcIdx").value, p_name: add.querySelector("#mcNm").value, p_programme: s.programme || "", p_level: s.level || "" }); if (r.error || !r.data.ok) { msg.className = "msg bad"; msg.textContent = r.error ? r.error.message : r.data.error; } else draw(); });
+    ab.addEventListener("click", async () => { const r = await sb.rpc("admin_add_checkin", { p_session: s.id, p_index: add.querySelector("#mcIdx").value, p_name: add.querySelector("#mcNm").value, p_programme: s.programme || "", p_level: s.level || "" }); if (r.error || !r.data.ok) { msg.className = "msg bad"; msg.textContent = r.error ? r.error.message : r.data.error; } else { const nm = add.querySelector("#mcNm").value.trim(), ix = add.querySelector("#mcIdx").value.trim().toUpperCase(); alert("Student added\n\nName: " + nm + "\nIndex number: " + ix + "\nClass: " + s.course + (s.programme ? "\nProgramme: " + s.programme : "") + (s.level ? "\nLevel: " + s.level : "") + "\nMarked: present, added by admin"); draw(); } });
     box.appendChild(add);
+    // Excused students for this class
+    const eh = el("h4", "ch3"); eh.textContent = "Excused students"; box.appendChild(eh);
+    const exl = el("div", "scrollbox"); exl.style.maxHeight = "160px";
+    const ex = await sb.from("excuses").select("*").eq("session_id", s.id);
+    if (ex.error) exl.textContent = "Run upgrade31.sql in Supabase first."; else if (!(ex.data || []).length) exl.textContent = "Nobody is excused.";
+    for (const e of ex.data || []) {
+      const row = el("div", "reqrow"), t = el("div", "reqtxt"), b = el("b"), sp = el("span"); b.textContent = (e.student_name || "-") + "  " + e.index_number; sp.textContent = e.reason || "No reason given"; t.append(b, sp);
+      const acts = el("div", "acts"); acts.append(abtn("Undo", "", async () => { await sb.from("excuses").delete().eq("id", e.id); draw(); })); row.append(t, acts); exl.appendChild(row);
+    }
+    box.appendChild(exl);
+    const ea = el("div", "bar"); ea.innerHTML = '<input id="exIdx" placeholder="Index number" maxlength="30"><input id="exWhy" placeholder="Reason (optional)" maxlength="200">';
+    const eb = el("button", "btn quiet"); eb.type = "button"; eb.textContent = "Excuse student"; ea.appendChild(eb);
+    eb.addEventListener("click", async () => { const i = ea.querySelector("#exIdx").value.trim().toUpperCase(); if (!i) return; const r = await sb.from("excuses").upsert({ session_id: s.id, index_number: i, reason: ea.querySelector("#exWhy").value.trim() || null }, { onConflict: "session_id,index_number" }); if (r.error) { msg.className = "msg bad"; msg.textContent = r.error.message; } else draw(); });
+    box.appendChild(ea);
     const nc = el("button", "btn quiet"); nc.type = "button"; nc.textContent = "Give this class a new code"; nc.style.marginTop = "14px"; nc.style.marginRight = "8px";
     nc.addEventListener("click", async () => { if (!confirm("Make a new code for this class? The old code and old QR stop working. People who already checked in are not affected.")) return; const r = await sb.rpc("admin_regen_code", { p_id: s.id }); if (r.error || !r.data.ok) { msg.className = "msg bad"; msg.textContent = r.error ? r.error.message : r.data.error; } else { s.code = r.data.code; msg.className = "msg ok"; msg.textContent = "New code: " + r.data.code; } });
     box.appendChild(nc);
@@ -1204,3 +1218,10 @@ function drawTerm2() {
 }
 $("trMin").addEventListener("input", drawTerm2); $("trLow").addEventListener("change", drawTerm2);
 $("trX").addEventListener("click", () => downloadXlsx("Term report " + $("trCourse").value, [{ name: "Term report", rows: [["Index number", "Name", "Programme", "Level", "Classes held", "Attended", "Excused", "Attendance %"], ...trRows.map((x) => [x.index_number, x.student_name || "", x.programme || "", x.level || "", x.held, x.attended, x.excused, x.pct === null ? "" : Number(x.pct)])] }]));
+
+$("trCopy").addEventListener("click", async () => {
+  const lim = Number($("trMin").value) || 75, list = trRows.filter((x) => x.pct !== null && Number(x.pct) < lim);
+  if (!list.length) return say("trMsg", "Nobody is below " + lim + "%.", "ok");
+  const txt = $("trCourse").value + ": students below " + lim + "% attendance\n" + list.map((x) => (x.student_name || "-") + " (" + x.index_number + ") " + x.pct + "%").join("\n");
+  try { await navigator.clipboard.writeText(txt); say("trMsg", "Copied " + list.length + " student(s).", "ok"); } catch (e) { prompt("Copy this list:", txt); }
+});

@@ -753,7 +753,7 @@ $("actX").addEventListener("click", () => {
 async function loadTools() {
   const r = await sb.rpc("get_public_settings");
   if (r.error) { say("tlMsg", "Run upgrade25.sql in Supabase first.", "bad"); return; }
-  drawPause(r.data); drawTerm(r.data); loadBlocked(); loadActivityBoard();
+  drawPause(r.data); drawTerm(r.data); drawFeatures(r.data.features); loadBlocked(); loadActivityBoard();
   const d = await sb.rpc("admin_diagnostics");
   const box = $("hcList"); box.textContent = "";
   if (d.error) { box.textContent = d.error.message; return; }
@@ -1225,3 +1225,19 @@ $("trCopy").addEventListener("click", async () => {
   const txt = $("trCourse").value + ": students below " + lim + "% attendance\n" + list.map((x) => (x.student_name || "-") + " (" + x.index_number + ") " + x.pct + "%").join("\n");
   try { await navigator.clipboard.writeText(txt); say("trMsg", "Copied " + list.length + " student(s).", "ok"); } catch (e) { prompt("Copy this list:", txt); }
 });
+
+// ---- Feature switches ----
+const FEATURES = [["new_classes", "Starting new classes", "Lecturers cannot start a class while this is off."], ["manual_add", "Adding students by hand", "Hides Add student manually and Mark present."], ["chat", "Chat with the admin", "Lecturers cannot send you messages."], ["rolls", "Uploading class rolls", "Lecturers cannot upload new rolls."], ["exports", "Excel downloads (lecturers)", "Lecturers cannot download Excel files."], ["lookup", "Student lookup (lecturers)", "Hides the lookup card on the lecturer page."], ["announce", "Showing announcements", "Notices you post are hidden from lecturers."]];
+function drawFeatures(f) {
+  const box = $("featList"); if (!box) return; box.textContent = ""; f = f || {};
+  for (const [k, label, hint] of FEATURES) {
+    const on = f[k] !== false, row = el("div", "reqrow"), t = el("div", "reqtxt"), b = el("b"), sp = el("span");
+    b.textContent = (on ? "On: " : "OFF: ") + label; sp.textContent = hint; t.append(b, sp);
+    const a = el("div", "acts"); a.appendChild(abtn(on ? "Switch off" : "Switch on", on ? "bad" : "ok", async () => {
+      if (on && !confirm("Switch off: " + label + " for every lecturer?")) return;
+      const r = await sb.rpc("admin_set_feature", { p_key: k, p_on: !on });
+      if (r.error || (r.data && r.data.ok === false)) return say("tlMsg", r.error ? (/function|exist/i.test(r.error.message) ? "Run upgrade33.sql in Supabase first." : r.error.message) : r.data.error, "bad");
+      drawFeatures(r.data.features); say("tlMsg", label + (on ? " switched off." : " switched on."), "ok");
+    })); row.append(t, a); box.appendChild(row);
+  }
+}

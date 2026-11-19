@@ -64,7 +64,7 @@ async function refreshAuth() {
     document.body.dataset.role = role;
     $("adminLink").hidden = !(role === "admin" && session.user.email.toLowerCase() === "ygpedri@gmail.com");
     await loadCourses();
-    loadSessions(); showAnnouncements(sb, $("announceBox")); pausedBanner();
+    loadSessions(); pausedBanner();
   } else { stopPolling(); stopQr(); }
 }
 
@@ -123,7 +123,9 @@ $("start").addEventListener("submit", async (e) => {
 // "Your week" strip on the Home tab: classes, check-ins and how many were inside the class area, since Monday.
 let mySessions = [];
 async function pausedBanner() {
-  try { const { data } = await sb.rpc("get_public_settings"); popupsOff = data && data.popups === false; if (!data || !data.paused) return;
+  try { const { data } = await sb.rpc("get_public_settings"); popupsOff = data && data.popups === false; applyFeatures(data && data.features);
+    if (!(data && data.features && data.features.announce === false)) showAnnouncements(sb, $("announceBox"));
+    if (!data || !data.paused) return;
     const d = document.createElement("div"); d.className = "announce warn"; const t = document.createElement("div"), b = document.createElement("b"), s = document.createElement("span");
     b.textContent = "Check-in is paused by the admin"; s.textContent = data.message || "Students cannot check in right now."; t.append(b, s); d.appendChild(t); $("announceBox").prepend(d); } catch (e) {}
 }
@@ -1325,4 +1327,17 @@ async function drawCalendar(all) {
     grid.appendChild(col); }
   box.appendChild(grid);
   const lg = document.createElement("p"); lg.className = "note"; lg.textContent = "Each column is a week (oldest on the left, Monday at the top). Darker means more classes that day."; box.appendChild(lg);
+}
+
+// ---- Features the admin has switched off ----
+function applyFeatures(f) {
+  window.KTU_FEATURES = f || {}; if (!f || role === "admin") return;
+  const off = [];
+  if (f.new_classes === false) { $("startBtn").disabled = true; off.push("start new classes"); }
+  if (f.manual_add === false) { $("addm").disabled = true; off.push("add students by hand"); }
+  if (f.chat === false) { $("chatOpen").disabled = true; off.push("chat with the admin"); }
+  if (f.rolls === false) { $("rollUp").disabled = true; $("rollFile").disabled = true; off.push("upload class rolls"); }
+  if (f.exports === false) off.push("download Excel files");
+  if (f.lookup === false) { const c = $("lkIdx") && $("lkIdx").closest("section,.card"); if (c) c.hidden = true; off.push("student lookup"); }
+  const box = $("permNote"); if (box && off.length) { box.hidden = false; box.textContent = "The admin has switched off for everyone: " + off.join(", ") + "." + (box.textContent ? " " + box.textContent : ""); }
 }

@@ -113,6 +113,7 @@ function buildSheets(classes, atts, absent) {
 }
 
 function downloadXlsx(name, sheets) {
+  if (window.KTU_FEATURES && window.KTU_FEATURES.exports === false && document.body.classList.contains("tch")) { alert("The admin has switched off Excel downloads for now."); return; }
   if (!window.XLSX) { alert("The Excel library did not load. Check your internet and try again."); return; }
   const wb = XLSX.utils.book_new();
   for (const s of sheets) {

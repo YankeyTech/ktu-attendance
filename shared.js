@@ -196,7 +196,7 @@ function toast(msg, opt) {
 function addDisplayOptions() {
   const get = (k) => { try { return localStorage.getItem("ktu_" + k) === "1"; } catch (e) { return false; } };
   const set = (k, v) => { try { localStorage.setItem("ktu_" + k, v ? "1" : "0"); } catch (e) {} };
-  const apply = () => { document.documentElement.classList.toggle("big", get("big")); document.documentElement.classList.toggle("hc", get("hc")); };
+  const apply = () => { document.documentElement.classList.toggle("big", get("big")); document.documentElement.classList.toggle("hc", get("hc")); for (const k of ["calm", "roomy", "easy"]) document.documentElement.classList.toggle(k, get(k)); };
   apply();
   const getTheme = () => { try { return localStorage.getItem("ktu_theme") || "auto"; } catch (e) { return "auto"; } };
   const applyTheme = (t) => { if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t); else document.documentElement.removeAttribute("data-theme"); };
@@ -204,7 +204,7 @@ function addDisplayOptions() {
   const btn = document.createElement("button"); btn.type = "button"; btn.className = "a11y"; btn.textContent = "Aa";
   btn.setAttribute("aria-label", "Display options"); btn.setAttribute("aria-expanded", "false");
   const menu = document.createElement("div"); menu.className = "a11ymenu"; menu.hidden = true;
-  for (const [label, key] of [["Larger text", "big"], ["High contrast", "hc"]]) {
+  for (const [label, key] of [["Larger text", "big"], ["High contrast", "hc"], ["Easy-read font", "easy"], ["More spacing", "roomy"], ["Reduce motion", "calm"]]) {
     const l = document.createElement("label"); const c = document.createElement("input"); c.type = "checkbox"; c.checked = get(key);
     c.addEventListener("change", () => { set(key, c.checked); apply(); }); l.append(c, " " + label); menu.appendChild(l);
   }
@@ -425,3 +425,29 @@ async function showAnnouncements(sb, box) {
     d.append(t, x); box.appendChild(d);
   }
 }
+
+
+// ---- Accessibility helpers: skip link, dialogs (Escape, focus kept inside), arrow keys in tab bars ----
+(function a11yHelpers() {
+  const main = document.querySelector("main"); if (main) { main.id = main.id || "main"; main.setAttribute("tabindex", "-1"); }
+  if (main && !document.querySelector(".skip")) { const a = document.createElement("a"); a.className = "skip"; a.href = "#" + main.id; a.textContent = "Skip to main content"; a.addEventListener("click", (e) => { e.preventDefault(); main.focus(); }); document.body.prepend(a); }
+  const FOC = 'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+  let lastFocus = null;
+  new MutationObserver((muts) => {
+    for (const m of muts) for (const n of m.addedNodes) {
+      if (n.nodeType !== 1 || !n.classList.contains("rpt")) continue;
+      const c = n.querySelector(".rptc"); if (c) { c.setAttribute("role", "dialog"); c.setAttribute("aria-modal", "true"); const h = c.querySelector("h2,h3"); if (h) { h.id = h.id || "dlg" + Date.now(); c.setAttribute("aria-labelledby", h.id); } }
+      lastFocus = document.activeElement; setTimeout(() => { const f = n.querySelector("input,textarea,select,button"); if (f) f.focus(); }, 30);
+    }
+    for (const m of muts) for (const n of m.removedNodes) if (n.nodeType === 1 && n.classList && n.classList.contains("rpt") && lastFocus && document.contains(lastFocus)) { try { lastFocus.focus(); } catch (e) {} lastFocus = null; }
+  }).observe(document.body, { childList: true });
+  document.addEventListener("keydown", (e) => {
+    const dlg = document.querySelector(".rpt:last-of-type") || document.querySelector(".rpt");
+    if (dlg && e.key === "Escape") { e.preventDefault(); dlg.dispatchEvent(new MouseEvent("click", { bubbles: true })); return; }
+    if (dlg && e.key === "Tab") { const f = Array.from(dlg.querySelectorAll(FOC)).filter((x) => x.offsetParent !== null); if (!f.length) return; const first = f[0], last = f[f.length - 1]; if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); } }
+    const bar = e.target.closest && e.target.closest(".ttabs,.tabs"); if (!bar || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(e.key)) return;
+    const items = Array.from(bar.querySelectorAll("button,a.btn")).filter((x) => x.offsetParent !== null), i = items.indexOf(e.target); if (i < 0) return;
+    const next = e.key === "Home" ? 0 : e.key === "End" ? items.length - 1 : (i + (e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+    e.preventDefault(); items[next].focus();
+  });
+})();

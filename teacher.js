@@ -60,7 +60,7 @@ async function refreshAuth() {
     if (pr && pr.active === false) { await sb.auth.signOut(); return say("loginMsg", "This account is disabled. Contact the admin.", "bad"); }
     role = (pr && pr.role) || "lecturer"; byAdmin = !!(pr && pr.alerts_by_admin); myPerms = (pr && pr.perms) || {}; applyPerms(); 
     { const { data: pn } = await sb.from("name_requests").select("requested_name").eq("user_id", session.user.id).eq("status", "pending").maybeSingle(); pendingName = pn ? pn.requested_name : ""; }
-    myName = (pr && pr.full_name) || ""; $("myName").value = myName; myEmail = session.user.email; myId = session.user.id; drawPresets(); loadMsgs(); loadVenues(); applyName();
+    myName = (pr && pr.full_name) || ""; $("myName").value = myName; myEmail = session.user.email; myId = session.user.id; drawPresets(); startChat(); loadVenues(); applyName();
     document.body.dataset.role = role;
     $("adminLink").hidden = !(role === "admin" && session.user.email.toLowerCase() === "ygpedri@gmail.com");
     await loadCourses();
@@ -329,7 +329,6 @@ function showTab(name, keepScroll) {
   document.querySelectorAll("#tabs [data-p]").forEach((b) => { const on = b.dataset.p === name; b.classList.toggle("on", on); b.setAttribute("aria-current", on ? "page" : "false"); });
   if (!keepScroll) window.scrollTo({ top: 0 });
   if (name === "alerts") updateAlerts();
-  if (name === "account") markMsgsRead();
 }
 document.querySelectorAll("#tabs [data-p]").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.p)));
 function updateAlerts() {
@@ -1252,35 +1251,12 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("revi
 
 refreshAuth();
 
-// ---- Contact the admin (messages) ----
-let msgRows = [];
-async function loadMsgs() {
-  const { data, error } = await sb.from("staff_messages").select("*").eq("thread_owner", myId).order("created_at").limit(200);
-  if (error || !data) { const c = $("msgCard"); if (c) c.hidden = true; return; }
-  msgRows = data; drawMsgs();
+// ---- Messages: the chat button (chat.js) ----
+$("chatOpen").addEventListener("click", () => KtuChat.open());
+function startChat() {
+  if (role === "admin") return;
+  KtuChat.init(sb, { mode: "staff", me: myId, onUnread: (n) => { $("msgN").hidden = !n; $("msgN").textContent = n > 9 ? "9+" : n; } });
 }
-function drawMsgs() {
-  const box = $("msgList"); if (!box) return; box.textContent = "";
-  const unread = msgRows.filter((m) => m.sender === "admin" && !m.read_by_staff).length;
-  $("msgN").hidden = !unread; $("msgN").textContent = unread;
-  if (!msgRows.length) { const p = document.createElement("p"); p.className = "note"; p.textContent = "No messages yet. Write to the admin below, for example to ask for a deleted class or roll to be restored."; box.appendChild(p); }
-  for (const m of msgRows) {
-    const d = document.createElement("div"); d.className = "bubble " + (m.sender === "admin" ? "adm" : "me");
-    const t = document.createElement("div"); t.textContent = m.body; const s = document.createElement("small"); s.textContent = (m.sender === "admin" ? "Admin" : "You") + "  " + new Date(m.created_at).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-    d.append(t, s); box.appendChild(d);
-  }
-  box.scrollTop = box.scrollHeight;
-}
-$("msgSend").addEventListener("click", async () => {
-  const body = $("msgText").value.trim(); if (body.length < 2) return;
-  $("msgSend").disabled = true;
-  const { error } = await sb.from("staff_messages").insert({ thread_owner: myId, sender: "staff", body, read_by_staff: true });
-  $("msgSend").disabled = false;
-  if (error) return toast("Could not send: " + error.message);
-  $("msgText").value = ""; toast("Sent to the admin."); loadMsgs();
-});
-async function markMsgsRead() { if (msgRows.some((m) => m.sender === "admin" && !m.read_by_staff)) { await sb.rpc("staff_mark_read"); loadMsgs(); } }
-setInterval(() => { if (myId && !document.hidden) loadMsgs(); }, 60000);
 
 // ---- Teaching calendar: last 12 weeks, one square per day ----
 async function drawCalendar(all) {

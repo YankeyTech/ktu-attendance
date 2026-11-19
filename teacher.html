@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Lecturer | KTU check-in</title>
 <link rel="stylesheet" href="style.css?v=17">
-<link rel="stylesheet" href="extra.css?v=29">
+<link rel="stylesheet" href="extra.css?v=31">
 </head>
 <body class="tch">
 <main>
@@ -204,10 +204,9 @@
     </section>
     </div>
     <div id="p-account" class="tpanel" hidden>
-    <section class="card" id="msgCard"><h2>Contact the admin</h2>
-      <div id="msgList" class="msgs"></div>
-      <label for="msgText">Your message</label><textarea id="msgText" maxlength="1000" rows="3" placeholder="e.g. Please restore my Math 101 roll for Level 200. I deleted it by mistake."></textarea>
-      <button id="msgSend" class="btn" type="button">Send to the admin</button></section>
+    <section class="card" id="msgCard"><h2>Messages</h2>
+      <p class="note">Chat with the admin, for example to ask for a deleted class or roll to be restored, or to report a decision. Press the chat button at the bottom right of any page, or:</p>
+      <button id="chatOpen" class="btn" type="button">Open the chat with the admin</button></section>
     <section class="card" id="nameCard">
       <h2>Your name</h2>
       <p id="nameNote" class="note">This name appears on your Excel files and on the student page.</p>
@@ -268,8 +267,9 @@
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-<script src="shared.js?v=25"></script>
+<script src="chat.js?v=1"></script>
+<script src="shared.js?v=26"></script>
 <script src="programmes.js"></script>
-<script src="teacher.js?v=31"></script>
+<script src="teacher.js?v=33"></script>
 </body>
 </html>

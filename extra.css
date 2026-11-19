@@ -396,3 +396,73 @@ body.adm textarea,body.tch textarea{width:100%;border:1.5px solid var(--line);bo
 .calcol{display:flex;flex-direction:column;gap:4px}
 i.cal{display:block;width:22px;height:22px;border-radius:5px;background:color-mix(in srgb,var(--blue) 8%,var(--line))}
 i.cal.l1{background:color-mix(in srgb,var(--blue) 35%,var(--card))}i.cal.l2{background:color-mix(in srgb,var(--blue) 65%,var(--card))}i.cal.l3{background:var(--blue)}i.cal.fut{opacity:.35}
+
+/* ---- Update 30: messenger (chat.js) ---- */
+.kchat{position:fixed;z-index:75;right:14px;bottom:68px;display:flex;flex-direction:column;align-items:flex-end;gap:10px;pointer-events:none}
+.kchat>*{pointer-events:auto}
+body.hasbar .kchat{bottom:140px}
+.kfab{position:relative;width:54px;height:54px;border-radius:50%;border:0;background:linear-gradient(135deg,var(--blue),color-mix(in srgb,var(--blue) 65%,#000));color:var(--on-blue,#fff);display:grid;place-items:center;cursor:pointer;box-shadow:0 6px 18px rgba(10,30,50,.3);transition:transform .15s}
+.kfab:hover{transform:scale(1.06)}.kfab.on{background:var(--ink)}
+.kbadge{position:absolute;top:-4px;right:-4px;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:var(--bad);color:#fff;font:700 .75rem/22px inherit;font-family:inherit;text-align:center;border:2px solid var(--paper)}
+.kpanel{width:min(400px,calc(100vw - 28px));height:min(560px,calc(100vh - 170px));display:flex;background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 18px 50px rgba(10,30,50,.3);overflow:hidden;animation:panelIn .2s ease both}
+.kpanel[hidden]{display:none}
+.kchat.admin .kpanel,.kpanel.two{width:min(760px,calc(100vw - 28px))}
+.kmain{flex:1;min-width:0;display:flex;flex-direction:column}
+.khead{display:flex;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(135deg,var(--blue),color-mix(in srgb,var(--blue) 70%,#000));color:var(--on-blue,#fff)}
+.khead b{font-size:1rem}.ktitle{flex:1;min-width:0;display:flex;flex-direction:column}.ktitle small{opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kx{background:transparent;border:0;color:inherit;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;cursor:pointer;flex:none}
+.kx:hover{background:rgba(255,255,255,.18)}
+.kav{width:38px;height:38px;border-radius:50%;background:color-mix(in srgb,var(--gold) 80%,#fff);color:#2a2000;display:grid;place-items:center;font-weight:800;flex:none}
+.kmsgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:4px;background:color-mix(in srgb,var(--blue) 5%,var(--paper));overscroll-behavior:contain}
+.kmsgs.empty{justify-content:center}
+.kday{align-self:center;margin:10px 0 4px;padding:3px 12px;border-radius:999px;background:color-mix(in srgb,var(--ink) 10%,var(--card));font-size:.72rem;font-weight:700;color:var(--mut)}
+.kmsg{max-width:82%;padding:7px 11px 4px;border-radius:14px;overflow-wrap:anywhere;box-shadow:0 1px 1px rgba(10,30,50,.12)}
+.kmsg.me{align-self:flex-end;background:var(--blue);color:var(--on-blue,#fff);border-bottom-right-radius:4px}
+.kmsg.them{align-self:flex-start;background:var(--card);border-bottom-left-radius:4px}
+.kbody{white-space:pre-wrap}
+.kt{display:block;text-align:right;font-size:.68rem;opacity:.75;margin-top:1px}
+.ktick{margin-left:4px;letter-spacing:-3px}.ktick.read{color:#7fe3ff;opacity:1}
+.kmore{align-self:center;margin:2px 0 8px;padding:5px 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--blue);font:700 .8rem inherit;font-family:inherit;cursor:pointer}
+.knone{margin:auto;text-align:center;color:var(--mut);padding:14px;max-width:260px}
+.kerr{align-self:center;color:var(--bad);font-weight:700;font-size:.85rem}
+.kcomp{display:flex;gap:8px;align-items:flex-end;padding:8px 10px;border-top:1px solid var(--line);background:var(--card)}
+.kcomp textarea{flex:1;min-height:42px;max-height:110px;border-radius:21px;padding:10px 14px;resize:none;border:1.5px solid var(--line);font:inherit;background:var(--paper);color:var(--ink)}
+.ksend{width:44px;height:44px;border-radius:50%;border:0;background:var(--blue);color:var(--on-blue,#fff);display:grid;place-items:center;cursor:pointer;flex:none}
+.ksend:disabled{opacity:.5}
+.kthreads{width:250px;flex:none;border-right:1px solid var(--line);display:flex;flex-direction:column;background:var(--card)}
+.ksearch{margin:8px;width:auto;border-radius:999px;padding:8px 14px;min-height:0}
+.klist{flex:1;overflow-y:auto}
+.kthread{display:flex;gap:10px;align-items:center;width:100%;padding:10px 12px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);text-align:left;font:inherit;cursor:pointer}
+.kthread:hover,.kthread.cur{background:color-mix(in srgb,var(--blue) 9%,var(--card))}
+.kthread .kmid{flex:1;min-width:0;display:flex;flex-direction:column}.kthread b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kthread small{color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kthread.unread b{color:var(--blue)}
+.kmeta{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none}
+.kdot{font-style:normal;min-width:20px;height:20px;border-radius:999px;background:var(--ok);color:#fff;font-size:.72rem;font-weight:800;display:grid;place-items:center;padding:0 5px}
+.kback{display:none}
+@media (max-width:700px){
+  .kchat{right:0;bottom:0;left:0;align-items:flex-end;padding:0 14px 68px}
+  .kpanel{position:fixed;inset:0;width:100vw!important;height:100dvh!important;max-height:none;border-radius:0;border:0;z-index:80}
+  .kchat.admin .kthreads{width:100%;border-right:0}
+  .kchat.admin .kpanel:not(.onchat) .kmain{display:none}.kchat.admin .kpanel.onchat .kthreads{display:none}
+  .kchat.admin .kback{display:grid}
+}
+
+/* ---- Update 30: accessibility ---- */
+.skip{position:fixed;left:12px;top:-60px;z-index:200;background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:0 0 12px 12px;font-weight:700;text-decoration:none;transition:top .15s}
+.skip:focus{top:0}
+main:focus{outline:none}
+:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+html.calm *,html.calm *::before,html.calm *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+html.roomy body{line-height:1.85;letter-spacing:.025em;word-spacing:.1em}
+html.roomy p,html.roomy li,html.roomy td{max-width:75ch}
+html.easy body,html.easy input,html.easy select,html.easy textarea,html.easy button{font-family:Verdana,Tahoma,"Trebuchet MS",Arial,sans-serif!important}
+html.hc .kmsg.them,html.hc .kmsg.me{border:2px solid #000}
+.palette{align-items:flex-start!important;padding-top:12vh!important}
+.palette .rptc{width:min(560px,100%);padding:0;overflow:hidden}
+.palette input{width:100%;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:16px 18px;font-size:1.05rem;min-height:0;background:var(--card);color:var(--ink)}
+.palette ul{list-style:none;margin:0;padding:6px;max-height:50vh;overflow-y:auto}
+.palette li button{display:flex;gap:10px;align-items:center;width:100%;text-align:left;padding:10px 12px;border:0;border-radius:10px;background:transparent;color:var(--ink);font:inherit;cursor:pointer}
+.palette li button[aria-selected="true"],.palette li button:hover{background:color-mix(in srgb,var(--blue) 12%,var(--card))}
+.palette li small{margin-left:auto;color:var(--mut)}
+.palette .hint{padding:8px 16px;font-size:.78rem;color:var(--mut);border-top:1px solid var(--line)}

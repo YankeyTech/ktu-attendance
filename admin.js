@@ -40,7 +40,7 @@ async function load() {
   for (const [n, l] of [[people.length, "Staff accounts"], [people.filter((x) => x.role === "lecturer" && x.active).length, "Active lecturers"], [people.filter((x) => x.role === "assistant" && x.active).length, "Teaching assistants"], [nameReqs.length, "Name requests"], [classes.length, "Classes"], [(a.data || []).length, "Check-ins"]]) {
     const d = document.createElement("div"), b = document.createElement("b"); b.textContent = 0; countUp(b, n); d.append(b, l); $("stats").appendChild(d);
   }
-  fillFilters(); drawL(); drawC(); drawReq(); loadStatus(); loadReports(true); trashCount(); drawAttn(); loadAnnouncements(); drawOverviewExtras(); drawHours(); loadSus().then(loadMsgsAdmin).then(updateInboxBadge).catch(() => {});
+  fillFilters(); drawL(); drawC(); drawReq(); loadStatus(); loadReports(true); trashCount(); drawAttn(); loadAnnouncements(); drawOverviewExtras(); drawHours(); startChat(); loadSus().then(loadMsgsAdmin).then(updateInboxBadge).catch(() => {});
 }
 
 function grid(head, body, cols, rows, key) {
@@ -1047,24 +1047,7 @@ function drawMsgThreads() {
     const a = el("div", "acts"); a.append(abtn(un ? "Read and reply" : "Open", un ? "ok" : "", () => openThread(owner))); row.append(t, a); box.appendChild(row);
   }
 }
-async function openThread(owner) {
-  const ov = el("div", "rpt"), box = el("div", "rptc"); ov.appendChild(box); document.body.appendChild(ov);
-  const close = async () => { ov.remove(); await loadMsgsAdmin(); drawMsgThreads(); updateInboxBadge(); }; ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
-  await sb.from("staff_messages").update({ read_by_admin: true }).eq("thread_owner", owner).eq("sender", "staff");
-  async function draw() {
-    await loadMsgsAdmin(); box.textContent = "";
-    const h = el("h3"); h.textContent = "Messages: " + staffName(owner); box.appendChild(h);
-    const list = el("div", "msgs"); const mine = msgAll.filter((m) => m.thread_owner === owner).slice().reverse();
-    for (const m of mine) { const d = el("div", "bubble " + (m.sender === "admin" ? "me" : "adm")), t = el("div"), s = el("small"); t.textContent = m.body; s.textContent = (m.sender === "admin" ? "You" : staffName(owner)) + "  " + fmt(m.created_at); d.append(t, s); list.appendChild(d); }
-    box.appendChild(list); list.scrollTop = list.scrollHeight;
-    const ta = el("textarea"); ta.rows = 3; ta.maxLength = 1000; ta.placeholder = "Your reply to " + staffName(owner); box.appendChild(ta);
-    const msg = el("p", "msg"); const send = el("button", "btn"); send.type = "button"; send.textContent = "Send reply";
-    send.addEventListener("click", async () => { const body = ta.value.trim(); if (body.length < 2) return; const r = await sb.from("staff_messages").insert({ thread_owner: owner, sender: "admin", body, read_by_admin: true }); if (r.error) { msg.className = "msg bad"; msg.textContent = r.error.message; } else draw(); });
-    const cl = el("button", "btn quiet"); cl.type = "button"; cl.textContent = "Close"; cl.style.marginTop = "10px"; cl.addEventListener("click", close);
-    box.append(send, msg, cl);
-  }
-  draw();
-}
+function openThread(owner) { KtuChat.open(owner); }
 
 // ---- Overview: when students check in ----
 function drawHours() {
@@ -1078,3 +1061,41 @@ function drawHours() {
   mk(dow, ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], box);
   const b2 = $("chHour2"); b2.textContent = ""; mk(hrs.slice(6, 21), Array.from({ length: 15 }, (_, i) => String(i + 6)), b2);
 }
+
+// ---- Messages: the chat button (chat.js) ----
+let chatOn = false;
+function startChat() {
+  if (chatOn) return; chatOn = true;
+  KtuChat.init(sb, { mode: "admin", nameOf: (id) => staffName(id), onChange: () => loadMsgsAdmin().then(() => { drawMsgThreads(); updateInboxBadge(); }), onUnread: () => loadMsgsAdmin().then(() => { drawMsgThreads(); updateInboxBadge(); }) });
+}
+
+// ---- Command palette: Ctrl+K (or /) to jump anywhere, open a lecturer, or look up a student ----
+function openPalette() {
+  if (document.querySelector(".palette")) return;
+  const ov = el("div", "rpt palette"), box = el("div", "rptc"); ov.appendChild(box); document.body.appendChild(ov);
+  const inp = el("input"); inp.placeholder = "Type a section, a lecturer, a course or an index number"; inp.setAttribute("aria-label", "Search the admin page"); inp.setAttribute("role", "combobox"); inp.setAttribute("aria-expanded", "true");
+  const ul = el("ul"); ul.setAttribute("role", "listbox"); const hint = el("div", "hint"); hint.textContent = "Up and Down to choose, Enter to open, Esc to close.";
+  box.append(inp, ul, hint); let items = [], cur = 0;
+  const close = () => ov.remove(); ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  const tabs = Array.from(document.querySelectorAll(".tabs [data-t]")).map((b) => ({ label: b.textContent.replace(/\d+$/, "").trim(), k: "Section", run: () => b.click() }));
+  function build() {
+    const q = inp.value.trim().toLowerCase(), out = [];
+    for (const t of tabs) if (!q || t.label.toLowerCase().includes(q)) out.push(t);
+    if (q) {
+      for (const x of people.filter((p) => (p.email + " " + (p.full_name || "")).toLowerCase().includes(q)).slice(0, 6)) out.push({ label: staffName(x.id), k: "Lecturer profile", run: () => openProfile(x) });
+      for (const c of [...new Set(courses.map((c) => c.name))].filter((n) => n.toLowerCase().includes(q)).slice(0, 4)) out.push({ label: c, k: "Classes of this course", run: () => { document.querySelector('.tabs [data-t="cls"]').click(); const f = $("cq") || document.querySelector("#t-cls input"); if (f) { f.value = c; f.dispatchEvent(new Event("input")); } } });
+      const idx = inp.value.trim().toUpperCase(); if (/^[A-Z0-9\/\-]{4,30}$/.test(idx) && /\d/.test(idx)) out.push({ label: "Look up student " + idx, k: "Student", run: () => { document.querySelector('.tabs [data-t="stu"]').click(); $("stIdx").value = idx; $("stGo").click(); } });
+    }
+    items = out.slice(0, 12); cur = 0; draw();
+  }
+  function draw() { ul.textContent = ""; items.forEach((it, i) => { const li = el("li"), b = el("button"); b.type = "button"; b.setAttribute("role", "option"); b.setAttribute("aria-selected", String(i === cur)); b.append(it.label); const s = el("small"); s.textContent = it.k; b.appendChild(s); b.addEventListener("click", () => { close(); it.run(); }); li.appendChild(b); ul.appendChild(li); }); if (!items.length) { const li = el("li"); li.textContent = "Nothing found."; li.style.padding = "12px"; ul.appendChild(li); } }
+  inp.addEventListener("input", build);
+  inp.addEventListener("keydown", (e) => { if (e.key === "ArrowDown") { e.preventDefault(); cur = Math.min(items.length - 1, cur + 1); draw(); } else if (e.key === "ArrowUp") { e.preventDefault(); cur = Math.max(0, cur - 1); draw(); } else if (e.key === "Enter" && items[cur]) { e.preventDefault(); close(); items[cur].run(); } });
+  build();
+}
+document.addEventListener("keydown", (e) => {
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test((e.target.tagName || "")) || e.target.isContentEditable;
+  if (($("app") && $("app").hidden) || document.querySelector(".rpt")) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); }
+  else if (e.key === "/" && !typing) { e.preventDefault(); openPalette(); }
+});

@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=17"><link rel="stylesheet" href="extra.css?v=29">
+<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=17"><link rel="stylesheet" href="extra.css?v=31">
 <style>main{max-width:1000px}th[data-k]{cursor:pointer;user-select:none}.tabs{display:flex;gap:6px;margin:10px 0;flex-wrap:wrap}.tabs button{flex:1}.tabs .on{background:#004c84;color:#fff}.cred{background:#fff8d6;color:#222;border:1px solid #e0c200;border-radius:10px;padding:12px;margin:10px 0}.cred code{font-size:18px;font-weight:700}</style></head>
 <body class="adm"><main>
   <header class="top"><h1>Admin</h1><p id="who">KTU class check-in</p></header>
@@ -17,6 +17,7 @@
     <div class="tabs"><button class="btn quiet on" data-t="over">Overview</button><button class="btn quiet" data-t="inb">Inbox <span id="inN" class="badge on" hidden></span></button><button class="btn quiet" data-t="lect">Lecturers</button><button class="btn quiet" data-t="cls">All classes</button><button class="btn quiet" data-t="roll">Class rolls</button><button class="btn quiet" data-t="stu">Student lookup</button><button class="btn quiet" data-t="ana">Analytics</button><button class="btn quiet" data-t="act">Activity</button><button class="btn quiet" data-t="sus">Suspicious <span id="susN" class="badge on" hidden></span></button><button class="btn quiet" data-t="rep">Reports <span id="repN" class="badge on" hidden></span></button><button class="btn quiet" data-t="trash">Trash <span id="trN" class="badge on" hidden></span></button><button class="btn quiet" data-t="tools">Tools</button><button class="btn quiet" data-t="set">Settings</button><a class="btn quiet" href="teacher.html">Lecturer portal</a><button id="out" class="btn quiet">Sign out</button></div>
     <p id="msg" class="msg" role="status"></p>
     <section id="t-over" class="card"><h2>Overview</h2><div class="stats" id="stats"></div>
+      <p class="note">Tip: press <b>Ctrl+K</b> (or <b>/</b>) to search the whole admin page: sections, lecturers, courses and student index numbers.</p>
       <div class="reqbox"><h3>Today</h3><div class="stats" id="todayStats"></div></div>
       <div class="reqbox"><h3>Live now</h3><div id="liveBox"></div></div>
       <div class="reqbox"><h3>When students check in</h3><p class="note">By day of the week, then by hour of the day (6 am to 8 pm). It shows your busiest times.</p><div class="vchart" id="chHour"></div><div class="vchart" id="chHour2" style="margin-top:14px"></div></div>
@@ -134,5 +135,6 @@
   </div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="shared.js?v=25"></script>
-<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=31"></script></body></html>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="chat.js?v=1"></script>
+<script src="shared.js?v=26"></script>
+<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=33"></script></body></html>

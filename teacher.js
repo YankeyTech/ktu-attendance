@@ -123,7 +123,7 @@ $("start").addEventListener("submit", async (e) => {
 // "Your week" strip on the Home tab: classes, check-ins and how many were inside the class area, since Monday.
 let mySessions = [];
 async function pausedBanner() {
-  try { const { data } = await sb.rpc("get_public_settings"); popupsOff = data && data.popups === false; applyFeatures(data && data.features); applyPolicy(data && data.policy);
+  try { const { data } = await sb.rpc("get_public_settings"); popupsOff = data && data.popups === false; applyFeatures(data && data.features); applyPolicy(data && data.policy); applyDefaults(data && data.defaults); showWelcome(data && data.texts && data.texts.welcome);
     if (!(data && data.features && data.features.announce === false)) showAnnouncements(sb, $("announceBox"));
     if (!data || !data.paused) return;
     const d = document.createElement("div"); d.className = "announce warn"; const t = document.createElement("div"), b = document.createElement("b"), s = document.createElement("span");
@@ -1383,6 +1383,15 @@ function editCheckin(r) {
 }
 
 // ---- Limits set by the admin ----
+let defApplied = false;
+function applyDefaults(d) {
+  if (!d || role === "admin" || defApplied) return; defApplied = true;
+  if (d.minutes > 0) $("mins").value = d.minutes; if (d.radius > 0) $("radius").value = d.radius;
+}
+function showWelcome(txt) {
+  const box = $("announceBox"); if (!box || !txt || box.querySelector(".welcomeu45")) return;
+  const d = document.createElement("div"); d.className = "announce welcomeu45"; const s = document.createElement("span"); s.textContent = txt; d.appendChild(s); box.prepend(d);
+}
 function applyPolicy(p) {
   if (!p || role === "admin") return;
   const note = [];

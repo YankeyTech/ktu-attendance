@@ -22,8 +22,8 @@ wireForgot(sb, "login");
 $("out").addEventListener("click", async () => { await sb.auth.signOut(); start(); });
 document.querySelectorAll(".tabs [data-t]").forEach((b) => b.addEventListener("click", () => {
   document.querySelectorAll(".tabs [data-t]").forEach((x) => x.classList.toggle("on", x === b));
-  for (const t of ["over", "inb", "lect", "cls", "roll", "stu", "ana", "term", "act", "sus", "rep", "trash", "tools", "set"]) $("t-" + t).hidden = t !== b.dataset.t;
-  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "term") initTerm(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") { loadSus(); loadShared(); loadAnomalies(); } if (b.dataset.t === "set") { renderSettings(); loadVenuesAdmin(); } if (b.dataset.t === "trash") loadTrash(); if (b.dataset.t === "stu") $("stIdx").focus(); if (b.dataset.t === "tools") { loadTools(); loadSystem(); } if (b.dataset.t === "inb") loadInbox(); if (b.dataset.t === "rep") loadReports();
+  for (const t of ["over", "inb", "lect", "cls", "roll", "stu", "ins", "ana", "term", "act", "sus", "rep", "trash", "tools", "set"]) $("t-" + t).hidden = t !== b.dataset.t;
+  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "ins" && window.drawInsights) drawInsights(); if (b.dataset.t === "tools" && window.loadU45) loadU45(); if (b.dataset.t === "term") initTerm(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") { loadSus(); loadShared(); loadAnomalies(); } if (b.dataset.t === "set") { renderSettings(); loadVenuesAdmin(); } if (b.dataset.t === "trash") loadTrash(); if (b.dataset.t === "stu") $("stIdx").focus(); if (b.dataset.t === "tools") { loadTools(); loadSystem(); } if (b.dataset.t === "inb") loadInbox(); if (b.dataset.t === "rep") loadReports();
 }));
 
 async function load() {
@@ -953,7 +953,7 @@ $("svAdd").addEventListener("click", async () => {
 
 // ---- Sidebar icons ----
 (function icons() {
-  const P = { inb: "M4 4h16v12h-5l-2 3h-2l-2-3H4z", over: "M3 13h8V3H3zM13 21h8V11h-8zM13 3v6h8V3zM3 21h8v-6H3z", lect: "M16 11a4 4 0 1 0-8 0M4 21a8 8 0 0 1 16 0", cls: "M4 5h16v14H4zM4 10h16", roll: "M7 3h10v18H7zM10 8h4M10 12h4", stu: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-5-5", term: "M5 3h14v18H5zM8 8h8M8 12h8M8 16h5", ana: "M4 20V10M10 20V4M16 20v-8M22 20H2", act: "M3 12h4l3-8 4 16 3-8h4", sus: "M12 3l9 16H3zM12 10v4M12 17v.5", rep: "M5 21V4h11l-1 4h5v9H9l-1-3H5", trash: "M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14", tools: "M14 6l4 4-9 9H5v-4zM13 7l4 4", set: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v3M12 19v3M2 12h3M19 12h3" };
+  const P = { ins: "M4 20V10M10 20V4M16 20v-8M22 20H2", inb: "M4 4h16v12h-5l-2 3h-2l-2-3H4z", over: "M3 13h8V3H3zM13 21h8V11h-8zM13 3v6h8V3zM3 21h8v-6H3z", lect: "M16 11a4 4 0 1 0-8 0M4 21a8 8 0 0 1 16 0", cls: "M4 5h16v14H4zM4 10h16", roll: "M7 3h10v18H7zM10 8h4M10 12h4", stu: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-5-5", term: "M5 3h14v18H5zM8 8h8M8 12h8M8 16h5", ana: "M4 20V10M10 20V4M16 20v-8M22 20H2", act: "M3 12h4l3-8 4 16 3-8h4", sus: "M12 3l9 16H3zM12 10v4M12 17v.5", rep: "M5 21V4h11l-1 4h5v9H9l-1-3H5", trash: "M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14", tools: "M14 6l4 4-9 9H5v-4zM13 7l4 4", set: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v3M12 19v3M2 12h3M19 12h3" };
   for (const b of document.querySelectorAll(".tabs [data-t]")) {
     const d = P[b.dataset.t]; if (!d || b.querySelector("svg")) continue;
     const s = document.createElementNS("http://www.w3.org/2000/svg", "svg"); s.setAttribute("viewBox", "0 0 24 24"); s.setAttribute("width", "18"); s.setAttribute("height", "18"); s.setAttribute("aria-hidden", "true");

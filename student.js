@@ -286,3 +286,10 @@ $("retryLoc").addEventListener("click", async () => {
     if (err && err.code === 1) showLocHelp();
   } finally { $("retryLoc").disabled = false; }
 });
+
+// Notice from the admin (optional), shown above the form.
+sb.rpc("get_public_settings").then(({ data }) => {
+  const t = data && data.texts && data.texts.student; if (!t) return;
+  const f = document.getElementById("f"); if (!f || document.getElementById("adminNotice")) return;
+  const d = document.createElement("div"); d.id = "adminNotice"; d.className = "announce"; d.setAttribute("role", "note"); const s = document.createElement("span"); s.textContent = t; d.appendChild(s); f.parentNode.insertBefore(d, f);
+}).catch(() => {});

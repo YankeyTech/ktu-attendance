@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <link rel="manifest" href="manifest-admin.webmanifest"><meta name="theme-color" content="#0b3d3a"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="KTU Admin"><link rel="apple-touch-icon" href="icons/admin-apple.png"><link rel="icon" type="image/png" href="icons/admin-192.png">
-<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=17"><link rel="stylesheet" href="extra.css?v=36">
+<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=17"><link rel="stylesheet" href="extra.css?v=37">
 <style>main{max-width:1000px}th[data-k]{cursor:pointer;user-select:none}.tabs{display:flex;gap:6px;margin:10px 0;flex-wrap:wrap}.tabs button{flex:1}.tabs .on{background:#004c84;color:#fff}.cred{background:#fff8d6;color:#222;border:1px solid #e0c200;border-radius:10px;padding:12px;margin:10px 0}.cred code{font-size:18px;font-weight:700}</style></head>
 <body class="adm"><main>
   <header class="top"><h1>Admin</h1><p id="who">KTU class check-in</p></header>
@@ -15,7 +15,7 @@
     <button id="forgotGo" class="btn" type="submit">Send reset link</button>
     <button type="button" id="forgotBack" class="btn forgot">Back to sign in</button><p id="forgotMsg" class="msg" role="status"></p></form>
   <div id="app" hidden>
-    <div class="tabs"><button class="btn quiet on" data-t="over">Overview</button><button class="btn quiet" data-t="inb">Inbox <span id="inN" class="badge on" hidden></span></button><button class="btn quiet" data-t="lect">Lecturers</button><button class="btn quiet" data-t="cls">All classes</button><button class="btn quiet" data-t="roll">Class rolls</button><button class="btn quiet" data-t="stu">Student lookup</button><button class="btn quiet" data-t="ana">Analytics</button><button class="btn quiet" data-t="term">Term report</button><button class="btn quiet" data-t="act">Activity</button><button class="btn quiet" data-t="sus">Suspicious <span id="susN" class="badge on" hidden></span></button><button class="btn quiet" data-t="rep">Reports <span id="repN" class="badge on" hidden></span></button><button class="btn quiet" data-t="trash">Trash <span id="trN" class="badge on" hidden></span></button><button class="btn quiet" data-t="tools">Tools</button><button class="btn quiet" data-t="set">Settings</button><a class="btn quiet" href="teacher.html">Lecturer portal</a><button id="out" class="btn quiet">Sign out</button></div>
+    <div class="tabs"><button class="btn quiet on" data-t="over">Overview</button><button class="btn quiet" data-t="inb">Inbox <span id="inN" class="badge on" hidden></span></button><button class="btn quiet" data-t="lect">Lecturers</button><button class="btn quiet" data-t="cls">All classes</button><button class="btn quiet" data-t="roll">Class rolls</button><button class="btn quiet" data-t="stu">Student lookup</button><button class="btn quiet" data-t="ins">Insights</button><button class="btn quiet" data-t="ana">Analytics</button><button class="btn quiet" data-t="term">Term report</button><button class="btn quiet" data-t="act">Activity</button><button class="btn quiet" data-t="sus">Suspicious <span id="susN" class="badge on" hidden></span></button><button class="btn quiet" data-t="rep">Reports <span id="repN" class="badge on" hidden></span></button><button class="btn quiet" data-t="trash">Trash <span id="trN" class="badge on" hidden></span></button><button class="btn quiet" data-t="tools">Tools</button><button class="btn quiet" data-t="set">Settings</button><a class="btn quiet" href="teacher.html">Lecturer portal</a><button id="out" class="btn quiet">Sign out</button></div>
     <p id="msg" class="msg" role="status"></p>
     <section id="t-over" class="card"><h2>Overview</h2><div class="stats" id="stats"></div>
       <p class="note">Tip: press <b>Ctrl+K</b> (or <b>/</b>) to search the whole admin page: sections, lecturers, courses and student index numbers.</p>
@@ -63,6 +63,22 @@
       <p class="note">Type an index number to see every check-in that student has made, how many classes they attended in each course, and who the lecturer was. Useful when a student disputes their attendance.</p>
       <div class="bar"><input id="stIdx" maxlength="30" placeholder="Index number" autocomplete="off"><button id="stGo" class="btn" type="button" style="margin-top:0;width:auto;padding:0 22px">Look up</button></div>
       <div id="stOut"></div></section>
+    <section id="t-ins" class="card" hidden><h2>Insights</h2>
+      <p class="note">A live picture of how the system is used. Numbers are built from every class and check-in you can see.</p>
+      <div id="insKpi" class="stats"></div>
+      <div class="insgrid">
+        <div class="insbox"><h3>Right now</h3><div id="insPulse"></div></div>
+        <div class="insbox"><h3>Inside or outside the class area</h3><div id="insDonut"></div></div>
+        <div class="insbox wide"><h3>Check-ins, last 30 days</h3><div id="insTrend"></div></div>
+        <div class="insbox wide"><h3>Busiest times (day and hour)</h3><div id="insHeat"></div></div>
+        <div class="insbox"><h3>Top lecturers (30 days)</h3><div id="insLect"></div></div>
+        <div class="insbox"><h3>Top courses (30 days)</h3><div id="insCourse"></div></div>
+        <div class="insbox"><h3>How big are classes?</h3><div id="insHist"></div></div>
+        <div class="insbox"><h3>Data completeness</h3><div id="insComplete"></div></div>
+        <div class="insbox wide"><h3>Classes started at odd hours (30 days)</h3><div id="insOdd"></div></div>
+      </div>
+      <div class="row"><button id="insRefresh" class="btn quiet" type="button">Refresh</button></div>
+    </section>
     <section id="t-ana" class="card" hidden><h2>Analytics</h2>
       <div class="bar"><select id="anYear"><option value="">All years</option></select><select id="anSem"><option value="">All semesters</option><option>Semester 1</option><option>Semester 2</option><option>Summer / Resit</option></select><label class="chk mini"><input id="anArch" type="checkbox"> Include archived</label><button id="anGo" class="btn quiet" type="button">Refresh</button></div>
       <div id="anTotals" class="stats"></div>
@@ -139,6 +155,26 @@
       <p id="trMsg" class="msg" role="status"></p>
       <div class="table-wrap"><table><thead><tr><th>Deleted</th><th>Type</th><th>Item</th><th>Lecturer</th><th>Deleted by</th><th>Removed for good</th><th>Actions</th></tr></thead><tbody id="trB"></tbody></table></div></section>
     <section id="t-tools" class="card" hidden><h2>Admin tools</h2>
+      <div class="reqbox u45"><h3>Quick controls</h3><p class="note">Fast actions for all classes at once. Every action is written to the Activity log.</p>
+        <div class="row"><button id="u45Close" class="btn quiet" type="button">Close every open class now</button></div>
+        <div class="row"><div><label for="u45Ext">Give every open class extra minutes</label><input id="u45Ext" type="number" min="1" max="240" value="10"></div><button id="u45ExtBtn" class="btn quiet" type="button">Extend all</button></div>
+        <div class="row"><div><label for="u45Old">Archive classes finished more than this many days ago</label><input id="u45Old" type="number" min="7" max="3650" value="120"></div><button id="u45OldBtn" class="btn quiet" type="button">Archive old classes</button></div>
+        <p id="u45QMsg" class="msg" role="status"></p></div>
+      <div class="reqbox u45"><h3>Defaults for new classes</h3><p class="note">The minutes and distance lecturers see when they open the start form. They can still change them, within your limits. 0 means the standard value.</p>
+        <div class="row"><div><label for="u45DefMin">Minutes open</label><input id="u45DefMin" type="number" min="0" max="240" value="0"></div><div><label for="u45DefRad">Allowed distance (m)</label><input id="u45DefRad" type="number" min="0" max="2000" value="0"></div></div>
+        <div class="row"><button id="u45DefBtn" class="btn" type="button">Save defaults</button></div><p id="u45DefMsg" class="msg" role="status"></p></div>
+      <div class="reqbox u45"><h3>Messages for people</h3><p class="note">A welcome line on every lecturer's Home tab, and a notice on the student check-in page. Leave empty to show nothing.</p>
+        <label for="u45Welcome">Welcome message for lecturers</label><textarea id="u45Welcome" maxlength="400" rows="2"></textarea>
+        <label for="u45Notice">Notice on the student page</label><textarea id="u45Notice" maxlength="400" rows="2"></textarea>
+        <div class="row"><button id="u45TxtBtn" class="btn" type="button">Save messages</button></div><p id="u45TxtMsg" class="msg" role="status"></p></div>
+      <div class="reqbox u45"><h3>System health</h3><p class="note">Database size, counts, and anything that needs attention.</p>
+        <div class="row"><button id="u45HealthBtn" class="btn quiet" type="button">Run health check</button></div><div id="u45Health"></div></div>
+      <div class="reqbox u45"><h3>Downloads and backups</h3><p class="note">Excel files of the records you manage. Keep a copy somewhere safe.</p>
+        <div class="row"><button id="u45ExStaff" class="btn quiet" type="button">Staff list</button><button id="u45ExBlocked" class="btn quiet" type="button">Blocked list</button><button id="u45ExAct" class="btn quiet" type="button">Activity log</button><button id="u45ExAll" class="btn" type="button">Full backup (all sheets)</button></div>
+        <p id="u45ExMsg" class="msg" role="status"></p></div>
+      <div class="reqbox u45"><h3>Add many venues at once</h3><p class="note">One venue per line: <b>Name, radius, latitude, longitude</b> (radius is optional). Example: Block B Hall 2, 80, 6.0912, -0.2601</p>
+        <textarea id="u45Venues" rows="4" placeholder="Block B Hall 2, 80, 6.0912, -0.2601"></textarea>
+        <div class="row"><button id="u45VenBtn" class="btn" type="button">Add venues</button></div><p id="u45VenMsg" class="msg" role="status"></p></div>
       <div class="reqbox"><h3>Pause all check-ins</h3><p class="note">Use this in an emergency or during maintenance. Every check-in is refused with your message until you resume. Lecturers see a banner too. Classes and data are not touched.</p>
         <p id="pauseState" class="msg" role="status"></p>
         <input id="pauseMsg" maxlength="300" placeholder="Message students will see (optional)">
@@ -205,4 +241,4 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="chat.js?v=1"></script>
 <script src="shared.js?v=31"></script>
-<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=46"></script></body></html>
+<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=47"></script><script src="admin2.js?v=1"></script></body></html>

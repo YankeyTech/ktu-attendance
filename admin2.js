@@ -183,6 +183,32 @@ $("u45VenBtn").addEventListener("click", async () => {
   new MutationObserver(() => { if (!pend) { pend = true; setTimeout(run, 80); } }).observe($("app"), { childList: true, subtree: true }); run();
 })();
 
+
+// ---- Add-student panel: used right inside a class the admin just started, and in Manage class ----
+function addStudentPanel(sid, onAdded) {
+  const box = el("div", "dkpanel"), h = el("h4", "ch3"); h.textContent = "Add a student by hand"; box.appendChild(h);
+  const n = el("p", "note"); n.textContent = "For students who cannot check in themselves. They are marked as added by admin and counted as present."; box.appendChild(n);
+  const g = el("div", "fgrid"); box.appendChild(g);
+  const fld = (label, node, full) => { const d = el("div", full ? "full" : ""), l = el("label"); l.textContent = label; d.append(l, node); g.appendChild(d); return node; };
+  const nm = fld("Full name", Object.assign(el("input"), { maxLength: 100, autocomplete: "off" }), true);
+  const ix = fld("Index number", Object.assign(el("input"), { maxLength: 30, autocomplete: "off" })); ix.autocapitalize = "characters";
+  const pr = fld("Programme (optional)", el("select")); opt2(pr, "", "Use the class's programme"); fillProgSel(pr);
+  const lv = fld("Level (optional)", el("select")); opt2(lv, "", "Use the class's level"); fillLevelSel(lv);
+  const b = el("button", "btn"); b.type = "button"; b.textContent = "Add student";
+  const msg = el("p", "msg"); msg.setAttribute("role", "status"); const list = el("div", "dkadded"); let added = [];
+  b.addEventListener("click", async () => {
+    const name = nm.value.trim(), idx = ix.value.trim().toUpperCase(); b.disabled = true;
+    const r = await sb.rpc("admin_add_student", { p_session: sid, p_index: idx, p_name: name, p_programme: pr.value, p_level: lv.value }); b.disabled = false;
+    if (r.error) { msg.className = "msg bad"; msg.textContent = /function|exist|schema cache/i.test(r.error.message) ? "Run upgrade42.sql in Supabase first." : r.error.message; return; }
+    if (!r.data.ok) { msg.className = "msg bad"; msg.textContent = r.data.error; return; }
+    msg.className = "msg ok"; msg.textContent = name + " (" + idx + ") added."; added.unshift(name + " · " + idx);
+    list.textContent = ""; const hh = el("b"); hh.textContent = "Added just now (" + added.length + ")"; const ul = el("ul"); for (const x of added.slice(0, 10)) { const li = el("li"); li.textContent = x; ul.appendChild(li); } list.append(hh, ul);
+    nm.value = ""; ix.value = ""; nm.focus(); if (onAdded) onAdded();
+  });
+  box.append(b, msg, list); return box;
+}
+window.addStudentPanel = addStudentPanel;
+
 // ---- Class desk: start a class for a lecturer, add students, transfer one class ----
 let dkVenues = [], dkInit = false, dkAddedList = [];
 const opt2 = (sel, v, t) => { const o = el("option"); o.value = v; o.textContent = t == null ? v : t; sel.appendChild(o); return o; };
@@ -223,7 +249,7 @@ $("dkStart").addEventListener("click", async () => {
   say("dkStartMsg", "");
   const d = $("dkDone"); d.hidden = false; d.textContent = "";
   const t = el("div"); t.innerHTML = "<b>Class started</b><br>Share this code with the students:"; const c = el("div", "dkcode"); c.textContent = r.data.code; d.append(t, c);
-  const go = abtn("Add students to it now", "", async () => { await load(); initDesk(); document.querySelector('[data-seg="add"]').click(); $("dkCls").value = r.data.id; }); d.appendChild(go);
+  d.appendChild(addStudentPanel(r.data.id));
   await load(); initDesk();
 });
 $("dkAdd").addEventListener("click", async () => {

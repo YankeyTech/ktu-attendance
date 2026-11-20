@@ -647,3 +647,5 @@ body.adm .card :is(h2,h3,p,label,span,b){overflow-wrap:anywhere}
 }
 body.adm .top,body.tch .top{overflow:hidden}
 html,body{max-width:100%;overflow-x:clip}
+.dkpanel{margin-top:14px;padding:14px;border:1px dashed var(--blue);border-radius:16px;text-align:left;background:color-mix(in srgb,var(--blue) 4%,var(--card))}
+.dkdone .dkpanel .btn{width:100%}

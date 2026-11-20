@@ -239,6 +239,8 @@ async function loadSessions() {
 
 function openSession(s) {
   current = s;
+  { let ln = $("lockNote"); if (!ln) { ln = document.createElement("p"); ln.id = "lockNote"; ln.className = "msg warn"; $("liveCourse").after(ln); }
+    ln.hidden = !s.locked; ln.textContent = s.locked ? "This class is locked by the admin. You can look at it but not change it." : ""; if (s.locked) $("addm").disabled = true; }
   $("live").hidden = false; showTab("home", true);
   $("classNotes").value = s.notes || ""; $("notesMsg").textContent = ""; phoneAll = []; updateHello();
   $("liveCourse").textContent = s.course + (s.combined ? " (Combined)" : s.programme ? " (" + s.programme + (s.level ? ", " + s.level : "") + ")" : "");
@@ -1387,6 +1389,8 @@ function applyPolicy(p) {
   if (p.max_minutes > 0) { $("mins").max = p.max_minutes; if (Number($("mins").value) > p.max_minutes) $("mins").value = p.max_minutes; note.push("classes up to " + p.max_minutes + " minutes"); }
   if (p.min_radius > 0) { $("radius").min = p.min_radius; if (Number($("radius").value) < p.min_radius) $("radius").value = p.min_radius; }
   if (p.max_radius > 0) { $("radius").max = p.max_radius; if (Number($("radius").value) > p.max_radius) $("radius").value = p.max_radius; }
+  if (p.venues_only) note.push("starting only at approved venues (star)");
+  if (p.hour_to > 0) note.push("starting classes from " + p.hour_from + ":00 to " + p.hour_to + ":00");
   if (p.min_radius > 0 || p.max_radius > 0) note.push("distance " + (p.min_radius || 20) + " to " + (p.max_radius || 2000) + " m");
   let n = $("policyNote"); if (!note.length) { if (n) n.remove(); return; }
   if (!n) { n = document.createElement("p"); n.id = "policyNote"; n.className = "note"; $("startBtn").before(n); }
@@ -1431,3 +1435,13 @@ $("repGrid").addEventListener("click", async () => {
   downloadXlsx(course + " attendance grid", [{ name: "Grid", rows: [head].concat(rows) }, { name: "Key", rows: [["Mark", "Meaning"], ["P", "Present, inside the class area"], ["O", "Checked in outside the class area"], ["E", "Excused"], ["A", "Absent"]] }]);
   say("rollMsg", "Grid downloaded: " + rows.length + " students, " + cls.length + " classes.", "ok");
 });
+
+// ---- Account end date notice ----
+(async function expiryNote() {
+  try {
+    await new Promise((r) => setTimeout(r, 2500));
+    const { data, error } = await sb.rpc("my_expiry"); if (error || !data) return;
+    const days = Math.ceil((new Date(data + "T23:59:59") - new Date()) / 86400000), box = $("permNote"); if (!box) return;
+    box.hidden = false; box.textContent = (days < 0 ? "Your access ended on " : "Your access ends on ") + new Date(data).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) + (days >= 0 && days <= 60 ? " (" + days + " day" + (days === 1 ? "" : "s") + " left)" : "") + ". " + (box.textContent || "");
+  } catch (e) {}
+})();

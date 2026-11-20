@@ -753,7 +753,7 @@ $("actX").addEventListener("click", () => {
 async function loadTools() {
   const r = await sb.rpc("get_public_settings");
   if (r.error) { say("tlMsg", "Run upgrade25.sql in Supabase first.", "bad"); return; }
-  drawPause(r.data); loadSchedule(); drawBulkPerms(); drawTerm(r.data); drawFeatures(r.data.features); drawPolicy(r.data.policy); loadNotify(); loadBlocked(); loadActivityBoard();
+  drawPause(r.data); loadSchedule(); drawRules(r.data.policy); loadExpiryList(); drawBulkPerms(); drawTerm(r.data); drawFeatures(r.data.features); drawPolicy(r.data.policy); loadNotify(); loadBlocked(); loadActivityBoard();
   const d = await sb.rpc("admin_diagnostics");
   const box = $("hcList"); box.textContent = "";
   if (d.error) { box.textContent = d.error.message; return; }
@@ -815,7 +815,7 @@ async function manageClass(s) {
   ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
   async function draw() {
     box.textContent = "";
-    const h = el("h3"); h.textContent = "Manage: " + s.course; box.appendChild(h);
+    const h = el("h3"); h.textContent = "Manage: " + s.course + (s.locked ? " (locked)" : ""); box.appendChild(h);
     const f = el("div"); f.innerHTML = '<label>Course</label><input id="mcCourse" maxlength="120"><div class="row" id="mcPL"><div><label>Programme</label><select id="mcProg"><option value="">-</option></select></div><div><label>Level</label><select id="mcLevel"></select></div></div><div class="row"><div><label>Academic year</label><input id="mcYear" maxlength="20"></div><div><label>Semester</label><select id="mcSem"><option value="">-</option><option>Semester 1</option><option>Semester 2</option><option>Summer / Resit</option></select></div></div><div class="row"><div><label>Radius (metres)</label><input id="mcRad" type="number" min="20" max="2000"></div><div><label>Lecturer</label><select id="mcOwn"></select></div></div>';
     box.appendChild(f);
     const q = (id) => f.querySelector("#" + id);
@@ -867,6 +867,9 @@ async function manageClass(s) {
     const nc = el("button", "btn quiet"); nc.type = "button"; nc.textContent = "Give this class a new code"; nc.style.marginTop = "14px"; nc.style.marginRight = "8px";
     nc.addEventListener("click", async () => { if (!confirm("Make a new code for this class? The old code and old QR stop working. People who already checked in are not affected.")) return; const r = await sb.rpc("admin_regen_code", { p_id: s.id }); if (r.error || !r.data.ok) { msg.className = "msg bad"; msg.textContent = r.error ? r.error.message : r.data.error; } else { s.code = r.data.code; msg.className = "msg ok"; msg.textContent = "New code: " + r.data.code; } });
     box.appendChild(nc);
+    const lk = el("button", "btn quiet"); lk.type = "button"; lk.style.marginTop = "14px"; lk.style.marginRight = "8px"; lk.textContent = s.locked ? "Unlock this class" : "Lock this class";
+    lk.addEventListener("click", async () => { const r = await sb.rpc("admin_lock_classes", { p_ids: [s.id], p_locked: !s.locked }); if (r.error) { msg.className = "msg bad"; msg.textContent = /function|exist/i.test(r.error.message) ? "Run upgrade39.sql in Supabase first." : r.error.message; return; } s.locked = !s.locked; draw(); });
+    box.appendChild(lk);
     const cl = el("button", "btn quiet"); cl.type = "button"; cl.textContent = "Close"; cl.style.marginTop = "14px"; cl.addEventListener("click", close); box.appendChild(cl);
   }
   draw();
@@ -1060,6 +1063,13 @@ async function openProfile(x) {
   const mb = el("button", "btn quiet"); mb.type = "button"; mb.textContent = "Send message";
   mb.addEventListener("click", async () => { const m = ta.value.trim(); if (m.length < 3) return; const r = await sb.from("announcements").insert({ message: m, kind: "info", target: x.id, expires_at: new Date(Date.now() + 7 * 86400000).toISOString() }); msg.className = r.error ? "msg bad" : "msg ok"; msg.textContent = r.error ? (/target|column/i.test(r.error.message) ? "Run upgrade28.sql in Supabase first." : r.error.message) : "Message sent. It shows for 7 days."; if (!r.error) ta.value = ""; });
   box.append(mb);
+  const eh = el("h4", "ch3"); eh.textContent = "Account end date"; box.appendChild(eh);
+  const ep = el("p", "note"); ep.textContent = "After this date the person cannot start new classes. Leave empty for no end date."; box.appendChild(ep);
+  const ed = el("input"); ed.type = "date"; const en = el("input"); en.maxLength = 120; en.placeholder = "Reason, for example: adjunct contract"; box.append(ed, en);
+  sb.rpc("admin_list_expiry").then((q) => { const m = (q.data || []).find((e) => e.owner === x.id); if (m) { ed.value = m.expires_on; en.value = m.note || ""; } });
+  const eb = el("button", "btn quiet"); eb.type = "button"; eb.textContent = "Save end date";
+  eb.addEventListener("click", async () => { const q = await sb.rpc("admin_set_expiry", { p_id: x.id, p_date: ed.value || null, p_note: en.value }); msg.className = q.error ? "msg bad" : "msg ok"; msg.textContent = q.error ? (/function|exist/i.test(q.error.message) ? "Run upgrade39.sql in Supabase first." : q.error.message) : (ed.value ? "Access ends on " + ed.value + "." : "End date removed."); });
+  box.appendChild(eb);
   const nh = el("h4", "ch3"); nh.textContent = "Private notes (only you can see these)"; box.appendChild(nh);
   const nt = el("textarea"); nt.rows = 3; nt.maxLength = 2000; nt.placeholder = "For example: asked for a longer class limit, reminded about rolls on 12 Nov"; box.appendChild(nt);
   sb.rpc("admin_get_note", { p_id: x.id }).then((q) => { if (!q.error) nt.value = q.data || ""; else nt.placeholder = "Run upgrade38.sql in Supabase to use notes."; });
@@ -1401,3 +1411,43 @@ $("bmGo").addEventListener("click", async () => {
   if (!r.data.ok) return say("bmMsg", r.data.error, "bad");
   say("bmMsg", r.data.count + " newly blocked (others were invalid or already blocked).", "ok"); $("bmText").value = ""; loadBlocked();
 });
+
+// ---- Rules for starting classes ----
+function drawRules(p) { p = p || {}; if (!$("ruVen") || $("ruFrom").contains(document.activeElement)) return; $("ruVen").checked = !!p.venues_only; $("ruFrom").value = p.hour_from || 0; $("ruTo").value = p.hour_to || 0; }
+$("ruSave").addEventListener("click", async () => {
+  const r = await sb.rpc("admin_set_rules", { p_venues_only: $("ruVen").checked, p_hour_from: Number($("ruFrom").value) || 0, p_hour_to: Number($("ruTo").value) || 0 });
+  if (r.error) return say("ruMsg", /function|exist/i.test(r.error.message) ? "Run upgrade39.sql in Supabase first." : r.error.message, "bad");
+  if (r.data && r.data.ok === false) return say("ruMsg", r.data.error, "bad");
+  const p = r.data.policy; drawRules(p);
+  say("ruMsg", "Saved. " + (p.venues_only ? "Only approved venues. " : "Any place. ") + (p.hour_to ? "Classes may start from " + p.hour_from + ":00 to " + p.hour_to + ":00." : "Any hour."), "ok");
+});
+// ---- Lock a whole term, and lock the classes shown in All classes ----
+async function lockTerm(on) {
+  const y = $("ltYear").value.trim(), s = $("ltSem").value; if (!y && !s) return say("ltMsg", "Enter an academic year or choose a semester.", "bad");
+  if (!confirm((on ? "Lock" : "Unlock") + " every class in " + [y, s].filter(Boolean).join(", ") + "?")) return;
+  const r = await sb.rpc("admin_lock_term", { p_year: y, p_sem: s, p_locked: on });
+  if (r.error) return say("ltMsg", /function|exist/i.test(r.error.message) ? "Run upgrade39.sql in Supabase first." : r.error.message, "bad");
+  if (!r.data.ok) return say("ltMsg", r.data.error, "bad");
+  say("ltMsg", r.data.count + " class(es) " + (on ? "locked" : "unlocked") + ".", "ok");
+}
+$("ltLock").addEventListener("click", () => lockTerm(true)); $("ltUnlock").addEventListener("click", () => lockTerm(false));
+for (const [id, on] of [["lockBulk", true], ["unlockBulk", false]]) $(id).addEventListener("click", async () => {
+  const list = filteredClasses(); if (!list.length) return say("msg", "No matching classes.", "warn");
+  if (!confirm((on ? "Lock " : "Unlock ") + list.length + " class(es)?")) return;
+  const r = await sb.rpc("admin_lock_classes", { p_ids: list.map((s) => s.id), p_locked: on });
+  if (r.error) return say("msg", /function|exist/i.test(r.error.message) ? "Run upgrade39.sql in Supabase first." : r.error.message, "bad");
+  say("msg", r.data.count + " class(es) " + (on ? "locked" : "unlocked") + ".", "ok"); load();
+});
+// ---- Accounts with an end date ----
+async function loadExpiryList() {
+  const box = $("exList"); if (!box) return; box.textContent = "";
+  const r = await sb.rpc("admin_list_expiry"); if (r.error) { box.textContent = /function|exist/i.test(r.error.message) ? "Run upgrade39.sql in Supabase first." : r.error.message; return; }
+  if (!(r.data || []).length) { box.textContent = "No account has an end date."; return; }
+  const today = new Date().toISOString().slice(0, 10);
+  for (const e of r.data) {
+    const row = el("div", "reqrow"), t = el("div", "reqtxt"), b = el("b"), sp = el("span"), ended = e.expires_on < today;
+    b.textContent = staffName(e.owner); sp.textContent = (ended ? "Ended " : "Ends ") + e.expires_on + (e.note ? " | " + e.note : ""); t.append(b, sp); if (ended) b.style.color = "#b3261e";
+    const a = el("div", "acts"); a.append(abtn("Remove end date", "ok", async () => { await sb.rpc("admin_set_expiry", { p_id: e.owner, p_date: null, p_note: null }); loadExpiryList(); }));
+    row.append(t, a); box.appendChild(row);
+  }
+}

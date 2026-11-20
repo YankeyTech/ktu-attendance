@@ -1,12 +1,10 @@
 {
-  "id": "/ktu-attendance/teacher.html",
+  "id": "./teacher.html",
   "name": "KTU Class Check-in (Lecturer)",
   "short_name": "KTU Lecturer",
-  "description": "Start classes, watch check-ins and manage attendance.",
-  "start_url": "./teacher.html?source=pwa",
+  "start_url": "./teacher.html",
   "scope": "./",
   "display": "standalone",
-  "orientation": "any",
   "background_color": "#f4f7fb",
   "theme_color": "#004c84",
   "icons": [
@@ -29,18 +27,6 @@
       "purpose": "maskable"
     }
   ],
-  "shortcuts": [
-    {
-      "name": "Student check-in page",
-      "short_name": "Student page",
-      "url": "./index.html"
-    }
-  ],
   "lang": "en",
-  "dir": "ltr",
-  "prefer_related_applications": false,
-  "categories": [
-    "education",
-    "productivity"
-  ]
+  "prefer_related_applications": false
 }

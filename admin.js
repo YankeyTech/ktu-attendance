@@ -22,8 +22,8 @@ wireForgot(sb, "login");
 $("out").addEventListener("click", async () => { await sb.auth.signOut(); start(); });
 document.querySelectorAll(".tabs [data-t]").forEach((b) => b.addEventListener("click", () => {
   document.querySelectorAll(".tabs [data-t]").forEach((x) => x.classList.toggle("on", x === b));
-  for (const t of ["over", "inb", "lect", "cls", "roll", "stu", "ins", "ana", "term", "act", "sus", "rep", "trash", "tools", "set"]) $("t-" + t).hidden = t !== b.dataset.t;
-  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "ins" && window.drawInsights) drawInsights(); if (b.dataset.t === "tools" && window.loadU45) loadU45(); if (b.dataset.t === "term") initTerm(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") { loadSus(); loadShared(); loadAnomalies(); } if (b.dataset.t === "set") { renderSettings(); loadVenuesAdmin(); } if (b.dataset.t === "trash") loadTrash(); if (b.dataset.t === "stu") $("stIdx").focus(); if (b.dataset.t === "tools") { loadTools(); loadSystem(); } if (b.dataset.t === "inb") loadInbox(); if (b.dataset.t === "rep") loadReports();
+  for (const t of ["over", "inb", "lect", "cls", "roll", "stu", "desk", "ins", "ana", "term", "act", "sus", "rep", "trash", "tools", "set"]) $("t-" + t).hidden = t !== b.dataset.t;
+  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "desk" && window.initDesk) initDesk(); if (b.dataset.t === "ins" && window.drawInsights) drawInsights(); if (b.dataset.t === "tools" && window.loadU45) loadU45(); if (b.dataset.t === "term") initTerm(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") { loadSus(); loadShared(); loadAnomalies(); } if (b.dataset.t === "set") { renderSettings(); loadVenuesAdmin(); } if (b.dataset.t === "trash") loadTrash(); if (b.dataset.t === "stu") $("stIdx").focus(); if (b.dataset.t === "tools") { loadTools(); loadSystem(); } if (b.dataset.t === "inb") loadInbox(); if (b.dataset.t === "rep") loadReports();
 }));
 
 async function load() {

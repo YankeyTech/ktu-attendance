@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <link rel="manifest" href="manifest-admin.webmanifest"><meta name="theme-color" content="#0b3d3a"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="KTU Admin"><link rel="apple-touch-icon" href="icons/admin-apple.png"><link rel="icon" type="image/png" href="icons/admin-192.png">
-<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=17"><link rel="stylesheet" href="extra.css?v=37">
+<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=17"><link rel="stylesheet" href="extra.css?v=38">
 <style>main{max-width:1000px}th[data-k]{cursor:pointer;user-select:none}.tabs{display:flex;gap:6px;margin:10px 0;flex-wrap:wrap}.tabs button{flex:1}.tabs .on{background:#004c84;color:#fff}.cred{background:#fff8d6;color:#222;border:1px solid #e0c200;border-radius:10px;padding:12px;margin:10px 0}.cred code{font-size:18px;font-weight:700}</style></head>
 <body class="adm"><main>
   <header class="top"><h1>Admin</h1><p id="who">KTU class check-in</p></header>
@@ -15,7 +15,7 @@
     <button id="forgotGo" class="btn" type="submit">Send reset link</button>
     <button type="button" id="forgotBack" class="btn forgot">Back to sign in</button><p id="forgotMsg" class="msg" role="status"></p></form>
   <div id="app" hidden>
-    <div class="tabs"><button class="btn quiet on" data-t="over">Overview</button><button class="btn quiet" data-t="inb">Inbox <span id="inN" class="badge on" hidden></span></button><button class="btn quiet" data-t="lect">Lecturers</button><button class="btn quiet" data-t="cls">All classes</button><button class="btn quiet" data-t="roll">Class rolls</button><button class="btn quiet" data-t="stu">Student lookup</button><button class="btn quiet" data-t="ins">Insights</button><button class="btn quiet" data-t="ana">Analytics</button><button class="btn quiet" data-t="term">Term report</button><button class="btn quiet" data-t="act">Activity</button><button class="btn quiet" data-t="sus">Suspicious <span id="susN" class="badge on" hidden></span></button><button class="btn quiet" data-t="rep">Reports <span id="repN" class="badge on" hidden></span></button><button class="btn quiet" data-t="trash">Trash <span id="trN" class="badge on" hidden></span></button><button class="btn quiet" data-t="tools">Tools</button><button class="btn quiet" data-t="set">Settings</button><a class="btn quiet" href="teacher.html">Lecturer portal</a><button id="out" class="btn quiet">Sign out</button></div>
+    <div class="tabs"><button class="btn quiet on" data-t="over">Overview</button><button class="btn quiet" data-t="inb">Inbox <span id="inN" class="badge on" hidden></span></button><button class="btn quiet" data-t="lect">Lecturers</button><button class="btn quiet" data-t="cls">All classes</button><button class="btn quiet" data-t="roll">Class rolls</button><button class="btn quiet" data-t="stu">Student lookup</button><button class="btn quiet" data-t="desk">Class desk</button><button class="btn quiet" data-t="ins">Insights</button><button class="btn quiet" data-t="ana">Analytics</button><button class="btn quiet" data-t="term">Term report</button><button class="btn quiet" data-t="act">Activity</button><button class="btn quiet" data-t="sus">Suspicious <span id="susN" class="badge on" hidden></span></button><button class="btn quiet" data-t="rep">Reports <span id="repN" class="badge on" hidden></span></button><button class="btn quiet" data-t="trash">Trash <span id="trN" class="badge on" hidden></span></button><button class="btn quiet" data-t="tools">Tools</button><button class="btn quiet" data-t="set">Settings</button><a class="btn quiet" href="teacher.html">Lecturer portal</a><button id="out" class="btn quiet">Sign out</button></div>
     <p id="msg" class="msg" role="status"></p>
     <section id="t-over" class="card"><h2>Overview</h2><div class="stats" id="stats"></div>
       <p class="note">Tip: press <b>Ctrl+K</b> (or <b>/</b>) to search the whole admin page: sections, lecturers, courses and student index numbers.</p>
@@ -63,6 +63,49 @@
       <p class="note">Type an index number to see every check-in that student has made, how many classes they attended in each course, and who the lecturer was. Useful when a student disputes their attendance.</p>
       <div class="bar"><input id="stIdx" maxlength="30" placeholder="Index number" autocomplete="off"><button id="stGo" class="btn" type="button" style="margin-top:0;width:auto;padding:0 22px">Look up</button></div>
       <div id="stOut"></div></section>
+    <section id="t-desk" class="card" hidden><h2>Class desk</h2>
+      <p class="note">Do class work on behalf of a lecturer: start a class for them, add students by hand, or hand one class over to another lecturer.</p>
+      <div class="seg" role="tablist" aria-label="Class desk"><button type="button" class="on" data-seg="start">Start a class</button><button type="button" data-seg="add">Add students</button><button type="button" data-seg="move">Transfer a class</button></div>
+      <div class="segp" id="dk-start">
+        <div class="fgrid">
+          <div class="full"><label for="dkLec">Lecturer who will own the class</label><select id="dkLec"></select></div>
+          <div class="full"><label for="dkCourse">Course</label><input id="dkCourse" list="dkCourses" maxlength="120" placeholder="Pick or type the course name" autocomplete="off"><datalist id="dkCourses"></datalist></div>
+          <div><label for="dkProg">Programme</label><select id="dkProg"></select></div>
+          <div><label for="dkLevel">Level</label><select id="dkLevel"></select></div>
+          <div><label for="dkYear">Academic year</label><input id="dkYear" maxlength="9" placeholder="2026/2027"></div>
+          <div><label for="dkSem">Semester</label><select id="dkSem"><option>Semester 1</option><option>Semester 2</option><option>Summer / Resit</option></select></div>
+          <div class="full"><label for="dkVenue">Where is the class?</label><select id="dkVenue"></select></div>
+          <div id="dkPosBox" class="full" hidden><div class="fgrid"><div><label for="dkLat">Latitude</label><input id="dkLat" inputmode="decimal"></div><div><label for="dkLng">Longitude</label><input id="dkLng" inputmode="decimal"></div></div><button id="dkGps" class="btn quiet" type="button">Use my position now</button></div>
+          <div><label for="dkRad">Allowed distance (m)</label><input id="dkRad" type="number" min="20" max="2000" value="100"></div>
+          <div><label for="dkMins">Open for (minutes)</label><input id="dkMins" type="number" min="1" max="600" value="60"></div>
+        </div>
+        <button id="dkStart" class="btn" type="button">Start the class</button>
+        <p id="dkStartMsg" class="msg" role="status"></p>
+        <div id="dkDone" class="dkdone" hidden></div>
+      </div>
+      <div class="segp" id="dk-add" hidden>
+        <div class="fgrid">
+          <div class="full"><label for="dkCls">Class</label><select id="dkCls"></select></div>
+          <div class="full"><label for="dkName">Full name</label><input id="dkName" maxlength="100" autocomplete="off"></div>
+          <div><label for="dkIdx">Index number</label><input id="dkIdx" maxlength="30" autocomplete="off" autocapitalize="characters"></div>
+          <div><label for="dkSProg">Programme (optional)</label><select id="dkSProg"></select></div>
+          <div><label for="dkSLevel">Level (optional)</label><select id="dkSLevel"></select></div>
+        </div>
+        <button id="dkAdd" class="btn" type="button">Add student</button>
+        <p id="dkAddMsg" class="msg" role="status"></p>
+        <div id="dkAdded" class="dkadded"></div>
+      </div>
+      <div class="segp" id="dk-move" hidden>
+        <div class="fgrid">
+          <div class="full"><label for="dkMvCls">Class to transfer</label><select id="dkMvCls"></select></div>
+          <div class="full"><p id="dkMvOwner" class="note"></p></div>
+          <div class="full"><label for="dkMvTo">New lecturer (only one)</label><select id="dkMvTo"></select></div>
+          <div class="full"><label class="chk"><input id="dkMvRoll" type="checkbox" checked> Also copy this course's class roll to the new lecturer</label></div>
+        </div>
+        <button id="dkMove" class="btn" type="button">Transfer this class</button>
+        <p id="dkMvMsg" class="msg" role="status"></p>
+      </div>
+    </section>
     <section id="t-ins" class="card" hidden><h2>Insights</h2>
       <p class="note">A live picture of how the system is used. Numbers are built from every class and check-in you can see.</p>
       <div id="insKpi" class="stats"></div>
@@ -241,4 +284,4 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="chat.js?v=1"></script>
 <script src="shared.js?v=31"></script>
-<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=47"></script><script src="admin2.js?v=1"></script></body></html>
+<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=47"></script><script src="admin2.js?v=2"></script></body></html>

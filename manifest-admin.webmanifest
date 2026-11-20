@@ -1,12 +1,10 @@
 {
-  "id": "/ktu-attendance/admin.html",
+  "id": "./admin.html",
   "name": "KTU Class Check-in (Admin)",
   "short_name": "KTU Admin",
-  "description": "Control lecturers, classes, reports and settings.",
-  "start_url": "./admin.html?source=pwa",
+  "start_url": "./admin.html",
   "scope": "./",
   "display": "standalone",
-  "orientation": "any",
   "background_color": "#f4f7fb",
   "theme_color": "#0b3d3a",
   "icons": [
@@ -29,18 +27,6 @@
       "purpose": "maskable"
     }
   ],
-  "shortcuts": [
-    {
-      "name": "Lecturer portal",
-      "short_name": "Lecturer",
-      "url": "./teacher.html"
-    }
-  ],
   "lang": "en",
-  "dir": "ltr",
-  "prefer_related_applications": false,
-  "categories": [
-    "education",
-    "productivity"
-  ]
+  "prefer_related_applications": false
 }

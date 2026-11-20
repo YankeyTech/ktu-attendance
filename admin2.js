@@ -182,3 +182,84 @@ $("u45VenBtn").addEventListener("click", async () => {
   let pend = false; const run = () => { pend = false; document.querySelectorAll("#app table").forEach(label); };
   new MutationObserver(() => { if (!pend) { pend = true; setTimeout(run, 80); } }).observe($("app"), { childList: true, subtree: true }); run();
 })();
+
+// ---- Class desk: start a class for a lecturer, add students, transfer one class ----
+let dkVenues = [], dkInit = false, dkAddedList = [];
+const opt2 = (sel, v, t) => { const o = el("option"); o.value = v; o.textContent = t == null ? v : t; sel.appendChild(o); return o; };
+const staff2 = () => people.filter((p) => p.role !== "admin" && p.active !== false).sort((a, b) => staffName(a.id).localeCompare(staffName(b.id)));
+function fillStaff(sel, skip) { const keep = sel.value; sel.textContent = ""; opt2(sel, "", "Choose a lecturer…"); for (const p of staff2()) if (p.id !== skip) opt2(sel, p.id, staffName(p.id)); if (keep && Array.from(sel.options).some((o) => o.value === keep)) sel.value = keep; }
+function classLabel(c) { const open = new Date(c.opens_at) <= Date.now() && new Date(c.closes_at) > Date.now(); return (open ? "OPEN · " : "") + c.course + " · " + (c._owner || staffName(c.owner)) + " · " + new Date(c.created_at).toLocaleDateString([], { day: "numeric", month: "short" }); }
+function fillClasses(sel) { const keep = sel.value; sel.textContent = ""; opt2(sel, "", "Choose a class…"); for (const c of classes.filter((x) => !x.archived).slice(0, 300)) opt2(sel, c.id, classLabel(c)); if (keep && Array.from(sel.options).some((o) => o.value === keep)) sel.value = keep; }
+async function initDesk() {
+  fillStaff($("dkLec")); fillClasses($("dkCls")); fillClasses($("dkMvCls")); fillStaff($("dkMvTo"));
+  if (!dkInit) {
+    dkInit = true;
+    for (const [s, blank] of [[$("dkProg"), "Programme (optional)"], [$("dkSProg"), "Use the class's programme"]]) { opt2(s, "", blank); fillProgSel(s); }
+    for (const [s, blank] of [[$("dkLevel"), "Level (optional)"], [$("dkSLevel"), "Use the class's level"]]) { opt2(s, "", blank); fillLevelSel(s); }
+    const st = await sb.rpc("get_public_settings"); if (st.data) { $("dkYear").value = st.data.year || ""; if (st.data.semester) $("dkSem").value = st.data.semester; }
+    const v = await sb.from("shared_venues").select("*").order("name"); dkVenues = v.data || [];
+    const vs = $("dkVenue"); vs.textContent = ""; opt2(vs, "", "Choose a saved venue…");
+    for (const x of dkVenues) opt2(vs, x.id, x.name + (x.radius_m ? " (" + x.radius_m + " m)" : ""));
+    opt2(vs, "__pos", "Enter a position / use my position");
+    vs.addEventListener("change", () => { const x = dkVenues.find((q) => q.id === vs.value); $("dkPosBox").hidden = vs.value !== "__pos"; if (x && x.radius_m) $("dkRad").value = x.radius_m; });
+  }
+}
+window.initDesk = initDesk;
+document.querySelectorAll("[data-seg]").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll("[data-seg]").forEach((x) => x.classList.toggle("on", x === b));
+  for (const k of ["start", "add", "move"]) $("dk-" + k).hidden = k !== b.dataset.seg;
+}));
+$("dkLec").addEventListener("change", () => { const dl = $("dkCourses"); dl.textContent = ""; for (const c of [...new Set(courses.filter((k) => k.owner === $("dkLec").value).map((k) => k.name))]) { const o = el("option"); o.value = c; dl.appendChild(o); } });
+$("dkGps").addEventListener("click", () => { if (!navigator.geolocation) return say("dkStartMsg", "This device cannot share its position.", "bad"); say("dkStartMsg", "Finding your position…"); navigator.geolocation.getCurrentPosition((p) => { $("dkLat").value = p.coords.latitude.toFixed(6); $("dkLng").value = p.coords.longitude.toFixed(6); say("dkStartMsg", "Position filled in.", "ok"); }, () => say("dkStartMsg", "Could not get your position. Allow location, or type the numbers.", "bad"), { enableHighAccuracy: true, timeout: 15000 }); });
+$("dkStart").addEventListener("click", async () => {
+  const v = dkVenues.find((x) => x.id === $("dkVenue").value); let lat, lng;
+  if (v) { lat = v.lat; lng = v.lng; } else if ($("dkVenue").value === "__pos") { lat = Number($("dkLat").value); lng = Number($("dkLng").value); } else return say("dkStartMsg", "Choose where the class is.", "bad");
+  if (!$("dkLec").value) return say("dkStartMsg", "Choose the lecturer.", "bad");
+  $("dkStart").disabled = true; say("dkStartMsg", "Starting…");
+  const r = await sb.rpc("admin_start_class", { p_owner: $("dkLec").value, p_course: $("dkCourse").value, p_programme: $("dkProg").value, p_level: $("dkLevel").value, p_year: $("dkYear").value, p_sem: $("dkSem").value, p_lat: lat, p_lng: lng, p_radius: Number($("dkRad").value), p_minutes: Number($("dkMins").value) });
+  $("dkStart").disabled = false;
+  if (r.error) return say("dkStartMsg", /function|exist|schema cache/i.test(r.error.message) ? "Run upgrade42.sql in Supabase first." : r.error.message, "bad");
+  if (!r.data.ok) return say("dkStartMsg", r.data.error, "bad");
+  say("dkStartMsg", "");
+  const d = $("dkDone"); d.hidden = false; d.textContent = "";
+  const t = el("div"); t.innerHTML = "<b>Class started</b><br>Share this code with the students:"; const c = el("div", "dkcode"); c.textContent = r.data.code; d.append(t, c);
+  const go = abtn("Add students to it now", "", async () => { await load(); initDesk(); document.querySelector('[data-seg="add"]').click(); $("dkCls").value = r.data.id; }); d.appendChild(go);
+  await load(); initDesk();
+});
+$("dkAdd").addEventListener("click", async () => {
+  if (!$("dkCls").value) return say("dkAddMsg", "Choose the class first.", "bad");
+  const name = $("dkName").value.trim(), idx = $("dkIdx").value.trim().toUpperCase();
+  const r = await sb.rpc("admin_add_student", { p_session: $("dkCls").value, p_index: idx, p_name: name, p_programme: $("dkSProg").value, p_level: $("dkSLevel").value });
+  if (r.error) return say("dkAddMsg", /function|exist|schema cache/i.test(r.error.message) ? "Run upgrade42.sql in Supabase first." : r.error.message, "bad");
+  if (!r.data.ok) return say("dkAddMsg", r.data.error, "bad");
+  say("dkAddMsg", name + " (" + idx + ") added.", "ok"); dkAddedList.unshift(name + " · " + idx);
+  $("dkAdded").textContent = ""; const ul = el("ul"); for (const x of dkAddedList.slice(0, 12)) { const li = el("li"); li.textContent = x; ul.appendChild(li); } const hh = el("b"); hh.textContent = "Added just now (" + dkAddedList.length + ")"; $("dkAdded").append(hh, ul);
+  $("dkName").value = ""; $("dkIdx").value = ""; $("dkName").focus();
+});
+$("dkMvCls").addEventListener("change", () => { const c = classes.find((x) => x.id === $("dkMvCls").value); $("dkMvOwner").textContent = c ? "Currently with " + (c._owner || staffName(c.owner)) + ". " + (c._n || 0) + " check-in(s) stay with the class." : ""; fillStaff($("dkMvTo"), c && c.owner); });
+$("dkMove").addEventListener("click", async () => {
+  const c = classes.find((x) => x.id === $("dkMvCls").value); if (!c) return say("dkMvMsg", "Choose the class.", "bad"); if (!$("dkMvTo").value) return say("dkMvMsg", "Choose the new lecturer.", "bad");
+  if (!confirm("Transfer \"" + c.course + "\" to " + staffName($("dkMvTo").value) + "?")) return;
+  const r = await sb.rpc("admin_transfer_class", { p_id: c.id, p_to: $("dkMvTo").value, p_copy_roll: $("dkMvRoll").checked });
+  if (r.error) return say("dkMvMsg", /function|exist|schema cache/i.test(r.error.message) ? "Run upgrade42.sql in Supabase first." : r.error.message, "bad");
+  if (!r.data.ok) return say("dkMvMsg", r.data.error, "bad");
+  say("dkMvMsg", "Done. The class now belongs to " + r.data.to + (r.data.roll_copied ? ". " + r.data.roll_copied + " roll entries copied." : "."), "ok");
+  await load(); initDesk();
+});
+
+// ---- Tools tab: tidy accordion with a finder ----
+(function toolsTidy() {
+  const t = $("t-tools"); if (!t) return;
+  const boxes = Array.from(t.querySelectorAll(":scope > .reqbox")); if (!boxes.length) return;
+  const find = el("input"); find.type = "search"; find.placeholder = "Find a tool (e.g. pause, export, lock)"; find.setAttribute("aria-label", "Find a tool"); find.className = "toolfind";
+  const bar = el("div", "toolbar"); const all = el("button", "btn quiet"); all.type = "button"; all.textContent = "Open all"; const none = el("button", "btn quiet"); none.type = "button"; none.textContent = "Close all"; bar.append(find, all, none);
+  t.querySelector("h2").after(bar);
+  for (const b of boxes) {
+    const h = b.querySelector("h3"); if (!h) continue; b.classList.add("fold", "collapsed"); h.tabIndex = 0; h.setAttribute("role", "button"); h.setAttribute("aria-expanded", "false");
+    const tg = () => { const c = b.classList.toggle("collapsed"); h.setAttribute("aria-expanded", String(!c)); };
+    h.addEventListener("click", tg); h.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); tg(); } });
+  }
+  const setAll = (c) => boxes.forEach((b) => { b.classList.toggle("collapsed", c); const h = b.querySelector("h3"); if (h) h.setAttribute("aria-expanded", String(!c)); });
+  all.addEventListener("click", () => setAll(false)); none.addEventListener("click", () => setAll(true));
+  find.addEventListener("input", () => { const q = find.value.trim().toLowerCase(); boxes.forEach((b) => { const hit = !q || b.textContent.toLowerCase().includes(q); b.hidden = !hit; if (q && hit) { b.classList.remove("collapsed"); } }); });
+})();

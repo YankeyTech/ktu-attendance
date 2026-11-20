@@ -456,7 +456,7 @@ async function showAnnouncements(sb, box) {
 
 // ---- Install as an app (lecturer and admin pages) ----
 (function pwa() {
-  if ("serviceWorker" in navigator && location.protocol.startsWith("http")) window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+  if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
   const staff = document.body.classList.contains("tch") || document.body.classList.contains("adm");
   const standalone = () => (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
   if (!staff || standalone()) return;

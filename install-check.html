@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="manifest" href="manifest-teacher.webmanifest">
+<meta name="theme-color" content="#004c84">
+<title>App install check | KTU check-in</title>
+<style>
+body{font-family:system-ui,Segoe UI,Roboto,sans-serif;margin:0;background:#f4f7fb;color:#12202f;line-height:1.45}
+main{max-width:640px;margin:0 auto;padding:16px}
+h1{font-size:1.4rem;margin:8px 0}
+.row{background:#fff;border:1px solid #d5deea;border-radius:12px;padding:10px 12px;margin:8px 0}
+.ok{border-left:6px solid #1a7f43}.bad{border-left:6px solid #b3261e}.warn{border-left:6px solid #b7791f}
+b{display:block}small{color:#52627a;display:block;margin-top:2px;word-break:break-word}
+button{min-height:46px;border:0;border-radius:12px;background:#004c84;color:#fff;font:700 1rem inherit;padding:0 16px;margin:6px 6px 6px 0}
+button.q{background:#e5edf6;color:#004c84}
+@media (prefers-color-scheme:dark){body{background:#0e1620;color:#e6edf5}.row{background:#16212e;border-color:#2a3a4d}small{color:#9fb0c4}button.q{background:#22344a;color:#cfe3f7}}
+</style>
+</head>
+<body>
+<main>
+<h1>App install check</h1>
+<p>This page tests why your phone may say "This app cannot be installed". Open it in Chrome on the phone, wait a few seconds, then read each line.</p>
+<div id="out"></div>
+<button id="reg" type="button">Refresh the app files</button>
+<button id="inst" type="button" hidden>Install now</button>
+<button id="copy" class="q" type="button">Copy this report</button>
+<p><a href="teacher.html">Back to the lecturer page</a></p>
+</main>
+<script>
+const out = document.getElementById("out"), lines = [];
+function add(level, title, detail) {
+  lines.push((level === "ok" ? "OK   " : level === "bad" ? "FAIL " : "NOTE ") + title + (detail ? " - " + detail : ""));
+  const d = document.createElement("div"); d.className = "row " + level;
+  const b = document.createElement("b"); b.textContent = (level === "ok" ? "Good: " : level === "bad" ? "Problem: " : "Note: ") + title; d.appendChild(b);
+  if (detail) { const s = document.createElement("small"); s.textContent = detail; d.appendChild(s); }
+  out.appendChild(d);
+}
+let deferred = null;
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferred = e; document.getElementById("inst").hidden = false; });
+document.getElementById("inst").addEventListener("click", async () => { if (deferred) { deferred.prompt(); try { await deferred.userChoice; } catch (e) {} } });
+document.getElementById("copy").addEventListener("click", async () => { try { await navigator.clipboard.writeText(lines.join("\n")); alert("Copied. Paste it in the chat."); } catch (e) { prompt("Copy this report:", lines.join("\n")); } });
+
+async function checkManifest(file, label) {
+  let r;
+  try { r = await fetch(file, { cache: "reload" }); } catch (e) { return add("bad", label + ": the manifest file could not be loaded", String(e)); }
+  if (!r.ok) return add("bad", label + ": the manifest file gives error " + r.status, "The file " + file + " is missing on the site. Upload it again.");
+  let m; try { m = await r.json(); } catch (e) { return add("bad", label + ": the manifest file is not valid", String(e)); }
+  const base = new URL(file, location.href), start = new URL(m.start_url || ".", base), scope = new URL(m.scope || ".", base);
+  add(r.headers.get("content-type") && /json|manifest/.test(r.headers.get("content-type")) ? "ok" : "warn", label + ": manifest loaded", "type " + (r.headers.get("content-type") || "unknown") + "; name " + m.name + "; display " + m.display);
+  if (m.display !== "standalone" && m.display !== "fullscreen" && m.display !== "minimal-ui") add("bad", label + ": display must be standalone", "It is " + m.display);
+  if (!start.href.startsWith(scope.href)) add("bad", label + ": the start page is outside the app scope", start.href + " is not inside " + scope.href);
+  else add("ok", label + ": start page is inside the scope", start.pathname);
+  let has192 = false, has512 = false;
+  for (const ic of m.icons || []) {
+    const u = new URL(ic.src, base).href;
+    const info = await new Promise((res) => { const i = new Image(); i.onload = () => res({ w: i.naturalWidth, h: i.naturalHeight }); i.onerror = () => res(null); i.src = u + "?t=" + Date.now(); });
+    if (!info) { add("bad", label + ": icon does not load: " + ic.src, "Chrome cannot build the app without its icons. Upload the icons folder again."); continue; }
+    const want = (ic.sizes || "").split("x")[0] | 0;
+    if (info.w !== want) add("warn", label + ": icon " + ic.src + " is " + info.w + "x" + info.h, "The manifest says " + ic.sizes);
+    else add("ok", label + ": icon " + ic.src, info.w + "x" + info.h + " " + (ic.purpose || "any"));
+    if ((ic.purpose || "any").includes("any")) { if (info.w >= 192) has192 = true; if (info.w >= 512) has512 = true; }
+  }
+  if (!has192 || !has512) add("bad", label + ": needs an 'any' icon of 192 and of 512 pixels");
+}
+
+(async () => {
+  add(location.protocol === "https:" || location.hostname === "localhost" ? "ok" : "bad", "Secure connection", location.protocol + "//" + location.host);
+  const ua = navigator.userAgent, ch = (ua.match(/Chrome\/(\d+)/) || [])[1];
+  add(ch && Number(ch) >= 100 ? "ok" : "warn", "Browser", ch ? "Chrome " + ch : ua.slice(0, 90));
+  if (/SamsungBrowser|Firefox|OPR|EdgA|UCBrowser|MiuiBrowser/i.test(ua)) add("warn", "This is not Chrome", "Open this page in Chrome for the best install.");
+  add(window.matchMedia("(display-mode: standalone)").matches ? "ok" : "warn", "Opened as", window.matchMedia("(display-mode: standalone)").matches ? "the installed app" : "a normal browser tab");
+  await checkManifest("manifest-teacher.webmanifest", "Lecturer app");
+  await checkManifest("manifest-admin.webmanifest", "Admin app");
+  if (!("serviceWorker" in navigator)) add("bad", "Service worker is not available in this browser");
+  else {
+    try {
+      const sw = await fetch("sw.js", { cache: "reload" });
+      add(sw.ok ? "ok" : "bad", "sw.js file", sw.ok ? "found" : "error " + sw.status + ". Upload sw.js again.");
+      const reg = await navigator.serviceWorker.register("sw.js");
+      await navigator.serviceWorker.ready;
+      add("ok", "Service worker is active", "scope " + new URL(reg.scope).pathname);
+      add(navigator.serviceWorker.controller ? "ok" : "warn", "This page is controlled by it", navigator.serviceWorker.controller ? "yes" : "Not yet. Reload this page once, then check again.");
+    } catch (e) { add("bad", "Service worker could not start", String(e)); }
+  }
+  setTimeout(() => {
+    add(deferred ? "ok" : "warn", "Chrome's install offer", deferred ? "Chrome says the app CAN be installed. Press Install now." : "Chrome has not offered the install yet. Reload this page, wait 10 seconds, and open the menu again. If it says it is already installed, remove the old app first.");
+  }, 2500);
+})();
+document.getElementById("reg").addEventListener("click", async () => {
+  try { const rs = await navigator.serviceWorker.getRegistrations(); for (const r of rs) await r.unregister(); if (window.caches) for (const k of await caches.keys()) await caches.delete(k); } catch (e) {}
+  location.reload();
+});
+</script>
+</body>
+</html>

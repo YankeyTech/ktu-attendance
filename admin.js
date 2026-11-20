@@ -753,7 +753,7 @@ $("actX").addEventListener("click", () => {
 async function loadTools() {
   const r = await sb.rpc("get_public_settings");
   if (r.error) { say("tlMsg", "Run upgrade25.sql in Supabase first.", "bad"); return; }
-  drawPause(r.data); loadSchedule(); drawTerm(r.data); drawFeatures(r.data.features); drawPolicy(r.data.policy); loadNotify(); loadBlocked(); loadActivityBoard();
+  drawPause(r.data); loadSchedule(); drawBulkPerms(); drawTerm(r.data); drawFeatures(r.data.features); drawPolicy(r.data.policy); loadNotify(); loadBlocked(); loadActivityBoard();
   const d = await sb.rpc("admin_diagnostics");
   const box = $("hcList"); box.textContent = "";
   if (d.error) { box.textContent = d.error.message; return; }
@@ -1060,6 +1060,21 @@ async function openProfile(x) {
   const mb = el("button", "btn quiet"); mb.type = "button"; mb.textContent = "Send message";
   mb.addEventListener("click", async () => { const m = ta.value.trim(); if (m.length < 3) return; const r = await sb.from("announcements").insert({ message: m, kind: "info", target: x.id, expires_at: new Date(Date.now() + 7 * 86400000).toISOString() }); msg.className = r.error ? "msg bad" : "msg ok"; msg.textContent = r.error ? (/target|column/i.test(r.error.message) ? "Run upgrade28.sql in Supabase first." : r.error.message) : "Message sent. It shows for 7 days."; if (!r.error) ta.value = ""; });
   box.append(mb);
+  const nh = el("h4", "ch3"); nh.textContent = "Private notes (only you can see these)"; box.appendChild(nh);
+  const nt = el("textarea"); nt.rows = 3; nt.maxLength = 2000; nt.placeholder = "For example: asked for a longer class limit, reminded about rolls on 12 Nov"; box.appendChild(nt);
+  sb.rpc("admin_get_note", { p_id: x.id }).then((q) => { if (!q.error) nt.value = q.data || ""; else nt.placeholder = "Run upgrade38.sql in Supabase to use notes."; });
+  const nb = el("button", "btn quiet"); nb.type = "button"; nb.textContent = "Save note";
+  nb.addEventListener("click", async () => { const q = await sb.rpc("admin_set_note", { p_id: x.id, p_note: nt.value }); msg.className = q.error ? "msg bad" : "msg ok"; msg.textContent = q.error ? q.error.message : "Note saved."; });
+  const xb = el("button", "btn quiet"); xb.type = "button"; xb.textContent = "Download this person's data (Excel)";
+  xb.addEventListener("click", async () => {
+    msg.className = "msg"; msg.textContent = "Preparing...";
+    const ids = mine.map((c) => c.id); const at = ids.length ? await fetchAttendance(sb, ids) : []; const byId = Object.fromEntries(mine.map((c) => [c.id, c]));
+    downloadXlsx((x.full_name || x.email) + " data", [
+      { name: "Classes", rows: [["Date", "Course", "Year", "Semester", "Programme", "Level", "Check-ins"]].concat(mine.map((c) => [fmt(c.created_at), c.course, c.academic_year || "", c.semester || "", c.programme || "", c.level || "", at.filter((a) => a.session_id === c.id).length])) },
+      { name: "Check-ins", rows: [["Class date", "Course", "Index number", "Name", "Inside area", "Time"]].concat(at.map((a) => { const c = byId[a.session_id] || {}; return [c.created_at ? fmt(c.created_at) : "", c.course || "", a.index_number, a.student_name || "", a.in_range ? "Yes" : "No", fmt(a.checked_in_at)]; })) }]);
+    msg.className = "msg ok"; msg.textContent = "Downloaded.";
+  });
+  box.append(nb, xb);
   const h4 = el("h4", "ch3"); h4.textContent = "Recent classes"; box.appendChild(h4);
   const list = el("div", "scrollbox"); list.style.maxHeight = "220px";
   for (const s of mine.slice(0, 12)) { const row = el("div", "reqrow"), t = el("div", "reqtxt"), b = el("b"), sp = el("span"); b.textContent = s.course; sp.textContent = fmt(s.created_at) + " | " + (counts[s.id] || 0) + " check-ins" + (s.archived ? " | archived" : ""); t.append(b, sp); const a = el("div", "acts"); a.append(abtn("Sheet", "", () => adminSheet(s)), abtn("Manage", "", () => { ov.remove(); manageClass(s); })); row.append(t, a); list.appendChild(row); }
@@ -1351,4 +1366,38 @@ $("hkGo").addEventListener("click", async () => {
   if (!confirm("Archive " + list.length + " class(es) older than " + m + " months?")) return;
   const r = await sb.rpc("archive_sessions", { p_ids: list.map((s) => s.id), p_archived: true });
   say("hkMsg", r.error ? r.error.message : "Archived " + r.data + " class(es).", r.error ? "bad" : "ok"); if (!r.error) load();
+});
+
+// ---- Permissions for many people ----
+const BP = [["start_classes", "Start new classes"], ["manual_add", "Add students by hand"], ["edit_checkins", "Edit check-ins"], ["upload_rolls", "Upload class rolls"], ["delete_rolls", "Delete class rolls"], ["save_venues", "Save venues"]];
+function drawBulkPerms() {
+  const box = $("bpPeople"); if (!box || box.dataset.done === String(people.length)) return; box.dataset.done = String(people.length); box.textContent = "";
+  for (const x of people.filter((p) => p.role !== "admin" && p.active !== false).sort((a, b) => staffName(a.id).localeCompare(staffName(b.id)))) {
+    const l = el("label", "chk"), c = el("input"); c.type = "checkbox"; c.value = x.id; l.append(c, document.createTextNode(" " + staffName(x.id) + (x.role === "assistant" ? " (assistant)" : ""))); box.appendChild(l);
+  }
+  const pp = $("bpPerms"); pp.textContent = "";
+  for (const [k, label] of BP) { const d = el("div"), lb = el("label"), s = el("select"); lb.textContent = label; s.dataset.k = k; for (const [v, t] of [["", "No change"], ["on", "Allow"], ["off", "Switch off"]]) { const o = el("option"); o.value = v; o.textContent = t; s.appendChild(o); } d.append(lb, s); pp.appendChild(d); }
+  const d = el("div"), lb = el("label"), i = el("input"); lb.textContent = "Longest class (minutes, 0 = no limit)"; i.type = "number"; i.min = 0; i.max = 1440; i.id = "bpMax"; i.placeholder = "No change"; d.append(lb, i); pp.appendChild(d);
+}
+$("bpAll").addEventListener("click", () => $("bpPeople").querySelectorAll("input").forEach((c) => (c.checked = true)));
+$("bpNone").addEventListener("click", () => $("bpPeople").querySelectorAll("input").forEach((c) => (c.checked = false)));
+$("bpGo").addEventListener("click", async () => {
+  const ids = [...$("bpPeople").querySelectorAll("input:checked")].map((c) => c.value); if (!ids.length) return say("bpMsg", "Tick at least one person.", "bad");
+  const p = {}; $("bpPerms").querySelectorAll("select").forEach((s) => { if (s.value) p[s.dataset.k] = s.value === "on"; });
+  const m = $("bpMax").value.trim(); if (m !== "") p.max_minutes = Number(m);
+  if (!Object.keys(p).length) return say("bpMsg", "Choose something to change.", "bad");
+  if (!confirm("Apply these changes to " + ids.length + " people?")) return;
+  const r = await sb.rpc("admin_bulk_perms", { p_ids: ids, p_perms: p });
+  if (r.error) return say("bpMsg", /function|exist/i.test(r.error.message) ? "Run upgrade38.sql in Supabase first." : r.error.message, "bad");
+  if (!r.data.ok) return say("bpMsg", r.data.error, "bad");
+  say("bpMsg", "Done for " + r.data.count + " people. It applies the next time they use the page.", "ok"); load();
+});
+// ---- Block many students ----
+$("bmGo").addEventListener("click", async () => {
+  const list = $("bmText").value.split(/[\s,;]+/).map((s) => s.trim()).filter(Boolean); if (!list.length) return say("bmMsg", "Paste at least one index number.", "bad");
+  if (!confirm("Block " + list.length + " index number(s) from checking in?")) return;
+  const r = await sb.rpc("admin_block_many", { p_values: list, p_reason: $("bmWhy").value });
+  if (r.error) return say("bmMsg", /function|exist/i.test(r.error.message) ? "Run upgrade38.sql in Supabase first." : r.error.message, "bad");
+  if (!r.data.ok) return say("bmMsg", r.data.error, "bad");
+  say("bmMsg", r.data.count + " newly blocked (others were invalid or already blocked).", "ok"); $("bmText").value = ""; loadBlocked();
 });

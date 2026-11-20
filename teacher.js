@@ -138,6 +138,7 @@ async function courseSummary(all) {
   let rows = []; try { rows = (await fetchAttendance(sb, live.map((s) => s.id))) || []; } catch (e) { return; }
   const cnt = new Map(); for (const r of rows) cnt.set(r.session_id, (cnt.get(r.session_id) || 0) + 1);
   box.textContent = "";
+  const plans = new Map(); { const q = await sb.from("courses").select("name,planned_classes"); if (!q.error) for (const c of q.data || []) if (c.planned_classes) plans.set(String(c.name).toLowerCase(), c.planned_classes); }
   for (const e of Array.from(by.values()).sort((a, b) => b.ids.length - a.ids.length)) {
     const total = e.ids.reduce((n, id) => n + (cnt.get(id) || 0), 0), avg = total / e.ids.length;
     const best = Math.max(1, ...Array.from(by.values()).map((x) => x.ids.reduce((n, id) => n + (cnt.get(id) || 0), 0) / x.ids.length));
@@ -146,6 +147,15 @@ async function courseSummary(all) {
     a.textContent = e.course; b.textContent = e.ids.length + " class" + (e.ids.length === 1 ? "" : "es") + ", avg " + avg.toFixed(1); bar.className = "bar2"; i.style.width = Math.round((avg / best) * 100) + "%"; bar.appendChild(i); d.append(a, b, bar);
     const last = e.ids.slice(0, 12).reverse(), top = Math.max(1, ...last.map((id) => cnt.get(id) || 0)), sp = document.createElement("div"); sp.className = "spark"; sp.title = "Check-ins in your last " + last.length + " classes, oldest on the left";
     for (const id of last) { const u = document.createElement("i"); u.style.height = Math.max(8, ((cnt.get(id) || 0) / top) * 100) + "%"; sp.appendChild(u); }
+    const plan = (plans.get(String(e.course).toLowerCase()) || 0);
+    if (plan) { const pr = document.createElement("div"); pr.className = "note"; pr.textContent = e.ids.length + " of " + plan + " planned classes held" + (e.ids.length >= plan ? " (done)" : ""); const pb = document.createElement("div"), pi = document.createElement("i"); pb.className = "bar2"; pi.style.width = Math.min(100, Math.round((e.ids.length / plan) * 100)) + "%"; pb.appendChild(pi); d.append(pr, pb); }
+    const pbtn = document.createElement("button"); pbtn.type = "button"; pbtn.className = "abtn"; pbtn.textContent = plan ? "Change planned classes" : "Set planned classes";
+    pbtn.addEventListener("click", async () => {
+      const v = prompt("How many classes do you plan to hold for " + e.course + " this term? (empty = no plan)", plan || ""); if (v === null) return;
+      const n = v.trim() === "" ? null : Number(v); if (n !== null && (!Number.isInteger(n) || n < 1 || n > 200)) return toast("Use a whole number from 1 to 200.");
+      const r = await sb.rpc("set_course_plan", { p_course: e.course, p_n: n }); if (r.error) return toast(/function|exist/i.test(r.error.message) ? "Run upgrade38.sql in Supabase first." : r.error.message);
+      courseSummary(all);
+    }); d.appendChild(pbtn);
     d.appendChild(sp); box.appendChild(d);
   }
 }

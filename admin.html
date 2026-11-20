@@ -140,6 +140,14 @@
         <p id="pauseState" class="msg" role="status"></p>
         <input id="pauseMsg" maxlength="300" placeholder="Message students will see (optional)">
         <div class="row"><button id="pauseBtn" class="btn" type="button">Pause all check-ins</button></div></div>
+      <div class="reqbox"><h3>Permissions for many people</h3><p class="note">Tick the people, choose what to change, then apply. "No change" leaves that permission as it is.</p>
+        <div class="bar"><button id="bpAll" class="btn quiet" type="button">Tick everyone</button><button id="bpNone" class="btn quiet" type="button">Untick all</button></div>
+        <div id="bpPeople" class="scrollbox" style="max-height:200px"></div>
+        <div id="bpPerms" class="row" style="margin-top:10px"></div>
+        <div class="bar"><button id="bpGo" class="btn" type="button">Apply to ticked people</button></div><p id="bpMsg" class="msg" role="status"></p></div>
+      <div class="reqbox"><h3>Block many students</h3><p class="note">Paste index numbers, one per line or separated by commas. They cannot check in to any class until you unblock them.</p>
+        <textarea id="bmText" rows="4" placeholder="Paste index numbers here"></textarea><input id="bmWhy" maxlength="120" placeholder="Reason (optional)">
+        <div class="bar"><button id="bmGo" class="btn quiet" type="button">Block them</button></div><p id="bmMsg" class="msg" role="status"></p></div>
       <div class="reqbox"><h3>Class limits for everyone</h3><p class="note">Set the longest class and the smallest and largest allowed distance. Use 0 for no limit. Lecturers cannot go past these, and the database enforces it.</p>
         <div class="row"><div><label for="polMin">Longest class (minutes)</label><input id="polMin" type="number" min="0" max="1440" value="0"></div><div><label for="polLo">Smallest distance (m)</label><input id="polLo" type="number" min="0" max="2000" value="0"></div><div><label for="polHi">Largest distance (m)</label><input id="polHi" type="number" min="0" max="2000" value="0"></div></div>
         <div class="bar"><button id="polSave" class="btn" type="button">Save limits</button></div><p id="polMsg" class="msg" role="status"></p></div>
@@ -175,4 +183,4 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="chat.js?v=1"></script>
 <script src="shared.js?v=29"></script>
-<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=43"></script></body></html>
+<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=44"></script></body></html>

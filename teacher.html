@@ -6,7 +6,7 @@
 <link rel="manifest" href="manifest-teacher.webmanifest"><meta name="theme-color" content="#004c84"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="KTU Check-in"><link rel="apple-touch-icon" href="icons/app-apple.png"><link rel="icon" type="image/png" href="icons/app-192.png">
 <title>Lecturer | KTU check-in</title>
 <link rel="stylesheet" href="style.css?v=17">
-<link rel="stylesheet" href="extra.css?v=35">
+<link rel="stylesheet" href="extra.css?v=36">
 </head>
 <body class="tch">
 <main>
@@ -45,6 +45,7 @@
     <form id="start" class="card">
       <h2>Start a class</h2>
       <button id="repeatLast" class="btn quiet" type="button">Repeat my last class</button>
+      <div id="ttBox" class="ttbox"><div class="tthead"><b>My timetable</b><button id="ttAdd" class="btn quiet" type="button">Add a slot</button></div><div id="ttToday" class="note"></div><div id="ttList"></div></div>
       <div class="presets"><span class="note">Saved setups:</span><span id="presetList"></span><button id="presetSave" class="btn quiet" type="button">Save this setup</button></div>
       <label for="coursePick">Course</label>
       <select id="coursePick" required><option value="">Select your course</option><option value="__new">+ Add a new course...</option></select>
@@ -142,7 +143,7 @@
         <div class="row" style="margin-top:8px"><button id="absXlsx" class="btn quiet" type="button">Download absent list (Excel)</button><button id="absCopy" class="btn quiet" type="button">Copy message for absentees</button></div></div>
       <div id="excBox" class="absent" hidden><h3>Excused (<span id="excN"></span>)</h3><div id="excList"></div></div>
       <div class="notebox"><label for="classNotes">Class notes</label><textarea id="classNotes" rows="2" maxlength="2000" placeholder="Topic covered, announcements, anything to remember about this class"></textarea>
-        <div class="row" style="align-items:center"><button id="saveNotes" class="btn quiet" type="button">Save notes</button><button id="sumCopy" class="btn quiet" type="button">Copy class summary</button><span id="notesMsg" class="note" role="status"></span></div></div>
+        <div class="row" style="align-items:center"><button id="saveNotes" class="btn quiet" type="button">Save notes</button><button id="sumCopy" class="btn quiet" type="button">Copy class summary</button><button id="printList" class="btn quiet" type="button">Print the list</button><span id="notesMsg" class="note" role="status"></span></div></div>
     </section>
 
     </div>
@@ -270,8 +271,8 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="chat.js?v=1"></script>
-<script src="shared.js?v=30"></script>
+<script src="shared.js?v=31"></script>
 <script src="programmes.js"></script>
-<script src="teacher.js?v=44"></script>
+<script src="teacher.js?v=45"></script>
 </body>
 </html>

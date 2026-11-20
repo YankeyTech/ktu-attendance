@@ -415,7 +415,8 @@ function renderLookup(box, res, ownerName, idx) {
 // ---- Announcements from the admin (shown on the lecturer Home tab) ----
 async function showAnnouncements(sb, box) {
   box.textContent = "";
-  let data = null; try { ({ data } = await sb.from("announcements").select("*").gt("expires_at", new Date().toISOString()).order("created_at", { ascending: false }).limit(5)); } catch (e) {}
+  let data = null, nowIso = new Date().toISOString();
+  try { const q = await sb.from("announcements").select("*").gt("expires_at", nowIso).lte("starts_at", nowIso).order("created_at", { ascending: false }).limit(5); data = q.error ? null : q.data; if (q.error) { const q2 = await sb.from("announcements").select("*").gt("expires_at", nowIso).order("created_at", { ascending: false }).limit(5); data = q2.data; } } catch (e) {}
   let seen = []; try { seen = JSON.parse(localStorage.getItem("ktu_seen_ann") || "[]"); } catch (e) {}
   for (const a of data || []) {
     if (seen.includes(a.id)) continue;

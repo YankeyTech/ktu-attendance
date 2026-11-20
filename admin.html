@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <link rel="manifest" href="manifest-admin.webmanifest"><meta name="theme-color" content="#0b3d3a"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="KTU Admin"><link rel="apple-touch-icon" href="icons/admin-apple.png"><link rel="icon" type="image/png" href="icons/admin-192.png">
-<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=17"><link rel="stylesheet" href="extra.css?v=35">
+<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=17"><link rel="stylesheet" href="extra.css?v=36">
 <style>main{max-width:1000px}th[data-k]{cursor:pointer;user-select:none}.tabs{display:flex;gap:6px;margin:10px 0;flex-wrap:wrap}.tabs button{flex:1}.tabs .on{background:#004c84;color:#fff}.cred{background:#fff8d6;color:#222;border:1px solid #e0c200;border-radius:10px;padding:12px;margin:10px 0}.cred code{font-size:18px;font-weight:700}</style></head>
 <body class="adm"><main>
   <header class="top"><h1>Admin</h1><p id="who">KTU class check-in</p></header>
@@ -20,14 +20,14 @@
     <section id="t-over" class="card"><h2>Overview</h2><div class="stats" id="stats"></div>
       <p class="note">Tip: press <b>Ctrl+K</b> (or <b>/</b>) to search the whole admin page: sections, lecturers, courses and student index numbers.</p>
       <div class="reqbox"><h3>Quick actions</h3><div class="quick" id="quickBox">
-        <button type="button" class="qa" data-go="inb">Inbox</button><button type="button" class="qa" data-go="tools" data-focus="pauseBtn">Pause check-ins</button><button type="button" class="qa" data-go="term">Term report</button><button type="button" class="qa" data-go="stu">Find a student</button><button type="button" class="qa" data-go="sus">Suspicious</button><button type="button" class="qa" data-go="trash">Trash</button><button type="button" class="qa" data-go="set">Settings and backup</button></div></div>
+        <button type="button" class="qa qa-main" id="ccOpen">Command center</button><button type="button" class="qa" data-go="inb">Inbox</button><button type="button" class="qa" data-go="tools" data-focus="pauseBtn">Pause check-ins</button><button type="button" class="qa" data-go="term">Term report</button><button type="button" class="qa" data-go="stu">Find a student</button><button type="button" class="qa" data-go="sus">Suspicious</button><button type="button" class="qa" data-go="trash">Trash</button><button type="button" class="qa" data-go="set">Settings and backup</button></div></div>
       <div class="reqbox"><h3>Today</h3><div class="stats" id="todayStats"></div></div>
       <div class="reqbox"><h3>Live now</h3><div id="liveBox"></div></div>
       <div class="reqbox"><h3>When students check in</h3><p class="note">By day of the week, then by hour of the day (6 am to 8 pm). It shows your busiest times.</p><div class="vchart" id="chHour"></div><div class="vchart" id="chHour2" style="margin-top:14px"></div></div>
       <div class="reqbox"><h3>Check-ins, last 14 days</h3><div class="vchart" id="chDay"></div><p class="note">The darker part of each bar is the check-ins made inside the class area.</p></div>
       <div class="reqbox"><h3>Announcement to all lecturers</h3><p class="note">Appears at the top of every lecturer and teaching assistant Home tab until it expires. They can dismiss it.</p>
         <textarea id="anText" maxlength="500" rows="3" placeholder="e.g. Semester 2 check-in starts Monday. Please upload your class rolls."></textarea>
-        <div class="bar"><select id="anKind"><option value="info">Normal notice</option><option value="warn">Important</option></select><select id="anDays"><option value="1">Show for 1 day</option><option value="3">3 days</option><option value="7" selected>7 days</option><option value="30">30 days</option></select><button id="anPost" class="btn quiet" type="button">Post announcement</button></div>
+        <div class="bar"><label class="note" style="display:flex;align-items:center;gap:6px">Show from <input id="anFrom" type="datetime-local"></label><select id="anKind"><option value="info">Normal notice</option><option value="warn">Important</option></select><select id="anDays"><option value="1">Show for 1 day</option><option value="3">3 days</option><option value="7" selected>7 days</option><option value="30">30 days</option></select><button id="anPost" class="btn quiet" type="button">Post announcement</button></div>
         <p id="anMsg" class="msg" role="status"></p><div id="anList"></div></div>
       <div class="reqbox"><h3>Needs your attention</h3><div id="attn" class="attn"></div></div>
       <div class="reqbox"><h3>Privacy: delete old location data</h3><p class="note">Removes the saved GPS position, phone ID and phone type from old check-ins. Names, index numbers and attendance results are kept.</p>
@@ -103,6 +103,9 @@
       <h3 class="ch3">Recent decisions</h3><div id="inDone"></div></section>
     <section id="t-sus" class="card" hidden><h2>Suspicious activity</h2>
       <p class="note">When a phone inside the class area tries to check in a second student, the lecturer gets a popup and the attempt is saved here. Weak or repeated GPS readings are listed below it.</p>
+      <h3 class="ch3">Unusual classes</h3>
+      <p class="note">Classes with a burst of check-ins in one minute, mostly outside the class area, far above the lecturer's usual numbers, or open a long time with nobody.</p>
+      <div class="bar"><select id="anoDays"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 3 months</option></select></div><div id="anoList"></div>
       <h3 class="ch3">Same-phone attempts</h3>
       <div class="bar"><select id="susFilter"><option value="">All</option><option value="pending">Waiting for the lecturer</option><option value="allowed">Allowed</option><option value="rejected">Rejected</option></select><input id="susQ" placeholder="Search student, index number, course or lecturer"><button id="susX" class="btn quiet" type="button">Download (Excel)</button></div>
       <div class="table-wrap"><table><thead><tr><th>When</th><th>Lecturer</th><th>Course</th><th>Tried to check in</th><th>Phone already used by</th><th>Distance</th><th>Decision</th></tr></thead><tbody id="susB"></tbody></table></div>
@@ -144,13 +147,24 @@
         <div class="bar"><button id="bpAll" class="btn quiet" type="button">Tick everyone</button><button id="bpNone" class="btn quiet" type="button">Untick all</button></div>
         <div id="bpPeople" class="scrollbox" style="max-height:200px"></div>
         <div id="bpPerms" class="row" style="margin-top:10px"></div>
-        <div class="bar"><button id="bpGo" class="btn" type="button">Apply to ticked people</button></div><p id="bpMsg" class="msg" role="status"></p></div>
+        <div class="bar"><button id="bpGo" class="btn" type="button">Apply to ticked people</button></div>
+        <label for="bpMsgText" style="margin-top:10px">Or send the ticked people a private message</label><textarea id="bpMsgText" rows="2" maxlength="500" placeholder="Write a message"></textarea><div class="bar"><button id="bpSend" class="btn quiet" type="button">Send message to ticked people</button></div><p id="bpMsg" class="msg" role="status"></p></div>
       <div class="reqbox"><h3>Block many students</h3><p class="note">Paste index numbers, one per line or separated by commas. They cannot check in to any class until you unblock them.</p>
         <textarea id="bmText" rows="4" placeholder="Paste index numbers here"></textarea><input id="bmWhy" maxlength="120" placeholder="Reason (optional)">
         <div class="bar"><button id="bmGo" class="btn quiet" type="button">Block them</button></div><p id="bmMsg" class="msg" role="status"></p></div>
       <div class="reqbox"><h3>Class limits for everyone</h3><p class="note">Set the longest class and the smallest and largest allowed distance. Use 0 for no limit. Lecturers cannot go past these, and the database enforces it.</p>
         <div class="row"><div><label for="polMin">Longest class (minutes)</label><input id="polMin" type="number" min="0" max="1440" value="0"></div><div><label for="polLo">Smallest distance (m)</label><input id="polLo" type="number" min="0" max="2000" value="0"></div><div><label for="polHi">Largest distance (m)</label><input id="polHi" type="number" min="0" max="2000" value="0"></div></div>
         <div class="bar"><button id="polSave" class="btn" type="button">Save limits</button></div><p id="polMsg" class="msg" role="status"></p></div>
+      <div class="reqbox"><h3>Daily limits per lecturer</h3><p class="note">Stops one account starting too many classes. 0 means no limit.</p>
+        <div class="row"><div><label for="capDay">Most classes started per day</label><input id="capDay" type="number" min="0" max="50" value="0"></div><div><label for="capOpen">Most classes open at the same time</label><input id="capOpen" type="number" min="0" max="20" value="0"></div></div>
+        <div class="bar"><button id="capSave" class="btn" type="button">Save limits</button></div><p id="capMsg" class="msg" role="status"></p></div>
+      <div class="reqbox"><h3>Lecturers who have gone quiet</h3><p class="note">People with no class in the chosen number of days. You can remind them in one tap.</p>
+        <div class="bar"><label>No class for <input id="iaDays" type="number" min="3" max="365" value="21" style="width:90px"> days</label><button id="iaGo" class="btn quiet" type="button">Find them</button><button id="iaRemind" class="btn quiet" type="button" hidden>Send a reminder to all of them</button></div><div id="iaList"></div><p id="iaMsg" class="msg" role="status"></p></div>
+      <div class="reqbox"><h3>Empty classes clean-up</h3><p class="note">Classes older than a day with no check-ins, often started by mistake. Move them to the Trash in one tap.</p>
+        <div class="bar"><button id="ecGo" class="btn quiet" type="button">Find empty classes</button><button id="ecDel" class="btn quiet danger" type="button" hidden>Move them to the Trash</button></div><div id="ecList"></div><p id="ecMsg" class="msg" role="status"></p></div>
+      <div class="reqbox"><h3>Attendance export by dates</h3><p class="note">All check-ins for classes held between two dates, as one Excel file.</p>
+        <div class="row"><div><label for="exFrom">From</label><input id="exFrom" type="date"></div><div><label for="exTo">To</label><input id="exTo" type="date"></div><div><label for="exWho">Lecturer</label><select id="exWho"><option value="">Everyone</option></select></div></div>
+        <div class="bar"><button id="exGo" class="btn" type="button">Download Excel</button></div><p id="exMsg" class="msg" role="status"></p></div>
       <div class="reqbox"><h3>Rules for starting classes</h3><p class="note">Extra control over when and where lecturers may start a class. The database enforces these.</p>
         <label class="chk"><input type="checkbox" id="ruVen"> Only at venues I approved (the shared venues with a star)</label>
         <div class="row"><div><label for="ruFrom">Earliest start hour (0-23, Ghana time)</label><input id="ruFrom" type="number" min="0" max="23" value="0"></div><div><label for="ruTo">Latest hour (1-24, 0 = any time)</label><input id="ruTo" type="number" min="0" max="24" value="0"></div></div>
@@ -190,5 +204,5 @@
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="chat.js?v=1"></script>
-<script src="shared.js?v=30"></script>
-<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=45"></script></body></html>
+<script src="shared.js?v=31"></script>
+<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=46"></script></body></html>

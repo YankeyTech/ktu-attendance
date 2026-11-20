@@ -1389,6 +1389,8 @@ function applyPolicy(p) {
   if (p.max_minutes > 0) { $("mins").max = p.max_minutes; if (Number($("mins").value) > p.max_minutes) $("mins").value = p.max_minutes; note.push("classes up to " + p.max_minutes + " minutes"); }
   if (p.min_radius > 0) { $("radius").min = p.min_radius; if (Number($("radius").value) < p.min_radius) $("radius").value = p.min_radius; }
   if (p.max_radius > 0) { $("radius").max = p.max_radius; if (Number($("radius").value) > p.max_radius) $("radius").value = p.max_radius; }
+  if (p.max_per_day > 0) note.push("at most " + p.max_per_day + " classes a day");
+  if (p.max_open > 0) note.push("at most " + p.max_open + " open at once");
   if (p.venues_only) note.push("starting only at approved venues (star)");
   if (p.hour_to > 0) note.push("starting classes from " + p.hour_from + ":00 to " + p.hour_to + ":00");
   if (p.min_radius > 0 || p.max_radius > 0) note.push("distance " + (p.min_radius || 20) + " to " + (p.max_radius || 2000) + " m");
@@ -1445,3 +1447,43 @@ $("repGrid").addEventListener("click", async () => {
     box.hidden = false; box.textContent = (days < 0 ? "Your access ended on " : "Your access ends on ") + new Date(data).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) + (days >= 0 && days <= 60 ? " (" + days + " day" + (days === 1 ? "" : "s") + " left)" : "") + ". " + (box.textContent || "");
   } catch (e) {}
 })();
+
+// ---- My timetable: weekly slots that link to a saved setup. Kept on this device. ----
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+function getTT() { try { return JSON.parse(localStorage.getItem("ktu_tt_" + myId) || "[]"); } catch (e) { return []; } }
+function putTT(v) { try { localStorage.setItem("ktu_tt_" + myId, JSON.stringify(v.slice(0, 40))); } catch (e) {} drawTT(); }
+function drawTT() {
+  const L = $("ttList"), T = $("ttToday"); if (!L) return; L.textContent = ""; const all = getTT().sort((a, b) => a.day - b.day || a.time.localeCompare(b.time)), today = new Date().getDay();
+  const mine = all.filter((x) => x.day === today);
+  T.textContent = all.length ? (mine.length ? "Today (" + DAYS[today] + "): " + mine.map((x) => x.time + " " + x.preset).join(", ") : "No slot today. Add your weekly classes so they are one tap away.") : "Add your weekly classes here. Each slot uses one of your saved setups.";
+  for (const x of all) {
+    const row = document.createElement("div"); row.className = "ttrow" + (x.day === today ? " today" : "");
+    const s = document.createElement("span"); s.textContent = DAYS[x.day].slice(0, 3) + " " + x.time + "  " + x.preset + " (" + x.mins + " min)";
+    const go = document.createElement("button"); go.type = "button"; go.className = "abtn ok"; go.textContent = "Use";
+    go.addEventListener("click", () => { const p = getPresets().find((q) => q.name === x.preset); if (!p) return toast("That saved setup no longer exists."); fillFrom(p.s); $("mins").value = x.mins; toast("Filled in. Check it and press Start."); window.scrollTo({ top: $("startBtn").getBoundingClientRect().top + scrollY - 200, behavior: "smooth" }); });
+    const rm = document.createElement("button"); rm.type = "button"; rm.className = "abtn bad"; rm.textContent = "\u00d7"; rm.setAttribute("aria-label", "Remove this slot");
+    rm.addEventListener("click", () => putTT(getTT().filter((q) => !(q.day === x.day && q.time === x.time && q.preset === x.preset))));
+    row.append(s, go, rm); L.appendChild(row);
+  }
+}
+$("ttAdd").addEventListener("click", () => {
+  const ps = getPresets(); if (!ps.length) return toast("First save a setup with the Save this setup button, then add it to your timetable.");
+  const back = document.createElement("div"); back.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:70;display:flex;align-items:center;justify-content:center;padding:16px";
+  const f = document.createElement("form"); f.className = "card"; f.style.cssText = "max-width:420px;width:100%;margin:0"; f.setAttribute("role", "dialog"); f.setAttribute("aria-modal", "true");
+  f.innerHTML = '<h2>Add a timetable slot</h2><label>Saved setup</label><select id="ttP"></select><label>Day</label><select id="ttD"></select><label>Time</label><input id="ttT" type="time" value="08:00" required><label>Minutes the class stays open</label><input id="ttM" type="number" min="5" max="600" value="60"><div class="row" style="margin-top:14px"><button class="btn" type="submit">Add slot</button><button class="btn quiet" type="button" id="ttX">Cancel</button></div>';
+  back.appendChild(f); document.body.appendChild(back);
+  for (const p of ps) { const o = document.createElement("option"); o.value = o.textContent = p.name; f.querySelector("#ttP").appendChild(o); }
+  DAYS.forEach((d, i) => { const o = document.createElement("option"); o.value = i; o.textContent = d; f.querySelector("#ttD").appendChild(o); }); f.querySelector("#ttD").value = new Date().getDay();
+  f.querySelector("#ttX").addEventListener("click", () => back.remove());
+  f.addEventListener("submit", (e) => { e.preventDefault(); putTT(getTT().concat([{ day: Number(f.querySelector("#ttD").value), time: f.querySelector("#ttT").value, preset: f.querySelector("#ttP").value, mins: Number(f.querySelector("#ttM").value) || 60 }])); back.remove(); });
+});
+setTimeout(drawTT, 1500);
+// ---- Print the list of this class ----
+$("printList").addEventListener("click", () => {
+  if (!current) return;
+  const w = window.open("", "_blank"); if (!w) return toast("Allow pop-ups to print.");
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const rows = records.slice().sort((a, b) => String(a.student_name || "").localeCompare(String(b.student_name || ""))).map((r, i) => "<tr><td>" + (i + 1) + "</td><td>" + esc(r.student_name) + "</td><td>" + esc(r.index_number) + "</td><td>" + esc(fmtTime(r.checked_in_at)) + "</td><td>" + (r.in_range ? "" : "Outside") + "</td><td class=\"sig\"></td></tr>").join("");
+  w.document.write("<!doctype html><meta charset=\"utf-8\"><title>" + esc(current.course) + " attendance</title><style>body{font:14px system-ui,Arial;margin:24px}h1{font-size:20px;margin:0}p{margin:4px 0 14px;color:#444}table{border-collapse:collapse;width:100%}th,td{border:1px solid #999;padding:6px 8px;text-align:left}th{background:#eee}.sig{width:140px}</style><h1>" + esc(current.course) + "</h1><p>" + esc(fmtDay(current.created_at)) + (current.programme ? " | " + esc(current.programme) + " " + esc(current.level || "") : "") + " | " + records.length + " present | Lecturer: " + esc(myName || "") + "</p><table><thead><tr><th>#</th><th>Name</th><th>Index number</th><th>Time</th><th>Area</th><th>Signature</th></tr></thead><tbody>" + rows + "</tbody></table><script>window.onload=function(){window.print()}<\/script>");
+  w.document.close();
+});

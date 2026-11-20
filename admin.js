@@ -23,7 +23,7 @@ $("out").addEventListener("click", async () => { await sb.auth.signOut(); start(
 document.querySelectorAll(".tabs [data-t]").forEach((b) => b.addEventListener("click", () => {
   document.querySelectorAll(".tabs [data-t]").forEach((x) => x.classList.toggle("on", x === b));
   for (const t of ["over", "inb", "lect", "cls", "roll", "stu", "ana", "term", "act", "sus", "rep", "trash", "tools", "set"]) $("t-" + t).hidden = t !== b.dataset.t;
-  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "term") initTerm(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") { loadSus(); loadShared(); } if (b.dataset.t === "set") { renderSettings(); loadVenuesAdmin(); } if (b.dataset.t === "trash") loadTrash(); if (b.dataset.t === "stu") $("stIdx").focus(); if (b.dataset.t === "tools") { loadTools(); loadSystem(); } if (b.dataset.t === "inb") loadInbox(); if (b.dataset.t === "rep") loadReports();
+  if (b.dataset.t === "roll") loadRolls(); if (b.dataset.t === "ana") loadAnalytics(); if (b.dataset.t === "term") initTerm(); if (b.dataset.t === "act") loadActivity(); if (b.dataset.t === "sus") { loadSus(); loadShared(); loadAnomalies(); } if (b.dataset.t === "set") { renderSettings(); loadVenuesAdmin(); } if (b.dataset.t === "trash") loadTrash(); if (b.dataset.t === "stu") $("stIdx").focus(); if (b.dataset.t === "tools") { loadTools(); loadSystem(); } if (b.dataset.t === "inb") loadInbox(); if (b.dataset.t === "rep") loadReports();
 }));
 
 async function load() {
@@ -737,7 +737,7 @@ async function loadAnnouncements() {
 }
 $("anPost").addEventListener("click", async () => {
   const m = $("anText").value.trim(); if (m.length < 3) return say("anMsg", "Write the announcement first.", "warn");
-  const r = await sb.from("announcements").insert({ message: m, kind: $("anKind").value, expires_at: new Date(Date.now() + Number($("anDays").value) * 86400000).toISOString() });
+  const from = $("anFrom").value ? new Date($("anFrom").value) : new Date(), r = await sb.from("announcements").insert({ message: m, kind: $("anKind").value, starts_at: from.toISOString(), expires_at: new Date(from.getTime() + Number($("anDays").value) * 86400000).toISOString() });
   if (r.error) return say("anMsg", /relation|exist|schema/i.test(r.error.message) ? "Run upgrade24.sql in Supabase first." : r.error.message, "bad");
   $("anText").value = ""; say("anMsg", "Posted. Lecturers see it on their Home tab.", "ok"); loadAnnouncements();
 });
@@ -753,7 +753,7 @@ $("actX").addEventListener("click", () => {
 async function loadTools() {
   const r = await sb.rpc("get_public_settings");
   if (r.error) { say("tlMsg", "Run upgrade25.sql in Supabase first.", "bad"); return; }
-  drawPause(r.data); loadSchedule(); drawRules(r.data.policy); loadExpiryList(); drawBulkPerms(); drawTerm(r.data); drawFeatures(r.data.features); drawPolicy(r.data.policy); loadNotify(); loadBlocked(); loadActivityBoard();
+  drawPause(r.data); loadSchedule(); drawCaps(r.data.policy); fillExWho(); drawRules(r.data.policy); loadExpiryList(); drawBulkPerms(); drawTerm(r.data); drawFeatures(r.data.features); drawPolicy(r.data.policy); loadNotify(); loadBlocked(); loadActivityBoard();
   const d = await sb.rpc("admin_diagnostics");
   const box = $("hcList"); box.textContent = "";
   if (d.error) { box.textContent = d.error.message; return; }
@@ -1451,3 +1451,103 @@ async function loadExpiryList() {
     row.append(t, a); box.appendChild(row);
   }
 }
+
+// ---- Unusual classes ----
+async function loadAnomalies() {
+  const box = $("anoList"); box.textContent = "Checking...";
+  const r = await sb.rpc("admin_anomalies", { p_days: Number($("anoDays").value) }); box.textContent = "";
+  if (r.error) { box.textContent = /function|exist/i.test(r.error.message) ? "Run upgrade40.sql in Supabase first." : r.error.message; return; }
+  if (!(r.data || []).length) { box.textContent = "Nothing unusual in this period."; return; }
+  const tone = { "Burst": "bad", "Mostly outside": "warn", "Unusually high": "warn", "Empty class": "" };
+  for (const x of r.data) {
+    const row = el("div", "reqrow"), t = el("div", "reqtxt"), b = el("b"), sp = el("span");
+    b.textContent = x.kind + ": " + x.course; sp.textContent = staffName(x.owner) + " | " + fmt(x.created_at) + " | " + x.detail; t.append(b, sp);
+    const a = el("div", "acts"); a.append(abtn("Open class", tone[x.kind] || "", () => { const s = classes.find((c) => c.id === x.session_id); if (s) manageClass(s); else alert("Open the All classes tab and show archived classes to see it."); }));
+    row.append(t, a); box.appendChild(row);
+  }
+}
+$("anoDays").addEventListener("change", loadAnomalies);
+// ---- Daily limits ----
+function drawCaps(p) { p = p || {}; if (!$("capDay") || $("capDay").contains(document.activeElement)) return; $("capDay").value = p.max_per_day || 0; $("capOpen").value = p.max_open || 0; }
+$("capSave").addEventListener("click", async () => {
+  const r = await sb.rpc("admin_set_caps", { p_per_day: Number($("capDay").value) || 0, p_open: Number($("capOpen").value) || 0 });
+  if (r.error) return say("capMsg", /function|exist/i.test(r.error.message) ? "Run upgrade40.sql in Supabase first." : r.error.message, "bad");
+  if (r.data && r.data.ok === false) return say("capMsg", r.data.error, "bad");
+  const p = r.data.policy; say("capMsg", "Saved. " + (p.max_per_day ? p.max_per_day + " classes a day" : "No daily limit") + ", " + (p.max_open ? p.max_open + " open at once." : "no open limit."), "ok");
+});
+// ---- Quiet lecturers ----
+let quiet = [];
+$("iaGo").addEventListener("click", async () => {
+  const days = Number($("iaDays").value) || 21, box = $("iaList"); box.textContent = "";
+  const cut = Date.now() - days * 86400000, last = new Map();
+  for (const c of classes) { const t = new Date(c.created_at).getTime(); if (t > (last.get(c.owner) || 0)) last.set(c.owner, t); }
+  quiet = people.filter((p) => p.role !== "admin" && p.active !== false && (last.get(p.id) || 0) < cut).sort((a, b) => (last.get(a.id) || 0) - (last.get(b.id) || 0));
+  $("iaRemind").hidden = !quiet.length;
+  if (!quiet.length) { box.textContent = "Everyone has held a class in the last " + days + " days."; return; }
+  for (const p of quiet) { const row = el("div", "reqrow"), t = el("div", "reqtxt"), b = el("b"), sp = el("span"); b.textContent = staffName(p.id); sp.textContent = last.get(p.id) ? "Last class " + new Date(last.get(p.id)).toLocaleDateString() : "No class yet"; t.append(b, sp); row.appendChild(t); box.appendChild(row); }
+});
+$("iaRemind").addEventListener("click", async () => {
+  if (!quiet.length || !confirm("Send a friendly reminder to " + quiet.length + " people?")) return;
+  const rows = quiet.map((p) => ({ message: "Hello! We have not seen a class from you for a while. If you need help starting or setting up classes, send the admin a message from the Contact the admin button.", kind: "info", target: p.id, expires_at: new Date(Date.now() + 7 * 86400000).toISOString() }));
+  const r = await sb.from("announcements").insert(rows); say("iaMsg", r.error ? r.error.message : "Reminder sent to " + rows.length + " people.", r.error ? "bad" : "ok");
+});
+// ---- Empty classes ----
+let emptyCls = [];
+$("ecGo").addEventListener("click", () => {
+  const cut = Date.now() - 86400000, box = $("ecList"); box.textContent = "";
+  emptyCls = classes.filter((c) => !c.locked && !(counts[c.id] > 0) && new Date(c.created_at).getTime() < cut);
+  $("ecDel").hidden = !emptyCls.length;
+  if (!emptyCls.length) { box.textContent = "No empty classes found."; return; }
+  for (const c of emptyCls.slice(0, 60)) { const row = el("div", "reqrow"), t = el("div", "reqtxt"), b = el("b"), sp = el("span"); b.textContent = c.course; sp.textContent = staffName(c.owner) + " | " + fmt(c.created_at); t.append(b, sp); row.appendChild(t); box.appendChild(row); }
+  if (emptyCls.length > 60) { const m = el("p", "note"); m.textContent = "and " + (emptyCls.length - 60) + " more"; box.appendChild(m); }
+});
+$("ecDel").addEventListener("click", async () => {
+  if (!emptyCls.length || !confirm("Move " + emptyCls.length + " empty class(es) to the Trash? You can restore them for 3 months.")) return;
+  const r = await sb.rpc("admin_bulk_classes", { p_ids: emptyCls.map((c) => c.id), p_action: "delete" });
+  say("ecMsg", r.error ? (/function|exist/i.test(r.error.message) ? "Run upgrade36.sql in Supabase first." : r.error.message) : r.data.count + " class(es) moved to the Trash.", r.error ? "bad" : "ok"); if (!r.error) { $("ecList").textContent = ""; $("ecDel").hidden = true; load(); }
+});
+// ---- Attendance export by dates ----
+function fillExWho() { const s = $("exWho"); if (!s || s.options.length > 1) return; for (const p of people.filter((q) => q.role !== "admin")) { const o = el("option"); o.value = p.id; o.textContent = staffName(p.id); s.appendChild(o); } }
+$("exGo").addEventListener("click", async () => {
+  const f = $("exFrom").value, t = $("exTo").value; if (!f || !t) return say("exMsg", "Choose both dates.", "bad");
+  const from = new Date(f + "T00:00:00").getTime(), to = new Date(t + "T23:59:59").getTime(), who = $("exWho").value;
+  const list = classes.filter((c) => { const x = new Date(c.created_at).getTime(); return x >= from && x <= to && (!who || c.owner === who); });
+  if (!list.length) return say("exMsg", "No classes in that period.", "warn");
+  say("exMsg", "Preparing " + list.length + " classes...", "");
+  const at = await fetchAttendance(sb, list.map((c) => c.id)), byId = Object.fromEntries(list.map((c) => [c.id, c]));
+  downloadXlsx("Attendance " + f + " to " + t, [{ name: "Check-ins", rows: [["Class date", "Course", "Lecturer", "Programme", "Level", "Index number", "Name", "Inside area", "Time"]].concat(at.map((a) => { const c = byId[a.session_id] || {}; return [fmt(c.created_at), c.course, staffName(c.owner), c.programme || "", c.level || "", a.index_number, a.student_name || "", a.in_range ? "Yes" : "No", fmt(a.checked_in_at)]; })) }, { name: "Classes", rows: [["Date", "Course", "Lecturer", "Programme", "Level", "Check-ins"]].concat(list.map((c) => [fmt(c.created_at), c.course, staffName(c.owner), c.programme || "", c.level || "", counts[c.id] || 0])) }]);
+  say("exMsg", "Downloaded " + at.length + " check-ins from " + list.length + " classes.", "ok");
+});
+// ---- Message the ticked people ----
+$("bpSend").addEventListener("click", async () => {
+  const ids = [...$("bpPeople").querySelectorAll("input:checked")].map((c) => c.value), m = $("bpMsgText").value.trim();
+  if (!ids.length) return say("bpMsg", "Tick at least one person.", "bad"); if (m.length < 3) return say("bpMsg", "Write the message first.", "bad");
+  if (!confirm("Send this message to " + ids.length + " people?")) return;
+  const r = await sb.from("announcements").insert(ids.map((id) => ({ message: m, kind: "info", target: id, expires_at: new Date(Date.now() + 7 * 86400000).toISOString() })));
+  say("bpMsg", r.error ? r.error.message : "Message sent to " + ids.length + " people.", r.error ? "bad" : "ok"); if (!r.error) $("bpMsgText").value = "";
+});
+// ---- Command center: a live wall of every class that is open now ----
+$("ccOpen").addEventListener("click", () => {
+  const ov = el("div", "cc"); ov.setAttribute("role", "dialog"); ov.setAttribute("aria-modal", "true"); ov.setAttribute("aria-label", "Command center");
+  ov.innerHTML = '<div class="cc-top"><div><h2>Command center</h2><span id="ccClock"></span></div><button type="button" class="btn quiet" id="ccClose">Close (Esc)</button></div><div class="cc-stats" id="ccStats"></div><div class="cc-grid" id="ccGrid"></div>';
+  document.body.appendChild(ov); document.body.style.overflow = "hidden";
+  let tm = null; const close = () => { clearInterval(tm); ov.remove(); document.body.style.overflow = ""; document.removeEventListener("keydown", esc); };
+  const esc = (e) => { if (e.key === "Escape") close(); }; document.addEventListener("keydown", esc); ov.querySelector("#ccClose").addEventListener("click", close); ov.querySelector("#ccClose").focus();
+  async function tick() {
+    ov.querySelector("#ccClock").textContent = new Date().toLocaleString();
+    const now = new Date().toISOString(), q = await sb.from("sessions").select("id,course,teacher_id,programme,level,opens_at,closes_at,locked").lte("opens_at", now).gt("closes_at", now).order("opens_at", { ascending: false }).limit(60);
+    const live = q.data || [], at = live.length ? await fetchAttendance(sb, live.map((c) => c.id)) : [], n = {}, out = {}; for (const a of at) { n[a.session_id] = (n[a.session_id] || 0) + 1; if (!a.in_range) out[a.session_id] = (out[a.session_id] || 0) + 1; }
+    const total = Object.values(n).reduce((s, v) => s + v, 0), outside = Object.values(out).reduce((s, v) => s + v, 0), st = ov.querySelector("#ccStats"); st.textContent = "";
+    for (const [v, l] of [[live.length, "Classes open now"], [total, "Check-ins in them"], [new Set(live.map((c) => c.teacher_id)).size, "Lecturers teaching"], [outside, "Outside the area"]]) { const d = el("div"), b = el("b"); b.textContent = v; d.append(b, l); st.appendChild(d); }
+    const g = ov.querySelector("#ccGrid"); g.textContent = "";
+    if (!live.length) { const e = el("p", "cc-empty"); e.textContent = "No class is open right now. This screen refreshes by itself."; g.appendChild(e); return; }
+    for (const c of live) {
+      const a = new Date(c.opens_at).getTime(), z = new Date(c.closes_at).getTime(), pct = Math.min(100, Math.max(0, Math.round(((Date.now() - a) / (z - a)) * 100))), left = Math.max(0, Math.round((z - Date.now()) / 60000));
+      const card = el("div", "cc-card"), ring = el("div", "cc-ring"), inner = el("b"), info = el("div");
+      ring.style.setProperty("--p", pct); inner.textContent = n[c.id] || 0; ring.appendChild(inner);
+      const h = el("b"); h.textContent = c.course; const s1 = el("span"); s1.textContent = staffName(c.teacher_id); const s2 = el("span"); s2.textContent = (c.programme || "") + (c.level ? " " + c.level : "") + " | " + left + " min left" + (out[c.id] ? " | " + out[c.id] + " outside" : "");
+      info.append(h, s1, s2); card.append(ring, info); g.appendChild(card);
+    }
+  }
+  tick(); tm = setInterval(tick, 15000);
+});

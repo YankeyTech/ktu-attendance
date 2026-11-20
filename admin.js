@@ -835,6 +835,7 @@ async function manageClass(s) {
       msg.className = "msg ok"; msg.textContent = "Saved. If you moved the class to another lecturer, their class roll stays with the old lecturer, so upload or copy it for them.";
     });
     box.append(save, msg);
+    { const lv = el("a", "btn quiet"); lv.href = "teacher.html?open=" + encodeURIComponent(s.id); lv.target = "_blank"; lv.rel = "noopener"; lv.textContent = "Open the live class screen"; lv.style.cssText = "display:block;text-align:center;text-decoration:none;margin:10px 0"; box.appendChild(lv); }
     if (window.addStudentPanel) box.appendChild(addStudentPanel(s.id, () => { toast("Student added to " + s.course + "."); draw(); }));
     const h2 = el("h4", "ch3"); h2.textContent = "Check-ins in this class"; box.appendChild(h2);
     const { data } = await sb.from("attendance").select("id,index_number,student_name,in_range,late,manual,checked_in_at").eq("session_id", s.id).order("checked_in_at");

@@ -113,7 +113,7 @@ async function lookup() {
   if (error || !data || !data.length) { $("course").textContent = "Class code not found."; return; }
   const s = data[0];
   // Came from the lecturer's link or QR code: the class code is fixed, like the programme and level.
-  if (fromLink && code === fromLink.toUpperCase().slice(0, 8)) { $("code").readOnly = true; $("code").classList.add("fixed"); $("codeNote").hidden = false; }
+  if (fromLink && code === fromLink.toUpperCase().slice(0, 8)) { $("code").readOnly = true; $("code").classList.add("fixed"); $("codeNote").hidden = true; $("code").hidden = true; $("codeLbl").hidden = true; $("f").prepend($("tokWrap")); $("tokWrap").classList.add("tokbig"); }
   $("cname").textContent = s.course;
   $("cmeta").textContent = [[s.academic_year, s.semester].filter(Boolean).join(", "), s.combined ? "Combined class. Open to: " + (s.class_groups || []).map((g) => g.programme + " (" + g.level + ")").join("; ") : s.programme, s.combined ? "" : s.level, s.lecturer ? "Lecturer: " + s.lecturer : ""].filter(Boolean).join("  |  ") + (s.two_point && s.end_open ? "  |  End-of-class check" : "") + (s.is_open ? "" : "  |  Check-in closed");
   $("tokWrap").hidden = !s.rotating; $("tok").required = !!s.rotating;

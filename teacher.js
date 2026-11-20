@@ -64,7 +64,10 @@ async function refreshAuth() {
     document.body.dataset.role = role;
     $("adminLink").hidden = !(role === "admin" && session.user.email.toLowerCase() === "ygpedri@gmail.com");
     await loadCourses();
-    loadSessions(); pausedBanner();
+    loadSessions().then(() => {
+      try { const id = new URLSearchParams(location.search).get("open"); if (!id) return; history.replaceState(null, "", location.pathname);
+        const row = (mySessions || []).find((x) => x.id === id); if (row) openSession(row); } catch (e) {}
+    }); pausedBanner();
   } else { stopPolling(); stopQr(); }
 }
 

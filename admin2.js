@@ -249,6 +249,7 @@ $("dkStart").addEventListener("click", async () => {
   say("dkStartMsg", "");
   const d = $("dkDone"); d.hidden = false; d.textContent = "";
   const t = el("div"); t.innerHTML = "<b>Class started</b><br>Share this code with the students:"; const c = el("div", "dkcode"); c.textContent = r.data.code; d.append(t, c);
+  const live = el("a", "btn"); live.href = "teacher.html?open=" + encodeURIComponent(r.data.id); live.target = "_blank"; live.rel = "noopener"; live.textContent = "Open the live class screen (code, QR, extend, close)"; live.style.cssText = "display:block;text-align:center;text-decoration:none;margin:6px 0 4px"; d.appendChild(live);
   d.appendChild(addStudentPanel(r.data.id));
   await load(); initDesk();
 });

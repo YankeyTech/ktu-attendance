@@ -19,10 +19,22 @@
     });
   }
 
-  function posMenu(menu, tg) {
-    if (matchMedia("(max-width:700px)").matches) return;
-    const r = tg.getBoundingClientRect(); menu.style.left = Math.max(8, Math.min(r.right - 190, innerWidth - 206)) + "px"; menu.style.top = "0px";
-    const h = menu.offsetHeight; menu.style.top = (r.bottom + h + 12 > innerHeight ? Math.max(8, r.top - h - 6) : r.bottom + 6) + "px";
+  const phone = () => matchMedia("(max-width:700px)").matches;
+  const openMenus = new Set();
+  function closeMenu(m) {
+    m.classList.remove("open"); openMenus.delete(m);
+    const tg = m._btn; if (tg) { tg.textContent = "Actions \u25BE"; tg.setAttribute("aria-expanded", "false"); }
+    if (m._home && m.parentNode !== m._home) { m.style.left = m.style.top = ""; m._home.appendChild(m); }
+  }
+  function closeAll(except) { Array.from(openMenus).forEach((m) => { if (m !== except) closeMenu(m); }); }
+  function openMenu(m) {
+    closeAll(m); m.classList.add("open"); openMenus.add(m);
+    const tg = m._btn; tg.textContent = "Actions \u25B4"; tg.setAttribute("aria-expanded", "true");
+    if (phone()) return;
+    document.body.appendChild(m); // outside the card, so nothing clips or shifts it
+    const r = tg.getBoundingClientRect(), w = m.offsetWidth || 190, h = m.offsetHeight;
+    m.style.left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + "px";
+    m.style.top = Math.max(8, (r.bottom + h + 12 > innerHeight) ? r.top - h - 6 : r.bottom + 6) + "px";
   }
   const ARROWS = /[▲▼▴▾⇅↕⇕↑↓]/g;
   function cardify() {
@@ -37,7 +49,7 @@
         if (acts.length >= 2 && acts.length === kids.length && !td.textContent.replace(acts.map((a) => a.textContent).join(""), "").trim()) {
           const menu = mk("div", "actmenu"); acts.forEach((a) => menu.appendChild(a));
           const tg = mk("button", "actbtn", "Actions ▾"); tg.type = "button"; tg.setAttribute("aria-expanded", "false"); tg.setAttribute("aria-haspopup", "true");
-          tg.addEventListener("click", (e) => { e.stopPropagation(); const was = menu.classList.contains("open"); document.querySelectorAll(".actmenu.open").forEach((m) => { m.classList.remove("open"); const b = m.parentNode.querySelector(".actbtn"); if (b) { b.textContent = "Actions ▾"; b.setAttribute("aria-expanded", "false"); } }); if (!was) { menu.classList.add("open"); posMenu(menu, tg); tg.textContent = "Actions ▴"; tg.setAttribute("aria-expanded", "true"); } });
+          menu._btn = tg; menu._home = holder; menu.addEventListener("click", (e) => { if (e.target.closest("button,a")) setTimeout(() => closeMenu(menu), 0); }); tg.addEventListener("click", (e) => { e.stopPropagation(); if (menu.classList.contains("open")) closeMenu(menu); else openMenu(menu); });
           holder.append(tg, menu); td.classList.add("actcell");
         } else { while (td.firstChild) holder.appendChild(td.firstChild); }
         td.appendChild(holder); td.dataset.wrapped = "1";
@@ -46,10 +58,11 @@
       if (t.querySelector("td.actcell")) { const l = t.querySelector("thead th:last-child"); if (l) l.classList.add("actth"); }
     });
   }
-  document.addEventListener("click", (e) => { if (e.target.closest(".actmenu,.actbtn")) return; document.querySelectorAll(".actmenu.open").forEach((m) => { m.classList.remove("open"); const b = m.parentNode.querySelector(".actbtn"); if (b) { b.textContent = "Actions ▾"; b.setAttribute("aria-expanded", "false"); } }); });
+  document.addEventListener("click", (e) => { if (e.target.closest(".actmenu,.actbtn")) return; closeAll(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeAll(); });
 
   new MutationObserver(() => { try { addClose(); } catch (e) {} }).observe(document.body, { childList: true });
-  const shut = () => { if (matchMedia("(max-width:700px)").matches) return; document.querySelectorAll(".actmenu.open").forEach((m) => { m.classList.remove("open"); const b = m.parentNode.querySelector(".actbtn"); if (b) { b.textContent = b.textContent.replace(/.$/, "\u25BE"); b.setAttribute("aria-expanded", "false"); } }); };
+  const shut = () => { if (!phone()) closeAll(); };
   window.addEventListener("scroll", shut, true); window.addEventListener("resize", shut);
   let pend = false;
   const run = () => { pend = false; try { addClose(); cardify(); } catch (e) {} };

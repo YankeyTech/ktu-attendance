@@ -787,3 +787,18 @@ body.adm input[type=checkbox],body.tch input[type=checkbox],.rptc input[type=che
 .heat{gap:1px;overflow:hidden}.heat .hd{font-size:.55rem;overflow:hidden}
 @media (max-width:700px){.heat .hc{min-height:0}}
 .reqbox>.row{margin:12px 0 0}.reqbox>label{display:block;margin:14px 0 6px;font-weight:700}.reqbox>.note{margin:4px 0 10px}.reqbox>.msg:empty{display:none}
+.actbtn{white-space:nowrap!important;overflow-wrap:normal!important;word-break:normal!important;min-width:104px}
+@media (min-width:701px){
+  body.adm :is(.row,.bar,.toolbar){align-items:flex-end}
+  body.adm :is(.row,.bar,.toolbar)>:is(button,a.btn,.abtn){align-self:flex-end;height:auto}
+  body.adm .table-wrap td,body.adm .table-wrap th{white-space:normal;overflow-wrap:anywhere;word-break:normal}
+  body.adm .table-wrap td:first-child{min-width:110px}
+  td.actcell,th.actth{white-space:nowrap!important;min-width:128px}
+}
+@media (min-width:701px){
+  body.adm .table-wrap th{white-space:nowrap}
+  body.adm .table-wrap td{overflow-wrap:break-word;word-break:normal}
+}
+.actmenu>button:not(.abtn):not(.btn),.actmenu>a:not(.abtn):not(.btn){border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb,var(--blue) 8%,var(--card));color:var(--blue);font:700 .88rem inherit;font-family:inherit;text-decoration:none;padding:8px 12px;cursor:pointer}
+.actmenu>button:not(.abtn):not(.btn):hover{background:color-mix(in srgb,var(--blue) 16%,var(--card))}
+.actmenu>:is(.danger,.bad){color:#b5381f;background:color-mix(in srgb,#e0634f 10%,var(--card))}

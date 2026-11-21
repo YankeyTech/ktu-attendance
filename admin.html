@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <link rel="manifest" href="manifest-admin.webmanifest"><meta name="theme-color" content="#0b3d3a"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="KTU Admin"><link rel="apple-touch-icon" href="icons/admin-apple.png"><link rel="icon" type="image/png" href="icons/admin-192.png">
-<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=17"><link rel="stylesheet" href="extra.css?v=40">
+<title>Admin | KTU check-in</title><link rel="stylesheet" href="style.css?v=17"><link rel="stylesheet" href="extra.css?v=41">
 <style>main{max-width:1000px}th[data-k]{cursor:pointer;user-select:none}.tabs{display:flex;gap:6px;margin:10px 0;flex-wrap:wrap}.tabs button{flex:1}.tabs .on{background:#004c84;color:#fff}.cred{background:#fff8d6;color:#222;border:1px solid #e0c200;border-radius:10px;padding:12px;margin:10px 0}.cred code{font-size:18px;font-weight:700}</style></head>
 <body class="adm"><main>
   <header class="top"><h1>Admin</h1><p id="who">KTU class check-in</p></header>
@@ -65,7 +65,7 @@
       <div id="stOut"></div></section>
     <section id="t-desk" class="card" hidden><h2>Class desk</h2>
       <p class="note">Do class work on behalf of a lecturer: start a class for them, add students by hand, or hand one class over to another lecturer.</p>
-      <div class="seg" role="tablist" aria-label="Class desk"><button type="button" class="on" data-seg="start">Start a class</button><button type="button" data-seg="add">Add students</button><button type="button" data-seg="move">Transfer a class</button></div>
+      <div class="seg" role="tablist" aria-label="Class desk"><button type="button" class="on" data-seg="start">Start a class</button><button type="button" data-seg="add">Add students</button><button type="button" data-seg="move">Transfer a class</button><button type="button" data-seg="run">Run a class</button></div>
       <div class="segp" id="dk-start">
         <div class="fgrid">
           <div class="full"><label for="dkLec">Lecturer who will own the class</label><select id="dkLec"></select></div>
@@ -104,6 +104,20 @@
         </div>
         <button id="dkMove" class="btn" type="button">Transfer this class</button>
         <p id="dkMvMsg" class="msg" role="status"></p>
+      </div>
+      <div class="segp" id="dk-run" hidden>
+        <div class="fgrid">
+          <div class="full"><label for="dkRunCls">Class</label><select id="dkRunCls"></select></div>
+          <div class="full"><p id="dkRunInfo" class="note"></p></div>
+          <div><label for="dkRunMins">Minutes</label><input id="dkRunMins" type="number" min="1" max="240" value="15"></div>
+          <div class="full btnrow"><button id="dkRunExt" class="btn quiet" type="button">Add minutes</button><button id="dkRunOpen" class="btn quiet" type="button">Reopen for these minutes</button><button id="dkRunClose" class="btn quiet danger" type="button">Close now</button><button id="dkRunAgain" class="btn quiet" type="button">Start again like this class</button></div>
+        </div>
+        <h4 class="ch3">Move check-ins to another class</h4>
+        <div class="fgrid">
+          <div class="full"><label for="dkMvTarget">Move all check-ins of the class above to</label><select id="dkMvTarget"></select></div>
+          <div class="full"><button id="dkMvChk" class="btn" type="button">Move check-ins</button></div>
+        </div>
+        <p id="dkRunMsg" class="msg" role="status"></p>
       </div>
     </section>
     <section id="t-ins" class="card" hidden><h2>Insights</h2>
@@ -198,6 +212,16 @@
       <p id="trMsg" class="msg" role="status"></p>
       <div class="table-wrap"><table><thead><tr><th>Deleted</th><th>Type</th><th>Item</th><th>Lecturer</th><th>Deleted by</th><th>Removed for good</th><th>Actions</th></tr></thead><tbody id="trB"></tbody></table></div></section>
     <section id="t-tools" class="card" hidden><h2>Admin tools</h2>
+      <div class="reqbox u45"><h3>Report for one lecturer</h3><p class="note">An Excel sheet of every class a lecturer ran in a date range, with the number of check-ins.</p>
+        <div class="row"><div><label for="u49Lec">Lecturer</label><select id="u49Lec"></select></div><div><label for="u49From">From</label><input id="u49From" type="date"></div><div><label for="u49To">To</label><input id="u49To" type="date"></div></div>
+        <div class="row"><button id="u49Rep" class="btn" type="button">Download report</button></div><p id="u49RepMsg" class="msg" role="status"></p></div>
+      <div class="reqbox u45"><h3>Tidy index numbers</h3><p class="note">Makes index numbers capital letters with no stray spaces, so the same student is never counted twice.</p>
+        <div class="row"><button id="u49Fix" class="btn quiet" type="button">Check how many need tidying</button></div><p id="u49FixMsg" class="msg" role="status"></p></div>
+      <div class="reqbox u45"><h3>My screen</h3><p class="note">Settings for how this admin page behaves on this device.</p>
+        <label class="chk"><input id="u49Auto" type="checkbox"> Refresh the numbers automatically every minute</label>
+        <label class="chk"><input id="u49Compact" type="checkbox"> Compact lists</label>
+        <label class="chk"><input id="u49Rem" type="checkbox" checked> Open on the section I used last</label>
+        <div class="row"><button id="u49Keys" class="btn quiet" type="button">Show keyboard shortcuts</button></div></div>
       <div class="reqbox u45"><h3>Quick controls</h3><p class="note">Fast actions for all classes at once. Every action is written to the Activity log.</p>
         <div class="row"><button id="u45Close" class="btn quiet" type="button">Close every open class now</button></div>
         <div class="row"><div><label for="u45Ext">Give every open class extra minutes</label><input id="u45Ext" type="number" min="1" max="240" value="10"></div><button id="u45ExtBtn" class="btn quiet" type="button">Extend all</button></div>
@@ -284,4 +308,4 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="chat.js?v=1"></script>
 <script src="shared.js?v=31"></script>
-<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=49"></script><script src="admin2.js?v=4"></script></body></html>
+<script src="programmes.js"></script><script src="config.js"></script><script src="admin.js?v=49"></script><script src="admin2.js?v=5"></script></body></html>

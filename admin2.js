@@ -233,7 +233,7 @@ async function initDesk() {
 window.initDesk = initDesk;
 document.querySelectorAll("[data-seg]").forEach((b) => b.addEventListener("click", () => {
   document.querySelectorAll("[data-seg]").forEach((x) => x.classList.toggle("on", x === b));
-  for (const k of ["start", "add", "move"]) $("dk-" + k).hidden = k !== b.dataset.seg;
+  for (const k of ["start", "add", "move", "run"]) $("dk-" + k).hidden = k !== b.dataset.seg;
 }));
 $("dkLec").addEventListener("change", () => { const dl = $("dkCourses"); dl.textContent = ""; for (const c of [...new Set(courses.filter((k) => k.owner === $("dkLec").value).map((k) => k.name))]) { const o = el("option"); o.value = c; dl.appendChild(o); } });
 $("dkGps").addEventListener("click", () => { if (!navigator.geolocation) return say("dkStartMsg", "This device cannot share its position.", "bad"); say("dkStartMsg", "Finding your position…"); navigator.geolocation.getCurrentPosition((p) => { $("dkLat").value = p.coords.latitude.toFixed(6); $("dkLng").value = p.coords.longitude.toFixed(6); say("dkStartMsg", "Position filled in.", "ok"); }, () => say("dkStartMsg", "Could not get your position. Allow location, or type the numbers.", "bad"), { enableHighAccuracy: true, timeout: 15000 }); });
@@ -289,4 +289,86 @@ $("dkMove").addEventListener("click", async () => {
   const setAll = (c) => boxes.forEach((b) => { b.classList.toggle("collapsed", c); const h = b.querySelector("h3"); if (h) h.setAttribute("aria-expanded", String(!c)); });
   all.addEventListener("click", () => setAll(false)); none.addEventListener("click", () => setAll(true));
   find.addEventListener("input", () => { const q = find.value.trim().toLowerCase(); boxes.forEach((b) => { const hit = !q || b.textContent.toLowerCase().includes(q); b.hidden = !hit; if (q && hit) { b.classList.remove("collapsed"); } }); });
+})();
+
+// ---- Update 49: run a class, move check-ins, lecturer report, tidy indexes, personal settings, shortcuts ----
+const LS2 = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+const rm = (m, k) => say("dkRunMsg", m, k);
+const needSql = (e) => /function|exist|schema cache/i.test(e.message) ? "Run upgrade44.sql in Supabase first." : e.message;
+const origInitDesk = window.initDesk;
+window.initDesk = async function () { await origInitDesk(); fillClasses($("dkRunCls")); fillClasses($("dkMvTarget")); };
+$("dkRunCls").addEventListener("change", () => { const c = classes.find((x) => x.id === $("dkRunCls").value); const open = c && new Date(c.opens_at) <= Date.now() && new Date(c.closes_at) > Date.now(); $("dkRunInfo").textContent = c ? (open ? "Open until " + new Date(c.closes_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Closed") + " · " + (c._n || 0) + " check-in(s) · " + (c._owner || staffName(c.owner)) : ""; });
+async function runUpd(patch, okText) {
+  const c = classes.find((x) => x.id === $("dkRunCls").value); if (!c) return rm("Choose the class.", "bad");
+  const r = await sb.from("sessions").update(patch(c)).eq("id", c.id); if (r.error) return rm(r.error.message.includes("policy") ? "Run upgrade43.sql in Supabase first." : r.error.message, "bad");
+  rm(okText, "ok"); await load(); window.initDesk(); $("dkRunCls").value = c.id; $("dkRunCls").dispatchEvent(new Event("change"));
+}
+$("dkRunExt").addEventListener("click", () => { const m = Number($("dkRunMins").value); runUpd((c) => ({ closes_at: new Date(Math.max(Date.now(), new Date(c.closes_at)) + m * 60000).toISOString() }), m + " minutes added."); });
+$("dkRunOpen").addEventListener("click", () => { const m = Number($("dkRunMins").value); runUpd(() => ({ opens_at: new Date().toISOString(), closes_at: new Date(Date.now() + m * 60000).toISOString() }), "Reopened for " + m + " minutes."); });
+$("dkRunClose").addEventListener("click", () => { if (confirm("Close this class now?")) runUpd(() => ({ closes_at: new Date().toISOString() }), "Class closed."); });
+$("dkRunAgain").addEventListener("click", () => {
+  const c = classes.find((x) => x.id === $("dkRunCls").value); if (!c) return rm("Choose the class.", "bad");
+  document.querySelector('[data-seg="start"]').click(); $("dkLec").value = c.owner; $("dkLec").dispatchEvent(new Event("change")); $("dkCourse").value = c.course;
+  if (c.programme) $("dkProg").value = c.programme; if (c.level) $("dkLevel").value = c.level; if (c.academic_year) $("dkYear").value = c.academic_year; if (c.semester) $("dkSem").value = c.semester; if (c.radius_m) $("dkRad").value = c.radius_m;
+  say("dkStartMsg", "Filled in from the earlier class. Choose where it is and press Start.", "ok");
+});
+$("dkMvChk").addEventListener("click", async () => {
+  const a = classes.find((x) => x.id === $("dkRunCls").value), b = classes.find((x) => x.id === $("dkMvTarget").value); if (!a || !b) return rm("Choose both classes.", "bad");
+  if (!confirm("Move every check-in from \"" + a.course + "\" to \"" + b.course + "\"? Students already in the target class are skipped.")) return;
+  const r = await sb.rpc("admin_move_checkins", { p_from: a.id, p_to: b.id }); if (r.error) return rm(needSql(r.error), "bad"); if (!r.data.ok) return rm(r.data.error, "bad");
+  rm(r.data.moved + " moved" + (r.data.skipped ? ", " + r.data.skipped + " skipped (already there)" : "") + ".", "ok"); await load(); window.initDesk();
+});
+// lecturer report
+function fillRepLec() { const s = $("u49Lec"); if (s.options.length > 1) return; fillStaff(s); }
+$("u49Rep").addEventListener("click", () => {
+  fillRepLec(); const id = $("u49Lec").value; if (!id) return say("u49RepMsg", "Choose a lecturer.", "bad");
+  const from = $("u49From").value ? new Date($("u49From").value) : new Date(0), to = $("u49To").value ? new Date($("u49To").value + "T23:59:59") : new Date(8.64e15);
+  const list = classes.filter((c) => c.owner === id && new Date(c.created_at) >= from && new Date(c.created_at) <= to);
+  if (!list.length) return say("u49RepMsg", "No classes in that range.", "bad");
+  downloadXlsx("KTU-report-" + staffName(id).replace(/[^\w]+/g, "-"), [{ name: "Classes", rows: [["Course", "Programme", "Level", "Started", "Check-ins"], ...list.map((c) => [c.course, c.programme || "", c.level || "", fmt(c.created_at), c._n || 0])] }, { name: "Summary", rows: [["Lecturer", staffName(id)], ["Classes", list.length], ["Check-ins", list.reduce((n, c) => n + (c._n || 0), 0)]] }]);
+  say("u49RepMsg", list.length + " classes exported.", "ok");
+});
+// tidy indexes
+$("u49Fix").addEventListener("click", async () => {
+  const d = await sb.rpc("admin_fix_indexes", { p_dry: true }); if (d.error) return say("u49FixMsg", needSql(d.error), "bad");
+  if (!d.data) return say("u49FixMsg", "All index numbers are already tidy.", "ok");
+  if (!confirm(d.data + " index number(s) will be tidied. Continue?")) return;
+  const r = await sb.rpc("admin_fix_indexes", { p_dry: false }); say("u49FixMsg", r.error ? r.error.message : r.data + " tidied.", r.error ? "bad" : "ok");
+});
+// personal settings
+(function mine() {
+  const key = "ktu_adm_";
+  const auto = $("u49Auto"), comp = $("u49Compact"), rem = $("u49Rem"); let t = null;
+  const setAuto = () => { clearInterval(t); if (auto.checked) t = setInterval(() => { if (document.visibilityState === "visible" && !document.querySelector("dialog[open]")) load(); }, 60000); };
+  auto.checked = LS2.get(key + "auto", "0") === "1"; auto.addEventListener("change", () => { LS2.set(key + "auto", auto.checked ? "1" : "0"); setAuto(); }); setAuto();
+  comp.checked = LS2.get(key + "compact", "0") === "1"; document.body.classList.toggle("compact", comp.checked);
+  comp.addEventListener("change", () => { document.body.classList.toggle("compact", comp.checked); LS2.set(key + "compact", comp.checked ? "1" : "0"); });
+  rem.checked = LS2.get(key + "rem", "1") === "1"; rem.addEventListener("change", () => LS2.set(key + "rem", rem.checked ? "1" : "0"));
+  const tabs = document.querySelector(".tabs");
+  tabs.addEventListener("click", (e) => { const b = e.target.closest("[data-t]"); if (b) LS2.set(key + "tab", b.dataset.t); });
+  const restore = () => { const t2 = LS2.get(key + "tab", ""); if (rem.checked && t2 && t2 !== "over") { const b = tabs.querySelector('[data-t="' + t2 + '"]'); if (b) b.click(); return true; } return false; };
+  if (!$("app").hidden) restore(); else new MutationObserver((m, o) => { if (!$("app").hidden) { restore(); o.disconnect(); } }).observe($("app"), { attributes: true, attributeFilter: ["hidden"] });
+  $("u49Keys").addEventListener("click", () => help45());
+})();
+function help45() {
+  if (document.querySelector(".kbhelp")) return; const ov = el("div", "rpt kbhelp"), box = el("div", "rptc"); ov.appendChild(box);
+  const h = el("h3"); h.textContent = "Shortcuts"; const ul = el("ul"); for (const t of ["Ctrl+K  Search everything", "/  Search everything", "G then O  Overview", "G then C  Classes", "G then D  Class desk", "G then T  Tools", "?  This help"]) { const li = el("li"); li.textContent = t; ul.appendChild(li); }
+  const x = el("button", "btn"); x.type = "button"; x.textContent = "Close"; x.addEventListener("click", () => ov.remove()); box.append(h, ul, x); ov.addEventListener("click", (e) => { if (e.target === ov) ov.remove(); }); document.body.appendChild(ov);
+}
+(function keys() {
+  let g = false, gt = null; const jump = { o: "over", c: "cls", d: "desk", t: "tools", i: "ins", s: "set" };
+  document.addEventListener("keydown", (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName || "")) return;
+    if (e.key === "?") return help45(); if (e.key === "/" && window.openPalette) { e.preventDefault(); return openPalette(); }
+    if (g && jump[e.key.toLowerCase()]) { const b = document.querySelector('.tabs [data-t="' + jump[e.key.toLowerCase()] + '"]'); if (b) b.click(); g = false; return; }
+    if (e.key.toLowerCase() === "g") { g = true; clearTimeout(gt); gt = setTimeout(() => { g = false; }, 1200); }
+  });
+})();
+// live ticker on the Overview tab
+(function ticker() {
+  const host = $("t-over"); if (!host || $("u49Tick")) return; const d = el("div", "ticker"); d.id = "u49Tick"; host.prepend(d);
+  const draw = () => { const now = Date.now(), live = classes.filter((c) => new Date(c.opens_at) <= now && new Date(c.closes_at) > now && !c.archived), day = new Date(); day.setHours(0, 0, 0, 0);
+    const today = attRows.filter((a) => new Date(a.checked_in_at) >= day).length, cl = classes.filter((c) => new Date(c.created_at) >= day).length;
+    d.innerHTML = '<span class="dot"></span><b>' + live.length + "</b> open now <i>·</i> <b>" + cl + "</b> classes today <i>·</i> <b>" + today + "</b> check-ins today"; };
+  draw(); setInterval(draw, 15000); document.querySelector(".tabs").addEventListener("click", () => setTimeout(draw, 400));
 })();

@@ -119,7 +119,7 @@
 
   // 12. Tables as cards on phones
   (function cards() {
-    const label = (t) => { const hs = Array.from(t.querySelectorAll("thead th")).map((h) => h.textContent.replace(/[⇅]/g, "").trim()); if (!hs.length) return; t.querySelectorAll("tbody tr").forEach((r) => Array.from(r.children).forEach((c, i) => { if (c.tagName === "TD" && !c.dataset.label && hs[i]) c.dataset.label = hs[i]; })); t.classList.add("cardtbl"); };
+    const label = (t) => { if (t.querySelector("tbody#rows")) return; const hs = Array.from(t.querySelectorAll("thead th")).map((h) => h.textContent.replace(/[⇅]/g, "").trim()); if (!hs.length) return; t.querySelectorAll("tbody tr").forEach((r) => Array.from(r.children).forEach((c, i) => { if (c.tagName === "TD" && !c.dataset.label && hs[i]) c.dataset.label = hs[i]; })); t.classList.add("cardtbl"); };
     let pend = false; const run = () => { pend = false; document.querySelectorAll("#app table").forEach(label); };
     new MutationObserver(() => { if (!pend) { pend = true; setTimeout(run, 80); } }).observe($("app"), { childList: true, subtree: true }); run();
   })();

@@ -694,3 +694,45 @@ body.compact .card{padding-top:10px;padding-bottom:10px}body.compact table td,bo
 }
 body.tch #start .row{align-items:start}
 body.tch #start .row>div{min-width:0}
+
+/* ---- Update 50: popups, action menus, card rows, admin link ---- */
+.rptc{position:relative}
+.xbtn{position:sticky;top:0;float:right;z-index:3;display:grid;place-items:center;width:40px;height:40px;margin:-8px -8px 4px 8px;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--card);color:var(--ink);font:400 1.6rem/1 inherit;font-family:inherit;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.xbtn:hover{background:color-mix(in srgb,#e0634f 14%,var(--card))}
+.rptc{-webkit-overflow-scrolling:touch}
+@media (max-width:700px){.rpt{align-items:flex-end;padding:0}.rpt>.rptc{width:100%!important;max-width:100%!important;max-height:92vh;border-radius:22px 22px 0 0;padding-bottom:calc(20px + env(safe-area-inset-bottom))}.rpt.palette{align-items:flex-start;padding:12px}.rpt.palette>.rptc{border-radius:18px}}
+.actbtn{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb,var(--blue) 8%,var(--card));color:var(--blue);font:700 .85rem inherit;font-family:inherit;cursor:pointer;white-space:nowrap}
+.actmenu{display:none;position:fixed;z-index:80;min-width:190px;max-width:calc(100vw - 24px);flex-direction:column;gap:6px;padding:8px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 36px rgba(0,0,0,.25)}
+.actmenu.open{display:flex}
+.actmenu>*{display:flex!important;align-items:center;justify-content:flex-start;width:100%;min-height:40px;margin:0!important;box-sizing:border-box}
+#adminLink{position:absolute;right:16px;top:18px;z-index:4;display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:0 16px;border-radius:999px;border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.18);color:#fff;font:700 .9rem inherit;font-family:inherit;text-decoration:none;backdrop-filter:blur(6px);box-shadow:0 4px 14px rgba(0,0,0,.2);transition:background .15s,transform .15s}
+#adminLink::before{content:"";width:16px;height:16px;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z'/%3E%3C/svg%3E") center/contain no-repeat}
+#adminLink:hover,#adminLink:focus-visible{background:rgba(255,255,255,.3);transform:translateY(-1px)}
+#adminLink[hidden]{display:none}
+@media (max-width:700px){
+  body.adm table.cardtbl td,body.tch table.cardtbl td{display:grid!important;grid-template-columns:minmax(74px,36%) minmax(0,1fr);gap:10px;align-items:start;text-align:left!important}
+  body.adm table.cardtbl td[data-label]::before,body.tch table.cardtbl td[data-label]::before{flex:none;grid-column:1}
+  table.cardtbl td>.cv{grid-column:2;min-width:0;overflow-wrap:anywhere;word-break:break-word;text-align:right}
+  table.cardtbl td.actcell{grid-template-columns:1fr}
+  table.cardtbl td.actcell::before{display:none}
+  table.cardtbl td.actcell>.cv{grid-column:1;text-align:left}
+  .actbtn{display:flex;width:100%;min-height:46px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--blue) 8%,var(--card));color:var(--blue);font:700 .92rem inherit;font-family:inherit;cursor:pointer}
+  .actmenu{position:static;min-width:0;max-width:none;padding:0;border:0;box-shadow:none;background:none;gap:8px;margin-top:8px}
+  .actmenu.open{display:flex}
+  .actmenu>*{justify-content:center;min-height:46px;text-align:center}
+}
+@media (max-width:700px){
+  body.adm table.cardtbl td.actcell,body.tch table.cardtbl td.actcell{grid-template-columns:minmax(0,1fr)}
+  body.adm table.cardtbl td.actcell>.cv,body.tch table.cardtbl td.actcell>.cv{grid-column:1;width:100%;text-align:left}
+  .cv .actbtn,.cv .actmenu{width:100%}
+  body.adm .row,.rptc .row{display:grid!important;grid-template-columns:minmax(0,1fr);gap:10px;align-items:stretch;flex-direction:initial}
+  body.adm .row>*,.rptc .row>*{flex:none!important;width:100%;min-width:0;margin:0}
+  .rptc .row>div>label{margin-top:0}
+}
+.rptc label{display:block;margin:12px 0 4px;font-weight:700}.rptc .chk{display:flex}
+@media (min-width:701px){
+  td.actcell,th.actth{position:sticky;right:0;z-index:2;background:var(--card)}
+  th.actth{background:color-mix(in srgb,var(--blue) 6%,var(--card))}
+  td.actcell{box-shadow:-10px 0 14px -10px rgba(0,0,0,.22)}
+  td.actcell .cv{display:flex;justify-content:flex-end}
+}

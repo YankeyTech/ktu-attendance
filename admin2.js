@@ -101,17 +101,31 @@ $("u45TxtBtn").addEventListener("click", async () => {
 });
 
 // ---- Health ----
+function noticeBox(title, node) {
+  const ov = el("div", "rpt"), box = el("div", "rptc"); box.style.width = "min(560px,100%)"; ov.appendChild(box);
+  const h = el("h3"); h.textContent = title; const x = el("button", "btn"); x.type = "button"; x.textContent = "Close"; x.style.cssText = "width:100%;margin-top:14px";
+  x.addEventListener("click", () => ov.remove()); ov.addEventListener("click", (ev) => { if (ev.target === ov) ov.remove(); });
+  box.append(h, node, x); document.body.appendChild(ov); x.focus(); return ov;
+}
 $("u45HealthBtn").addEventListener("click", async () => {
-  const r = await sb.rpc("admin_health"); const box = $("u45Health");
-  if (r.error) { box.textContent = /function|exist/i.test(r.error.message) ? "Run upgrade41.sql in Supabase first." : r.error.message; return; }
+  const b = $("u45HealthBtn"); b.disabled = true; b.textContent = "Checking…";
+  let r; try { r = await sb.rpc("admin_health"); } catch (err) { r = { error: err }; }
+  b.disabled = false; b.textContent = "Run health check";
+  const wrap = el("div");
+  if (r.error || !r.data) {
+    const m = el("p", "msg bad"); m.textContent = r.error && /function|exist|schema cache/i.test(r.error.message || "") ? "The health check is not set up yet. Run upgrade41.sql in Supabase, then try again." : "The health check could not run: " + ((r.error && r.error.message) || "no answer") + ".";
+    wrap.appendChild(m); return noticeBox("System health", wrap);
+  }
   const h = r.data, ago = h.last_checkin ? Math.round((Date.now() - new Date(h.last_checkin)) / 3600e3) : null, warn = [];
   if (h.no_name) warn.push(h.no_name + " account(s) have no name");
   if (h.db_mb > 400) warn.push("Database is " + h.db_mb + " MB. The free plan holds 500 MB. Export and archive old data.");
   if (ago !== null && ago > 24 * 14) warn.push("No check-in for " + Math.round(ago / 24) + " days");
-  const cell = (n, l) => "<div><b>" + n + "</b>" + l + "</div>";
-  box.innerHTML = '<div class="stats">' + cell(h.db_mb + " MB", "Database") + cell(h.staff, "Staff") + cell(h.classes, "Classes") + cell(h.open_now, "Open now") + cell(h.attendance, "Check-ins") + cell(h.today, "Today") + cell(h.trash, "In Trash") + cell(h.blocked, "Blocked") + "</div>" +
-    "<p class='note'>Last check-in: " + (h.last_checkin ? esc2(fmt(h.last_checkin)) : "none") + ". Activity log entries: " + h.audit + ".</p>" +
-    (warn.length ? '<ul class="warnl">' + warn.map((w) => "<li>" + esc2(w) + "</li>").join("") + "</ul>" : '<p class="msg ok">Everything looks healthy.</p>');
+  const grid = el("div", "stats");
+  for (const [n, l] of [[h.db_mb + " MB", "Database"], [h.staff, "Staff"], [h.classes, "Classes"], [h.open_now, "Open now"], [h.attendance, "Check-ins"], [h.today, "Today"], [h.trash, "In Trash"], [h.blocked, "Blocked"]]) { const d = el("div"), bb = el("b"); bb.textContent = n; d.append(bb, document.createTextNode(l)); grid.appendChild(d); }
+  const note = el("p", "note"); note.textContent = "Last check-in: " + (h.last_checkin ? fmt(h.last_checkin) : "none") + ". Activity log entries: " + h.audit + ".";
+  wrap.append(grid, note);
+  if (warn.length) { const ul = el("ul", "warnl"); for (const w of warn) { const li = el("li"); li.textContent = w; ul.appendChild(li); } wrap.appendChild(ul); } else { const ok = el("p", "msg ok"); ok.textContent = "Everything looks healthy."; wrap.appendChild(ok); }
+  noticeBox("System health", wrap);
 });
 
 // ---- Downloads ----
@@ -162,7 +176,7 @@ $("u45VenBtn").addEventListener("click", async () => {
   const more = mk("more", "More", I("M5 12h.01M12 12h.01M19 12h.01")); nav.appendChild(more);
   document.body.appendChild(nav);
   const go = (t) => { const b = tabs.querySelector('[data-t="' + t + '"]'); if (b) { b.click(); window.scrollTo({ top: 0, behavior: "smooth" }); } };
-  const sheet = el("div", "asheet"); sheet.hidden = true; sheet.innerHTML = '<div class="asheet-b" role="dialog" aria-label="All sections"><div class="asheet-h"><b>All sections</b><button type="button" class="abtn quiet" data-close>Close</button></div><div class="asheet-g"></div><div class="asheet-f"><button type="button" class="btn quiet" data-search>Search</button><button type="button" class="btn quiet" data-out>Sign out</button></div></div>';
+  const sheet = el("div", "asheet"); sheet.hidden = true; sheet.innerHTML = '<div class="asheet-b" role="dialog" aria-label="All sections"><div class="asheet-h"><b>All sections</b><button type="button" class="abtn quiet" data-close>Close</button></div><div class="asheet-g"></div><div class="asheet-f"><a class="btn quiet" href="teacher.html" data-lect>Lecturer portal</a><button type="button" class="btn quiet" data-search>Search</button><button type="button" class="btn quiet" data-out>Sign out</button></div></div>';
   document.body.appendChild(sheet);
   const grid = sheet.querySelector(".asheet-g");
   const fill = () => { grid.textContent = ""; tabs.querySelectorAll("[data-t]").forEach((b) => { const t = el("button"); t.type = "button"; t.className = b.classList.contains("on") ? "on" : ""; t.innerHTML = (b.querySelector("svg") ? b.querySelector("svg").outerHTML : "") + "<span>" + esc2(b.childNodes.length ? b.firstElementChild && b.firstElementChild.tagName === "svg" ? b.textContent.trim() : b.textContent.trim() : "") + "</span>"; t.addEventListener("click", () => { sheet.hidden = true; go(b.dataset.t); }); grid.appendChild(t); }); };

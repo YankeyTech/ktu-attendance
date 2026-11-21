@@ -736,3 +736,54 @@ body.tch #start .row>div{min-width:0}
   td.actcell{box-shadow:-10px 0 14px -10px rgba(0,0,0,.22)}
   td.actcell .cv{display:flex;justify-content:flex-end}
 }
+
+/* ---- Update 51: text always fits, neat tick boxes, compact buttons ---- */
+body.adm,body.tch{overflow-wrap:break-word}
+body.adm :is(p,li,h1,h2,h3,h4,label,span,small,b,td,th,summary,a,button,.note,.msg,.btn),
+body.tch :is(p,li,h1,h2,h3,h4,label,span,small,b,td,th,summary,a,button,.note,.msg,.btn),
+.rptc :is(p,li,h3,h4,label,span,small,b,button){overflow-wrap:anywhere;min-width:0}
+body.adm :is(.btn,button),body.tch :is(.btn,button),.rptc :is(.btn,button){white-space:normal;line-height:1.25;text-align:center}
+body.adm :is(a.btn,button.btn,.abtn),body.tch :is(a.btn,button.btn){display:inline-flex;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;padding:8px 14px;min-height:40px;font-size:.9rem}
+body.adm :is(pre,code,.mono){white-space:pre-wrap;word-break:break-all}
+body.adm :is(input,select,textarea),body.tch :is(input,select,textarea),.rptc :is(input,select,textarea){max-width:100%;box-sizing:border-box;font-size:16px}
+body.adm select,body.tch select,.rptc select{text-overflow:ellipsis}
+
+/* tick boxes: small, round-cornered, accent colour */
+body.adm input[type=checkbox],body.tch input[type=checkbox],.rptc input[type=checkbox],.asheet input[type=checkbox]{-webkit-appearance:none;appearance:none;flex:0 0 auto;display:inline-grid;place-content:center;width:20px;height:20px;min-height:0;margin:0 8px 0 0;padding:0;border:2px solid color-mix(in srgb,var(--blue) 55%,var(--line));border-radius:6px;background:var(--card);vertical-align:-4px;cursor:pointer;transition:background .12s,border-color .12s,box-shadow .12s}
+body.adm input[type=checkbox]::after,body.tch input[type=checkbox]::after,.rptc input[type=checkbox]::after{content:"";width:10px;height:6px;border-left:2.5px solid #fff;border-bottom:2.5px solid #fff;transform:rotate(-45deg) scale(0);margin-top:-2px;transition:transform .12s}
+body.adm input[type=checkbox]:checked,body.tch input[type=checkbox]:checked,.rptc input[type=checkbox]:checked{background:var(--blue);border-color:var(--blue)}
+body.adm input[type=checkbox]:checked::after,body.tch input[type=checkbox]:checked::after,.rptc input[type=checkbox]:checked::after{transform:rotate(-45deg) scale(1)}
+body.adm input[type=checkbox]:focus-visible,body.tch input[type=checkbox]:focus-visible,.rptc input[type=checkbox]:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--blue) 30%,transparent)}
+body.adm input[type=checkbox]:disabled,body.tch input[type=checkbox]:disabled{opacity:.45;cursor:not-allowed}
+body.adm input[type=radio],body.tch input[type=radio],.rptc input[type=radio]{accent-color:var(--blue);width:18px;height:18px;margin:0 8px 0 0}
+body.adm label.chk,body.tch label.chk,.rptc label.chk{display:flex;align-items:flex-start;gap:0;margin:8px 0;padding:8px 10px;min-height:0;border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb,var(--blue) 3%,var(--card));font-weight:500;font-size:.9rem;line-height:1.35;cursor:pointer}
+body.adm label.chk input,body.tch label.chk input,.rptc label.chk input{margin-top:1px}
+body.adm label.chk.mini,body.tch label.chk.mini{display:inline-flex;margin:0 6px 0 0;padding:4px 8px;font-size:.8rem}
+body.adm table input[type=checkbox],body.tch table input[type=checkbox]{margin:0}
+body.tch #start .opts label.chk{background:none;border-color:transparent;padding:6px 0}
+
+/* neater small buttons inside cards */
+.btn.quiet{border-radius:10px}
+@media (max-width:700px){
+  body.adm :is(a.btn,button.btn,.abtn),body.tch :is(a.btn,button.btn){min-height:42px;padding:8px 12px;font-size:.88rem}
+  body.adm .row>.btn,body.tch .row>.btn{width:100%}
+  .actmenu>*{font-size:.88rem!important;min-height:42px!important}
+  .asheet-f{grid-template-columns:1fr 1fr}.asheet-f [data-lect]{grid-column:1/-1}
+  body.adm .card h2{font-size:1.15rem}
+  body.adm .card h3{font-size:1rem}
+}
+@media (max-width:700px){
+  table.cardtbl td,table.cardtbl td *,.cv,.cv *{white-space:normal!important}
+  table.cardtbl .cv :is(button,a){white-space:normal!important}
+  body.adm .row>*:not(input[type=checkbox]):not(input[type=radio]),.rptc .row>*:not(input[type=checkbox]):not(input[type=radio]){flex:none!important;width:100%}
+  body.adm .row>input[type=checkbox],body.adm .row>input[type=radio]{width:20px}
+  .heat{grid-template-columns:24px repeat(24,minmax(0,1fr))}
+  .heat .hh{font-size:.5rem}
+}
+.hl2{white-space:normal;line-height:1.2}
+.hb{grid-template-columns:minmax(80px,40%) minmax(0,1fr) auto}
+.heat{grid-template-columns:30px repeat(24,minmax(0,1fr))}
+body.adm input[type=checkbox],body.tch input[type=checkbox],.rptc input[type=checkbox],.asheet input[type=checkbox]{width:20px!important;height:20px!important;min-width:20px!important;max-width:20px!important;flex:0 0 20px!important}
+.heat{gap:1px;overflow:hidden}.heat .hd{font-size:.55rem;overflow:hidden}
+@media (max-width:700px){.heat .hc{min-height:0}}
+.reqbox>.row{margin:12px 0 0}.reqbox>label{display:block;margin:14px 0 6px;font-weight:700}.reqbox>.note{margin:4px 0 10px}.reqbox>.msg:empty{display:none}

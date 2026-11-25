@@ -298,6 +298,7 @@ async function loadBlocked() {
   showPhonePop(); renderPhoneAlerts(); updateAlerts();
 }
 function phoneText(b) {
+  if (b.reason === "outside") return "but they are OUTSIDE the class area" + (b.distance_m != null ? " (about " + Math.round(b.distance_m) + " m away)" : "") + ". " + (b.programme || "") + (b.level ? ", " + b.level : "") + ".";
   return "on the same phone that " + (b.device_name || "another student") + (b.device_index ? " (" + b.device_index + ")" : "") + " already used. They are " + (b.in_range === false ? "OUTSIDE the class area" : "inside the class area") + (b.distance_m != null ? " (about " + Math.round(b.distance_m) + " m away)" : "") + ". " + (b.programme || "") + (b.level ? ", " + b.level : "") + ".";
 }
 const adminHandles = () => byAdmin || popupsOff;
@@ -306,6 +307,7 @@ function showPhonePop() {
   if (!phoneQ.length || phoneHidden || adminHandles()) { pop.hidden = true; return; }
   const b = phoneQ[0];
   $("phWho").textContent = (b.student_name || b.index_number) + "  (" + b.index_number + ")";
+  $("phTitle").textContent = b.reason === "outside" ? "Student outside the class area" : "Same phone, different student";
   $("phInfo").textContent = "is trying to check in " + phoneText(b);
   $("phMore").textContent = phoneQ.length > 1 ? phoneQ.length - 1 + " more waiting in the Alerts tab." : "You can also decide later in the Alerts tab.";
   pop.hidden = false;

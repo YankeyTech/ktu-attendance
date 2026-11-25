@@ -25,9 +25,10 @@ Deno.serve(async (req) => {
   const html = test
     ? "<p>This is a test. Email alerts for problem reports are working.</p>"
     : `<h3>New problem report</h3><p style="white-space:pre-wrap">${esc(b.message)}</p><p><b>Page:</b> ${esc(b.page)}<br><b>Contact:</b> ${esc(b.contact || "none given")}<br><b>Time:</b> ${esc(b.at)}</p><details><summary>Technical details</summary><pre style="white-space:pre-wrap">${esc(b.details)}</pre></details><p>Open the admin page, Reports tab, to mark it resolved.</p>`;
+  const em = String(b.contact || "").match(/[^\s|@]+@[^\s|@]+\.[^\s|@]+/); const replyTo = !test && em ? em[0] : null;
   const r = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST", headers: { "api-key": key, "content-type": "application/json", accept: "application/json" },
-    body: JSON.stringify({ sender: { name: "KTU check-in", email: from }, to, subject, htmlContent: html }),
+    body: JSON.stringify({ sender: { name: "KTU check-in", email: from }, to, subject, htmlContent: html, ...(replyTo ? { replyTo: { email: replyTo } } : {}) }),
   });
   if (!r.ok) return reply({ error: "Brevo refused the email: " + (await r.text()).slice(0, 300) });
   return reply({ ok: true, sent: to.length });

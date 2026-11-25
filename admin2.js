@@ -386,3 +386,70 @@ function help45() {
     d.innerHTML = '<span class="dot"></span><b>' + live.length + "</b> open now <i>·</i> <b>" + cl + "</b> classes today <i>·</i> <b>" + today + "</b> check-ins today"; };
   draw(); setInterval(draw, 15000); document.querySelector(".tabs").addEventListener("click", () => setTimeout(draw, 400));
 })();
+
+// ---- Update 53: decision pop-up for students waiting outside the class area or on a shared phone ----
+(function () {
+  const seen = new Set(); let showing = null, busy = false;
+  const courseOf = (id) => { const c = (typeof classes !== "undefined" ? classes : []).find((x) => x.id === id); return c ? (c.course || "a class") : "a class"; };
+  function why(b) {
+    if (b.reason === "outside") return "is OUTSIDE the class area" + (b.distance_m != null ? " (about " + Math.round(b.distance_m) + " m away)" : "") + ".";
+    return "used a phone that " + (b.device_name || "another student") + (b.device_index ? " (" + b.device_index + ")" : "") + " already used" + (b.in_range === false ? ", and is OUTSIDE the class area" : "") + ".";
+  }
+  function popup(b, more) {
+    if (showing) return;
+    const ov = el("div", "rpt decide"), box = el("div", "rptc"); box.style.width = "min(460px,100%)"; ov.appendChild(box); showing = ov;
+    const h = el("h3"); h.textContent = b.reason === "outside" ? "Student outside the class area" : "Same phone, different student";
+    const who = el("p", "dwho"); const nb = el("b"); nb.textContent = (b.student_name || b.index_number) + " (" + b.index_number + ")"; who.append(nb);
+    const info = el("p"); info.textContent = "Class: " + courseOf(b.session_id) + ". This student " + why(b) + " " + [b.programme, b.level].filter(Boolean).join(", ");
+    const hint = el("p", "note"); hint.textContent = "Allow marks them present. Their phone updates by itself and shows the checked-in message." + (more ? " " + more + " more waiting." : "");
+    const msg = el("p", "msg"); msg.setAttribute("aria-live", "polite");
+    const row = el("div", "row dbtns");
+    const ok = el("button", "btn ok"); ok.type = "button"; ok.textContent = "Allow";
+    const no = el("button", "btn bad"); no.type = "button"; no.textContent = "Reject";
+    const later = el("button", "btn quiet"); later.type = "button"; later.textContent = "Decide later";
+    row.append(ok, no, later); box.append(h, who, info, hint, msg, row);
+    const close = () => { ov.remove(); showing = null; };
+    const decide = async (allow) => {
+      ok.disabled = no.disabled = true; msg.textContent = "Saving..."; msg.className = "msg";
+      const r = await sb.rpc("resolve_blocked", { p_id: b.id, p_allow: allow });
+      if (r.error || (r.data && r.data.error)) { ok.disabled = no.disabled = false; msg.textContent = r.error ? r.error.message : r.data.error; msg.className = "msg bad"; if (r.data && /Already/.test(r.data.error || "")) setTimeout(close, 900); return; }
+      toast(allow ? (b.student_name || b.index_number) + " is checked in." : "Rejected.");
+      close(); try { if (typeof load === "function") await load(); if (typeof loadInbox === "function") loadInbox(); } catch (e) { /* ignore */ }
+      poll();
+    };
+    ok.addEventListener("click", () => decide(true)); no.addEventListener("click", () => decide(false)); later.addEventListener("click", close);
+    ov.addEventListener("click", (ev) => { if (ev.target === ov) close(); });
+    document.body.appendChild(ov); ok.focus();
+    try { navigator.vibrate && navigator.vibrate(120); } catch (e) { /* ignore */ }
+  }
+  async function poll() {
+    if (busy || document.hidden) return; const app = document.getElementById("app"); if (!app || app.hidden) return;
+    busy = true;
+    try {
+      const r = await sb.from("blocked_attempts").select("*").eq("status", "pending").order("at").limit(30);
+      if (r.error) return;
+      const pend = r.data || [];
+      const n = pend.length; const badge = document.getElementById("inN"); if (badge && n) { badge.hidden = false; badge.textContent = Math.max(Number(badge.textContent) || 0, n); }
+      const fresh = pend.filter((b) => !seen.has(b.id));
+      if (fresh.length && !showing) { const b = fresh[0]; seen.add(b.id); popup(b, pend.length - 1); }
+    } catch (e) { /* weak signal */ } finally { busy = false; }
+  }
+  setInterval(poll, 6000); setTimeout(poll, 3000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
+
+  // Switch: hold students who are outside the class area
+  const pb = document.getElementById("popBtn"); if (!pb) return;
+  const box = pb.closest(".reqbox"); if (!box) return;
+  const card = el("div", "reqbox"), h3 = el("h3"), st = el("p", "msg"), row = el("div", "row"), bt = el("button", "btn quiet"), nt = el("p", "note");
+  h3.textContent = "Students outside the class area"; bt.type = "button"; st.setAttribute("role", "status");
+  nt.textContent = "When ON, a student whose location is off or outside the class area is held until you or the lecturer allow or reject them. Their phone updates by itself. When OFF, they are saved as present but flagged outside.";
+  row.appendChild(bt); card.append(h3, st, row, nt); box.after(card);
+  let on = true;
+  const draw = () => { st.textContent = on ? "ON: outside students wait for a decision." : "OFF: outside students are saved straight away and flagged."; st.className = "msg " + (on ? "ok" : "warn"); bt.textContent = on ? "Turn off" : "Turn on"; };
+  draw();
+  (async () => { try { const r = await sb.rpc("admin_get_hold_outside"); if (!r.error && typeof r.data === "boolean") { on = r.data; draw(); } else if (r.error) { st.textContent = "Run upgrade45.sql in Supabase first."; st.className = "msg warn"; bt.disabled = true; } } catch (e) { /* ignore */ } })();
+  bt.addEventListener("click", async () => {
+    bt.disabled = true; const r = await sb.rpc("admin_set_hold_outside", { p_on: !on }); bt.disabled = false;
+    if (r.error) { st.textContent = r.error.message; st.className = "msg bad"; return; } on = !on; draw();
+  });
+})();

@@ -403,9 +403,12 @@ function drawReports() {
     if (f && r.status !== f) continue;
     const row = el("div", "reqrow"), t = el("div", "reqtxt"), b = el("b"), sp = el("span");
     b.textContent = r.message; sp.textContent = fmt(r.at) + "  |  " + (r.page || "") + (r.contact ? "  |  Contact: " + r.contact : "");
+    const cEm = String(r.contact || "").match(/[^\s|@]+@[^\s|@]+\.[^\s|@]+/), cPh = String(r.contact || "").replace(cEm ? cEm[0] : "", "").match(/\+?[0-9][0-9 ()-]{7,}/);
     const det = el("details"), sm = el("summary"), pre = el("pre"); sm.textContent = "Technical details"; pre.textContent = r.details || ""; pre.style.whiteSpace = "pre-wrap"; det.append(sm, pre);
     t.append(b, sp, det);
     const acts = el("div", "acts"); acts.appendChild(abtn(r.status === "open" ? "Mark resolved" : "Reopen", r.status === "open" ? "ok" : "", async () => { const x = await sb.rpc("resolve_report", { p_id: r.id, p_resolved: r.status === "open" }); if (x.error) say("msg", x.error.message, "bad"); else loadReports(); }));
+    if (cEm) { const re = el("a", "btn small"); re.textContent = "Reply by email"; re.href = "mailto:" + cEm[0] + "?subject=" + encodeURIComponent("Your KTU check-in report") + "&body=" + encodeURIComponent("Hello,\n\nThank you for your report:\n\"" + String(r.message).slice(0, 300) + "\"\n\n\n\nKTU check-in admin"); acts.prepend(re); }
+    if (cPh) { const ca = el("a", "btn small quiet"); ca.textContent = "Call"; ca.href = "tel:" + cPh[0].replace(/[^\d+]/g, ""); acts.append(ca); }
     row.append(t, acts); L.appendChild(row);
   }
   if (!L.children.length) L.textContent = "No reports here.";

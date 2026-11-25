@@ -234,6 +234,7 @@ $("f").addEventListener("submit", async (e) => {
       p_token: pass || $("tok").value.replace(/\D/g, "") || null
     });
     if (!data.ok && retried && /already checked in/i.test(data.error)) { setStep(-1); say("Your first attempt already went through, so you are checked in. Ask your lecturer if you are unsure.", "ok"); return; }
+    if (!data.ok && data.pending) { setStep(-1); lastCtx = { code, idx }; try { localStorage.setItem("ktu_idx", idx); localStorage.setItem("ktu_prog", $("prog").value); localStorage.setItem("ktu_name", $("name").value.trim()); localStorage.setItem("ktu_lvl", $("lvl").value); } catch (e3) {} startWaiting(code, idx, data); return; }
     if (!data.ok) { if (/screen code/i.test(data.error)) pass = null; setStep(-1); say(data.error, "bad"); $("again").hidden = false; }
     else {
       try { localStorage.setItem("ktu_idx", idx); localStorage.setItem("ktu_prog", $("prog").value); localStorage.setItem("ktu_name", $("name").value.trim()); localStorage.setItem("ktu_lvl", $("lvl").value); } catch (e2) {}
@@ -247,6 +248,43 @@ $("f").addEventListener("submit", async (e) => {
     $("go").disabled = false;
   }
 });
+
+// ---- Waiting for the lecturer or admin to decide (outside the class area, or a phone used twice) ----
+let waitTimer = null, waitCtx = null;
+function stopWaiting() { clearTimeout(waitTimer); waitTimer = null; waitCtx = null; const w = $("waitBox"); if (w) w.remove(); }
+function startWaiting(code, idx, info) {
+  stopWaiting();
+  let box = document.createElement("div"); box.id = "waitBox"; box.className = "waitbox"; box.setAttribute("role", "status"); box.setAttribute("aria-live", "polite");
+  const sp = document.createElement("div"); sp.className = "spin"; sp.setAttribute("aria-hidden", "true");
+  const h = document.createElement("b"); h.textContent = info.reason === "outside" ? "Waiting for your lecturer to approve" : "Waiting for approval";
+  const p = document.createElement("p"); p.textContent = info.error || "Your lecturer has been alerted.";
+  const n = document.createElement("p"); n.className = "note"; n.textContent = "This page updates by itself and will show your check-in as soon as it is approved.";
+  const tm = document.createElement("p"); tm.className = "note"; tm.id = "waitTime";
+  const row = document.createElement("div"); row.className = "row";
+  const chk = document.createElement("button"); chk.type = "button"; chk.className = "btn quiet"; chk.textContent = "Check now";
+  const stop = document.createElement("button"); stop.type = "button"; stop.className = "btn quiet"; stop.textContent = "Cancel";
+  row.append(chk, stop); box.append(sp, h, p, n, tm, row);
+  $("f").hidden = true; $("done").parentNode.insertBefore(box, $("done"));
+  const t0 = Date.now(); waitCtx = { code, idx };
+  const tick = () => { const s = Math.floor((Date.now() - t0) / 1000); const el2 = $("waitTime"); if (el2) el2.textContent = "Waiting for " + Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+  const poll = async () => {
+    if (!waitCtx) return;
+    tick();
+    try {
+      const r = await sb.rpc("attempt_status", { p_code: code, p_index: idx, p_device: deviceId() || "" });
+      const st = r && r.data && r.data.state;
+      if (st === "in") { stopWaiting(); setStep(2); showDone(r.data); return; }
+      if (st === "rejected") { stopWaiting(); $("f").hidden = false; say("Your lecturer did not approve this check-in. Please see them in class.", "bad"); $("again").hidden = false; return; }
+      if (st === "none" && Date.now() - t0 > 20000) { stopWaiting(); $("f").hidden = false; say("This request is no longer waiting. Tap Check in to try again.", "warn"); return; }
+    } catch (e) { /* weak signal: try again */ }
+    if (Date.now() - t0 > 45 * 60000) { stopWaiting(); $("f").hidden = false; say("This took too long. Please see your lecturer.", "warn"); return; }
+    waitTimer = setTimeout(poll, 3500);
+  };
+  chk.addEventListener("click", () => { clearTimeout(waitTimer); poll(); });
+  stop.addEventListener("click", () => { stopWaiting(); $("f").hidden = false; say("Cancelled. You are not checked in yet.", "warn"); });
+  say(""); poll();
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden && waitCtx) { clearTimeout(waitTimer); waitTimer = setTimeout(() => { if (waitCtx) $("waitBox") && $("waitBox").querySelector("button").click(); }, 200); } });
 
 function showDone(d) {
   const t = new Date(d.at || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });

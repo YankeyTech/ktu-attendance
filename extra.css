@@ -802,3 +802,29 @@ body.adm input[type=checkbox],body.tch input[type=checkbox],.rptc input[type=che
 .actmenu>button:not(.abtn):not(.btn),.actmenu>a:not(.abtn):not(.btn){border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb,var(--blue) 8%,var(--card));color:var(--blue);font:700 .88rem inherit;font-family:inherit;text-decoration:none;padding:8px 12px;cursor:pointer}
 .actmenu>button:not(.abtn):not(.btn):hover{background:color-mix(in srgb,var(--blue) 16%,var(--card))}
 .actmenu>:is(.danger,.bad){color:#b5381f;background:color-mix(in srgb,#e0634f 10%,var(--card))}
+
+/* ---- update 53: waiting screen, decision pop-up, report form, better clicks ---- */
+.waitbox{margin:14px 0;padding:18px 16px;border:1px solid var(--line,#d9dee7);border-radius:16px;background:var(--card,#fff);text-align:center;box-shadow:0 6px 22px rgba(20,40,80,.08)}
+.waitbox b{display:block;font-size:1.08rem;margin:10px 0 6px}
+.waitbox p{margin:6px 0;overflow-wrap:anywhere}
+.waitbox .row{justify-content:center;margin-top:12px}
+.waitbox .spin{width:38px;height:38px;margin:0 auto;border-radius:50%;border:4px solid rgba(120,140,180,.28);border-top-color:#2a6df4;animation:u53spin .9s linear infinite}
+@keyframes u53spin{to{transform:rotate(360deg)}}
+.rpt .req{font-weight:400;opacity:.7;font-size:.85em}
+.rptc input[type=email],.rptc input[type=tel]{width:100%;box-sizing:border-box}
+.decide .dwho{font-size:1.1rem;margin:4px 0}
+.decide .dbtns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.decide .dbtns .quiet{grid-column:1/3}
+.decide .dbtns .btn{min-height:48px;font-weight:700}
+.decide .btn.ok{background:#14804a;color:#fff;border-color:#14804a}
+.decide .btn.bad{background:#c4342d;color:#fff;border-color:#c4342d}
+a.btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;white-space:nowrap}
+/* clicks: instant press feedback, clear keyboard focus, no tap flash, comfortable touch size */
+button,.btn,a.btn,.tabs button,[role=button],summary{-webkit-tap-highlight-color:transparent;touch-action:manipulation;transition:transform .08s ease,box-shadow .15s ease,filter .15s ease,background-color .15s ease}
+button:not(:disabled):active,.btn:not(:disabled):active,a.btn:active{transform:scale(.96);filter:brightness(.93)}
+button:focus-visible,.btn:focus-visible,a.btn:focus-visible,summary:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid rgba(42,109,244,.55);outline-offset:2px}
+@media (hover:hover){.btn:not(:disabled):hover{box-shadow:0 3px 10px rgba(20,40,80,.16)}}
+@media (pointer:coarse){.btn,button.btn{min-height:44px}.acts .btn,.acts button{min-height:40px}}
+button:disabled,.btn:disabled{opacity:.55;cursor:not-allowed}
+@media (prefers-reduced-motion:reduce){.waitbox .spin{animation-duration:2.5s}button,.btn{transition:none}}
+.decide .dbtns .btn{width:100%;min-width:0;margin:0;box-sizing:border-box}

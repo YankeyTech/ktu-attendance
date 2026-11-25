@@ -229,17 +229,20 @@ window.addEventListener("unhandledrejection", (e) => { _errs.push("promise: " + 
 function openReport() {
   if (document.getElementById("rpt")) return;
   const box = document.createElement("div"); box.id = "rpt"; box.className = "rpt";
-  box.innerHTML = '<div class="rptc" role="dialog" aria-modal="true" aria-label="Report a problem"><h3>Report a problem</h3><p class="note">Tell us what went wrong. The page and your phone type are sent with it. Please do not include passwords.</p><label for="rptMsg">What happened?</label><textarea id="rptMsg" rows="4" maxlength="1000"></textarea><label for="rptContact">Your phone number or email (optional)</label><input id="rptContact" maxlength="100"><div class="row"><button id="rptSend" class="btn" type="button">Send report</button><button id="rptCancel" class="btn quiet" type="button">Cancel</button></div><p id="rptOut" class="msg" aria-live="polite"></p></div>';
+  box.innerHTML = '<div class="rptc" role="dialog" aria-modal="true" aria-label="Report a problem"><h3>Report a problem</h3><p class="note">Tell us what went wrong. The page and your phone type are sent with it. Please do not include passwords.</p><label for="rptMsg">What happened?</label><textarea id="rptMsg" rows="4" maxlength="1000"></textarea><label for="rptEmail">Your email <span class="req">(required, we reply here)</span></label><input id="rptEmail" type="email" inputmode="email" autocomplete="email" maxlength="100" placeholder="name@example.com"><label for="rptPhone">Your phone number <span class="req">(required)</span></label><input id="rptPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="024 123 4567"><div class="row"><button id="rptSend" class="btn" type="button">Send report</button><button id="rptCancel" class="btn quiet" type="button">Cancel</button></div><p id="rptOut" class="msg" aria-live="polite"></p></div>';
   document.body.appendChild(box);
   const out = (t, k) => { document.getElementById("rptOut").textContent = t; document.getElementById("rptOut").className = "msg " + (k || ""); };
   document.getElementById("rptCancel").addEventListener("click", () => box.remove());
   document.getElementById("rptSend").addEventListener("click", async () => {
     const msg = document.getElementById("rptMsg").value.trim();
     if (msg.length < 3) return out("Please describe the problem.", "warn");
+    const em = document.getElementById("rptEmail").value.trim(), ph = document.getElementById("rptPhone").value.trim();
+    if (!/^[^@\s|]+@[^@\s|]+\.[^@\s|]+$/.test(em)) { document.getElementById("rptEmail").focus(); return out("Enter a valid email address so we can reply to you.", "warn"); }
+    if (ph.replace(/\D/g, "").length < 9) { document.getElementById("rptPhone").focus(); return out("Enter your phone number (at least 9 digits).", "warn"); }
     if (typeof sb === "undefined") return out("Could not send from this page.", "bad");
     const details = navigator.userAgent + " | screen " + screen.width + "x" + screen.height + " | " + new Date().toISOString() + " | errors: " + (_errs.join(" ; ") || "none");
     document.getElementById("rptSend").disabled = true; out("Sending...");
-    const { data, error } = await sb.rpc("report_problem", { p_page: location.pathname, p_message: msg, p_contact: document.getElementById("rptContact").value.trim() || null, p_details: details });
+    const { data, error } = await sb.rpc("report_problem", { p_page: location.pathname, p_message: msg, p_contact: em + " | " + ph, p_details: details });
     document.getElementById("rptSend").disabled = false;
     if (error || !data) return out("Could not send. Check your internet and try again.", "bad");
     if (!data.ok) return out(data.error, "bad");
